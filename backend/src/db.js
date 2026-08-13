@@ -178,6 +178,16 @@ function queueMongoSync(table, data) {
   return mongoQueue;
 }
 
+// Lets a caller (e.g. the Vercel serverless entry point) await any Mongo
+// sync writes still in flight before letting the function actually end.
+// Needed because — unlike a normal always-running server — a serverless
+// function's process can be frozen right after the HTTP response is sent,
+// which would otherwise cut off the background `queueMongoSync()` write
+// queued a moment earlier and silently drop the update.
+function flushMongoSync() {
+  return mongoQueue;
+}
+
 // Called once at server boot (see server.js). Pulls the latest copy of every
 // table down from Atlas so this PC starts up in sync with the shared live
 // database; falls back to local files silently if Atlas is unreachable
@@ -418,6 +428,7 @@ module.exports = {
   readTable,
   writeTable,
   initDb,
+  flushMongoSync,
   transaction,
   nextId,
   nextInvoiceNumber,
