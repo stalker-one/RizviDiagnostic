@@ -7,3 +7,13 @@ backend/src/data/*.json
 !backend/src/data/.gitkeep
 *.log
 .DS_Store
+
+# Android (Capacitor) — project source is committed, generated build
+# output isn't (rebuilt fresh by the GitHub Actions workflow each time).
+frontend/android/app/build/
+frontend/android/build/
+frontend/android/.gradle/
+frontend/android/local.properties
+frontend/android/capacitor-cordova-android-plugins/build/
+frontend/android/app/src/main/assets/public/
+dist-android/

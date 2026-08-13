@@ -1,0 +1,8 @@
+{
+  "appId": "com.rizvi.diagnosticcenter",
+  "appName": "Rizvi Diagnostic Center",
+  "webDir": "dist",
+  "server": {
+    "androidScheme": "https"
+  }
+}

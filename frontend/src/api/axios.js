@@ -1,7 +1,13 @@
 import axios from 'axios';
 
+// Web builds (desktop app / Vercel) use a relative '/api' path since the
+// frontend and backend are served from the same origin. The mobile app
+// (Capacitor) has no "same origin" — it's packaged assets running in a
+// native shell — so it needs an absolute URL to your live backend instead.
+// Set via VITE_API_BASE_URL at build time (see capacitor.config.json /
+// the mobile build step); falls back to '/api' for every other build.
 const api = axios.create({
-  baseURL: '/api',
+  baseURL: import.meta.env.VITE_API_BASE_URL || '/api',
 });
 
 api.interceptors.request.use((config) => {
