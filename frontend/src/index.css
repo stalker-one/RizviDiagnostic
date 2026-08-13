@@ -1,0 +1,169 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+body {
+  font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+  background-color: #f4f6f9;
+}
+
+/* ---- Print styles ---- */
+@media print {
+  body * {
+    visibility: hidden;
+  }
+  #printable-area, #printable-area * {
+    visibility: visible;
+  }
+  #printable-area {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+  }
+  .no-print {
+    display: none !important;
+  }
+}
+
+.thermal-invoice {
+  width: 78mm;
+  font-family: 'Courier New', monospace;
+  font-size: 11px;
+  color: #000;
+}
+
+@page {
+  size: auto;
+  margin: 6mm;
+}
+
+/* ---- Public site: light-box signature element ---- */
+@keyframes glowPulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.55; }
+}
+.glow-pulse {
+  animation: glowPulse 3.2s ease-in-out infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .glow-pulse { animation: none; }
+}
+
+/* ---- Toast notifications (new-data confirmation popups) ---- */
+@keyframes toastInRight {
+  from { transform: translateX(24px); opacity: 0; }
+  to { transform: translateX(0); opacity: 1; }
+}
+@keyframes toastInLeft {
+  from { transform: translateX(-24px); opacity: 0; }
+  to { transform: translateX(0); opacity: 1; }
+}
+@keyframes toastInDown {
+  from { transform: translateY(-16px); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
+}
+@keyframes toastInUp {
+  from { transform: translateY(16px); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
+}
+.toast-in-right { animation: toastInRight 0.28s ease-out; }
+.toast-in-left { animation: toastInLeft 0.28s ease-out; }
+.toast-in-down { animation: toastInDown 0.28s ease-out; }
+.toast-in-up { animation: toastInUp 0.28s ease-out; }
+@media (prefers-reduced-motion: reduce) {
+  .toast-in-right, .toast-in-left, .toast-in-down, .toast-in-up { animation: none; }
+}
+
+/* ---- Public Home page: scroll-reveal + entrance animations ---- */
+@keyframes revealUp {
+  from { opacity: 0; transform: translateY(32px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+@keyframes revealDown {
+  from { opacity: 0; transform: translateY(-24px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+@keyframes revealLeft {
+  from { opacity: 0; transform: translateX(-40px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+@keyframes revealRight {
+  from { opacity: 0; transform: translateX(40px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+@keyframes revealScale {
+  from { opacity: 0; transform: scale(0.85); }
+  to { opacity: 1; transform: scale(1); }
+}
+@keyframes floatSlow {
+  0%, 100% { transform: translateY(0px); }
+  50% { transform: translateY(-14px); }
+}
+@keyframes heroFadeIn {
+  from { opacity: 0; transform: translateY(24px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+@keyframes shimmerBg {
+  0% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+
+/* Sections start hidden; .section-animate.is-visible plays the entrance the
+   moment IntersectionObserver flags the section as on-screen. Children can
+   stagger via the --reveal-delay CSS var set inline per item. */
+.section-animate .reveal-item {
+  opacity: 0;
+}
+.section-animate.is-visible .reveal-up {
+  animation: revealUp 0.7s cubic-bezier(0.16, 1, 0.3, 1) both;
+  animation-delay: var(--reveal-delay, 0s);
+}
+.section-animate.is-visible .reveal-down {
+  animation: revealDown 0.7s cubic-bezier(0.16, 1, 0.3, 1) both;
+  animation-delay: var(--reveal-delay, 0s);
+}
+.section-animate.is-visible .reveal-left {
+  animation: revealLeft 0.7s cubic-bezier(0.16, 1, 0.3, 1) both;
+  animation-delay: var(--reveal-delay, 0s);
+}
+.section-animate.is-visible .reveal-right {
+  animation: revealRight 0.7s cubic-bezier(0.16, 1, 0.3, 1) both;
+  animation-delay: var(--reveal-delay, 0s);
+}
+.section-animate.is-visible .reveal-scale {
+  animation: revealScale 0.6s cubic-bezier(0.16, 1, 0.3, 1) both;
+  animation-delay: var(--reveal-delay, 0s);
+}
+
+.hero-fade-in {
+  animation: heroFadeIn 0.9s cubic-bezier(0.16, 1, 0.3, 1) both;
+  animation-delay: var(--reveal-delay, 0s);
+}
+
+.float-slow {
+  animation: floatSlow 6s ease-in-out infinite;
+}
+
+.shimmer-text {
+  background-size: 200% auto;
+  animation: shimmerBg 6s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .section-animate .reveal-item,
+  .section-animate.is-visible .reveal-up,
+  .section-animate.is-visible .reveal-down,
+  .section-animate.is-visible .reveal-left,
+  .section-animate.is-visible .reveal-right,
+  .section-animate.is-visible .reveal-scale,
+  .hero-fade-in {
+    animation: none;
+    opacity: 1;
+    transform: none;
+  }
+  .float-slow, .shimmer-text {
+    animation: none;
+  }
+}

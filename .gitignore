@@ -1,0 +1,9 @@
+node_modules/
+frontend/dist/
+electron/dist-installer/
+backend/.env
+backend/.env.production
+backend/src/data/*.json
+!backend/src/data/.gitkeep
+*.log
+.DS_Store

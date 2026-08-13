@@ -1,0 +1,51 @@
+{
+  "name": "rizvi-diagnostic-desktop",
+  "version": "1.1.0",
+  "description": "Rizvi Diagnostic Center — desktop (Windows) app wrapper. Runs the existing backend + built frontend as one native window, no separately hosted/live site required.",
+  "private": true,
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "dist": "electron-builder --win"
+  },
+  "dependencies": {
+    "dotenv": "^16.4.5",
+    "electron-updater": "^6.3.9"
+  },
+  "devDependencies": {
+    "electron": "^31.0.0",
+    "electron-builder": "^24.13.3"
+  },
+  "build": {
+    "appId": "com.rizvi.diagnosticcenter",
+    "productName": "Rizvi Diagnostic Center",
+    "asar": false,
+    "files": [
+      "main.js",
+      "build/**/*",
+      "package.json"
+    ],
+    "extraFiles": [
+      { "from": "../backend", "to": "backend", "filter": ["**/*", "!node_modules/.cache", "!.env.example"] },
+      { "from": "../frontend/dist", "to": "frontend/dist" }
+    ],
+    "directories": {
+      "output": "dist-installer"
+    },
+    "publish": {
+      "provider": "github",
+      "owner": "stalker-one",
+      "repo": "RizviDiagnostic"
+    },
+    "win": {
+      "target": "nsis",
+      "icon": "build/icon.ico"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true
+    }
+  }
+}
