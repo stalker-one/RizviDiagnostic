@@ -1,6 +1,16 @@
-// Vercel serverless entry point. Wraps the same Express `app` used by the
-// desktop app (backend/src/server.js) so both deployments share one set of
-// routes/business logic — nothing route-related is duplicated here.
+// Vercel serverless entry point — classic auto-detected location.
+//
+// Vercel automatically deploys any file under <Root Directory>/api/ as a
+// serverless function, with zero vercel.json needed for that part. Since
+// Root Directory is set to `frontend` (so Vercel's zero-config Vite preset
+// can build+serve the site with correct SPA routing, which it does far
+// more reliably than any hand-written rewrite rule), this file lives at
+// frontend/api/index.js so it lands in exactly the spot Vercel expects.
+//
+// It reaches back into ../../backend for the actual Express app — nothing
+// route-related is duplicated here, this is purely a thin adapter. That
+// only works because "Include files outside the Root Directory in the
+// Build Step" is enabled in the Vercel project settings.
 //
 // Two things a normal always-running server doesn't need to worry about,
 // that a serverless function does:
@@ -18,8 +28,8 @@
 //      get cut off before it finishes. So here we explicitly wait for the
 //      response to finish, then await any still-in-flight sync via
 //      flushMongoSync() before this handler itself resolves.
-const serverModule = require('../src/server');
-const dbModule = require('../src/db');
+const serverModule = require('../../backend/src/server');
+const dbModule = require('../../backend/src/db');
 
 if (typeof serverModule.app !== 'function') {
   console.error(
@@ -34,11 +44,6 @@ let dbReady = null;
 function ensureDbReady() {
   if (!dbReady) {
     if (typeof dbModule.initDb !== 'function') {
-      // Something about how this got bundled/deployed isn't what we
-      // expect locally — log exactly what we actually got instead of
-      // crashing every single request with an opaque TypeError, and
-      // continue serving requests against whatever data is already
-      // bundled rather than hard-failing.
       console.error(
         '[vercel] db module did not export initDb as expected. Got keys:',
         Object.keys(dbModule || {}),
