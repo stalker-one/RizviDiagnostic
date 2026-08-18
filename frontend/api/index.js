@@ -1,6 +1,65 @@
 // Vercel Node.js entry point for the Express API.
 // Keep the health endpoint dependency-free so deployment diagnostics work even
 // when an optional backend/database dependency is misconfigured.
+//
+// IMPORTANT: Vercel's deployed filesystem (/var/task) is read-only. The
+// existing backend intentionally uses synchronous JSON files as its local
+// cache/fallback, so redirect ONLY those runtime data reads/writes to /tmp on
+// Vercel. MongoDB remains the durable cloud store.
+const fs = require('fs');
+const path = require('path');
+
+const SOURCE_DATA_DIR = path.resolve(__dirname, '../../backend/src/data');
+const RUNTIME_DATA_DIR = path.join('/tmp', 'rizvi-diagnostic-data');
+const useWritableRuntimeData = Boolean(process.env.VERCEL);
+
+if (useWritableRuntimeData && !fs.existsSync(RUNTIME_DATA_DIR)) {
+  fs.mkdirSync(RUNTIME_DATA_DIR, { recursive: true });
+}
+
+function runtimePath(filePath) {
+  if (!useWritableRuntimeData) return filePath;
+  const absolute = path.resolve(filePath);
+  if (absolute === SOURCE_DATA_DIR || absolute.startsWith(`${SOURCE_DATA_DIR}${path.sep}`)) {
+    const relative = path.relative(SOURCE_DATA_DIR, absolute);
+    return path.join(RUNTIME_DATA_DIR, relative);
+  }
+  return filePath;
+}
+
+if (useWritableRuntimeData) {
+  const originalExistsSync = fs.existsSync.bind(fs);
+  const originalReadFileSync = fs.readFileSync.bind(fs);
+  const originalWriteFileSync = fs.writeFileSync.bind(fs);
+  const originalMkdirSync = fs.mkdirSync.bind(fs);
+
+  fs.existsSync = (filePath) => {
+    const runtime = runtimePath(filePath);
+    if (runtime !== filePath && originalExistsSync(runtime)) return true;
+    return originalExistsSync(filePath);
+  };
+
+  fs.readFileSync = (filePath, options) => {
+    const runtime = runtimePath(filePath);
+    if (runtime !== filePath && originalExistsSync(runtime)) {
+      return originalReadFileSync(runtime, options);
+    }
+    return originalReadFileSync(filePath, options);
+  };
+
+  fs.writeFileSync = (filePath, data, options) => {
+    const runtime = runtimePath(filePath);
+    if (runtime !== filePath) {
+      const parent = path.dirname(runtime);
+      if (!originalExistsSync(parent)) originalMkdirSync(parent, { recursive: true });
+      return originalWriteFileSync(runtime, data, options);
+    }
+    return originalWriteFileSync(filePath, data, options);
+  };
+
+  fs.mkdirSync = (filePath, options) => originalMkdirSync(runtimePath(filePath), options);
+}
+
 let app = null;
 let db = null;
 let ensureBootstrapUsers = null;
