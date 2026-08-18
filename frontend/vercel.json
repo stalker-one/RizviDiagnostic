@@ -4,7 +4,7 @@
   "routes": [
     {
       "src": "/api/(.*)",
-      "dest": "/api/index.cjs",
+      "dest": "/api/index.js",
       "transforms": [
         {
           "type": "request.path",
