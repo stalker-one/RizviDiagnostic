@@ -1,4 +1,17 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
-  "installCommand": "npm install && (cd ../backend && npm install)"
+  "installCommand": "npm install && (cd ../backend && npm install)",
+  "routes": [
+    {
+      "src": "/api/(.*)",
+      "dest": "/api/index.cjs",
+      "transforms": [
+        {
+          "type": "request.path",
+          "op": "set",
+          "args": "/api/$1"
+        }
+      ]
+    }
+  ]
 }
