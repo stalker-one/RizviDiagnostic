@@ -2,13 +2,20 @@
 // CommonJS is intentional because frontend/package.json uses type=module.
 const { app } = require('../../backend/src/server');
 const db = require('../../backend/src/db');
+const { ensureBootstrapUsers } = require('../../backend/src/bootstrap');
 
 let dbReady;
 function ensureDbReady() {
   if (!dbReady) {
     dbReady = Promise.resolve()
-      .then(() => (typeof db.initDb === 'function' ? db.initDb() : undefined))
-      .catch((err) => console.warn('[vercel] MongoDB init failed:', err.message));
+      .then(async () => {
+        if (typeof db.initDb === 'function') await db.initDb();
+        // The desktop seed command is not executed by Vercel. If Atlas is a
+        // brand-new/empty database, create the normal initial staff accounts.
+        ensureBootstrapUsers();
+        if (typeof db.flushMongoSync === 'function') await db.flushMongoSync();
+      })
+      .catch((err) => console.warn('[vercel] MongoDB/bootstrap init failed:', err.message));
   }
   return dbReady;
 }
