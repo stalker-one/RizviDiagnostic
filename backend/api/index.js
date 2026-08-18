@@ -18,15 +18,30 @@
 //      get cut off before it finishes. So here we explicitly wait for the
 //      response to finish, then await any still-in-flight sync via
 //      flushMongoSync() before this handler itself resolves.
+const path = require('path');
 const { app } = require('../src/server');
-const { initDb, flushMongoSync } = require('../src/db');
+const dbModule = require(path.join(__dirname, '..', 'src', 'db'));
 
 let dbReady = null;
 function ensureDbReady() {
   if (!dbReady) {
-    dbReady = initDb().catch((err) => {
-      console.warn('[vercel] initDb() failed — continuing on whatever data is bundled:', err.message);
-    });
+    if (typeof dbModule.initDb !== 'function') {
+      // Something about how this got bundled/deployed isn't what we
+      // expect locally — log exactly what we actually got instead of
+      // crashing every single request with an opaque TypeError, and
+      // continue serving requests against whatever data is already
+      // bundled rather than hard-failing.
+      console.error(
+        '[vercel] db module did not export initDb as expected. Got keys:',
+        Object.keys(dbModule || {}),
+        '— typeof initDb:', typeof (dbModule && dbModule.initDb)
+      );
+      dbReady = Promise.resolve();
+    } else {
+      dbReady = dbModule.initDb().catch((err) => {
+        console.warn('[vercel] initDb() failed — continuing on whatever data is bundled:', err.message);
+      });
+    }
   }
   return dbReady;
 }
@@ -38,5 +53,7 @@ module.exports = async (req, res) => {
     res.on('close', resolve);
     app(req, res);
   });
-  await flushMongoSync();
+  if (typeof dbModule.flushMongoSync === 'function') {
+    await dbModule.flushMongoSync();
+  }
 };
