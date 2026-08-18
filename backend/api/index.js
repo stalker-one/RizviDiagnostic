@@ -18,9 +18,8 @@
 //      get cut off before it finishes. So here we explicitly wait for the
 //      response to finish, then await any still-in-flight sync via
 //      flushMongoSync() before this handler itself resolves.
-const path = require('path');
 const { app } = require('../src/server');
-const dbModule = require(path.join(__dirname, '..', 'src', 'db'));
+const dbModule = require('../src/db');
 
 let dbReady = null;
 function ensureDbReady() {
