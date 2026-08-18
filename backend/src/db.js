@@ -2,7 +2,28 @@ const fs = require('fs');
 const path = require('path');
 const { MongoClient } = require('mongodb');
 
-const DATA_DIR = path.join(__dirname, 'data');
+// Where the local-cache JSON files live.
+//
+// On a normal server / PC / Electron desktop this is backend/src/data (next
+// to the code, so the data persists with the install). But on a serverless
+// host (Vercel / AWS Lambda) the code directory is READ-ONLY — only /tmp is
+// writable — so writing there would throw EROFS and crash every request that
+// records anything (including login, which stamps `lastSignedIn`). On those
+// hosts we transparently use /tmp instead. MongoDB Atlas is the durable
+// source of truth in that case (initDb pulls the latest data on cold start),
+// so /tmp being ephemeral between invocations is fine.
+function resolveDataDir() {
+  if (process.env.RDC_DATA_DIR) return process.env.RDC_DATA_DIR;
+  const isServerless =
+    process.env.VERCEL ||
+    process.env.AWS_LAMBDA_FUNCTION_NAME ||
+    process.env.LAMBDA_TASK_ROOT ||
+    process.env.NOW_REGION;
+  if (isServerless) return path.join('/tmp', 'rdc-data');
+  return path.join(__dirname, 'data');
+}
+
+const DATA_DIR = resolveDataDir();
 
 if (!fs.existsSync(DATA_DIR)) {
   fs.mkdirSync(DATA_DIR, { recursive: true });

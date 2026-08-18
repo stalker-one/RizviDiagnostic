@@ -42,7 +42,17 @@ if (!process.env.CLINIC_NAME) process.env.CLINIC_NAME = 'Rizvi Diagnostic Center
 // logging everyone out on every reboot.
 if (!process.env.JWT_SECRET) {
   try {
-    const secretFile = path.join(__dirname, 'data', '.jwt-secret');
+    const isServerless =
+      process.env.VERCEL ||
+      process.env.AWS_LAMBDA_FUNCTION_NAME ||
+      process.env.LAMBDA_TASK_ROOT ||
+      process.env.NOW_REGION;
+    const secretDir = process.env.RDC_DATA_DIR
+      ? process.env.RDC_DATA_DIR
+      : isServerless
+        ? path.join('/tmp', 'rdc-data')
+        : path.join(__dirname, 'data');
+    const secretFile = path.join(secretDir, '.jwt-secret');
     if (fs.existsSync(secretFile)) {
       process.env.JWT_SECRET = fs.readFileSync(secretFile, 'utf8').trim();
     } else {
