@@ -18,8 +18,17 @@
 //      get cut off before it finishes. So here we explicitly wait for the
 //      response to finish, then await any still-in-flight sync via
 //      flushMongoSync() before this handler itself resolves.
-const { app } = require('../src/server');
+const serverModule = require('../src/server');
 const dbModule = require('../src/db');
+
+if (typeof serverModule.app !== 'function') {
+  console.error(
+    '[vercel] server module did not export a callable app. Got keys:',
+    Object.keys(serverModule || {}),
+    '— typeof app:', typeof (serverModule && serverModule.app)
+  );
+}
+const app = serverModule.app;
 
 let dbReady = null;
 function ensureDbReady() {
@@ -47,6 +56,12 @@ function ensureDbReady() {
 
 module.exports = async (req, res) => {
   await ensureDbReady();
+  if (typeof app !== 'function') {
+    res.statusCode = 500;
+    res.setHeader('content-type', 'application/json');
+    res.end(JSON.stringify({ error: 'Backend app failed to load. Check function logs for details.' }));
+    return;
+  }
   await new Promise((resolve) => {
     res.on('finish', resolve);
     res.on('close', resolve);
