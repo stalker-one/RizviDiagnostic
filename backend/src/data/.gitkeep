@@ -1,0 +1,2 @@
+# Keep the runtime data directory in the Vercel function bundle.
+# Production data is synchronized with MongoDB Atlas; local JSON files are only a fallback/cache.
