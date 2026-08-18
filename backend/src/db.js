@@ -131,7 +131,29 @@ function writeTable(table, data) {
 }
 
 // ---- MongoDB Atlas connection (the "live database") ----
-const MONGODB_URI = process.env.MONGODB_URI || '';
+// The connection string may live in any of several env vars (MONGODB_URI,
+// MONGODB_URI_2, MONGODB_URI_3, ...). We pick the FIRST one that is actually a
+// valid Mongo connection string — i.e. starts with mongodb:// or
+// mongodb+srv:// — so a blank or misconfigured variable (e.g. one whose value
+// was accidentally set to a literal string like "process.env.MONGODB_URI_2")
+// is skipped instead of crashing the connection.
+function resolveMongoUri() {
+  const candidates = [
+    process.env.MONGODB_URI,
+    process.env.MONGODB_URI_2,
+    process.env.MONGODB_URI_3,
+  ];
+  for (const raw of candidates) {
+    if (!raw) continue;
+    const uri = String(raw).trim().replace(/^["']|["']$/g, '');
+    if (uri.startsWith('mongodb://') || uri.startsWith('mongodb+srv://')) {
+      return uri;
+    }
+  }
+  return '';
+}
+
+const MONGODB_URI = resolveMongoUri();
 const MONGODB_DB_NAME = process.env.MONGODB_DB_NAME || 'rizvi_diagnostic_center';
 
 let mongoClient = null;

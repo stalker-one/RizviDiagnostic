@@ -1,4 +1,7 @@
-require('dotenv').config();
+// Load & normalize environment (with safe fallbacks) BEFORE anything that
+// reads process.env — notably ./db, which resolves the MongoDB URI at require
+// time, and the auth routes, which sign JWTs with process.env.JWT_SECRET.
+require('./env');
 const fs = require('fs');
 const path = require('path');
 const express = require('express');
