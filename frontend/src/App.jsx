@@ -127,7 +127,7 @@ export default function App() {
     <Route path="/radiology-reports" element={<ProtectedRoute><RadiologyReports/></ProtectedRoute>}/>
     <Route path="/analytics" element={<ProtectedRoute><Analytics/></ProtectedRoute>}/>
     <Route path="/referrals" element={<ProtectedRoute><Referrals/></ProtectedRoute>}/>
-    <Route path="/doctors" element={<ProtectedRoute><Doctors/></Route>}/>
+    <Route path="/doctors" element={<ProtectedRoute><Doctors/></ProtectedRoute>}/>
     <Route path="/procedures" element={<ProtectedRoute><Procedures/></ProtectedRoute>}/>
     <Route path="/users" element={<ProtectedRoute adminOnly><Users/></ProtectedRoute>}/>
     <Route path="/settings" element={<ProtectedRoute adminOnly><Settings/></ProtectedRoute>}/>
