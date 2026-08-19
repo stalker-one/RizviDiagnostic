@@ -1,6 +1,7 @@
 package com.rizvi.diagnosticcenter;
 
 import android.content.Intent;
+import android.content.pm.PackageInfo;
 import android.net.Uri;
 import android.os.Build;
 import android.provider.Settings;
@@ -26,10 +27,18 @@ public class UpdatePlugin extends Plugin {
 
     @PluginMethod
     public void getVersion(PluginCall call) {
-        com.getcapacitor.JSObject result = new com.getcapacitor.JSObject();
-        result.put("versionCode", BuildConfig.VERSION_CODE);
-        result.put("versionName", BuildConfig.VERSION_NAME);
-        call.resolve(result);
+        try {
+            PackageInfo info = getContext().getPackageManager().getPackageInfo(getContext().getPackageName(), 0);
+            long versionCode = Build.VERSION.SDK_INT >= Build.VERSION_CODES.P
+                    ? info.getLongVersionCode()
+                    : info.versionCode;
+            com.getcapacitor.JSObject result = new com.getcapacitor.JSObject();
+            result.put("versionCode", versionCode);
+            result.put("versionName", info.versionName == null ? "" : info.versionName);
+            call.resolve(result);
+        } catch (Exception e) {
+            call.reject("Unable to read installed Android app version: " + e.getMessage(), e);
+        }
     }
 
     @PluginMethod
