@@ -18,6 +18,20 @@ android {
         }
     }
 
+    flavorDimensions += "app"
+    productFlavors {
+        regular {
+            dimension "app"
+            applicationId "com.rizvi.diagnosticcenter"
+            resValue "string", "app_name", "Rizvi Diagnostic Center"
+        }
+        superadmin {
+            dimension "app"
+            applicationId "com.rizvi.diagnosticcenter.superadmin"
+            resValue "string", "app_name", "Rizvi Diagnostic Center Superadmin"
+        }
+    }
+
     signingConfigs {
         release {
             def keystorePath = System.getenv('ANDROID_KEYSTORE_PATH')
