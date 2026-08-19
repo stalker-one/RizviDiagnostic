@@ -74,24 +74,32 @@ jobs:
 
           value = os.environ["ANDROID_KEYSTORE_BASE64"].strip()
 
-          # Accept a pasted data URI as well as plain base64.
+          # Accept a data URI or a value accidentally wrapped in quotes.
           if value.lower().startswith("data:") and "," in value:
               value = value.split(",", 1)[1]
+          value = value.strip().strip('"').strip("'")
 
-          # Remove spaces/newlines introduced by copied base64 output.
+          # Handle literal escaped line breaks and normal copied whitespace.
+          value = value.replace("\\r", "").replace("\\n", "")
           value = re.sub(r"\s+", "", value)
 
-          # Support both standard and URL-safe base64 and missing padding.
-          value += "=" * (-len(value) % 4)
+          # Normalize URL-safe Base64 to standard Base64.
+          value = value.replace("-", "+").replace("_", "/")
 
-          if not re.fullmatch(r"[A-Za-z0-9+/=_-]+", value):
+          # Remove existing padding and add exactly the required padding.
+          value = value.rstrip("=")
+          if not value:
+              print("ANDROID_KEYSTORE_BASE64 is empty after normalization.", file=sys.stderr)
+              sys.exit(1)
+          if not re.fullmatch(r"[A-Za-z0-9+/]+", value):
               print("ANDROID_KEYSTORE_BASE64 contains invalid characters.", file=sys.stderr)
               sys.exit(1)
+          value += "=" * (-len(value) % 4)
 
           try:
-              data = base64.b64decode(value, altchars=b"-_", validate=True)
-          except Exception as exc:
-              print("ANDROID_KEYSTORE_BASE64 is not valid base64. Recreate the secret from the keystore file using base64 encoding.", file=sys.stderr)
+              data = base64.b64decode(value, validate=True)
+          except Exception:
+              print("ANDROID_KEYSTORE_BASE64 cannot be decoded. Ensure the secret is the Base64 of the original .jks/.keystore file.", file=sys.stderr)
               sys.exit(1)
 
           if not data:
@@ -130,9 +138,12 @@ jobs:
 
       - name: Verify APK signature and version
         working-directory: frontend/android
+        env:
+          ANDROID_HOME: ${{ env.ANDROID_HOME }}
         run: |
-          "$ANDROID_HOME/build-tools/$(ls "$ANDROID_HOME/build-tools" | sort -V | tail -1)/apksigner" verify --verbose app/build/outputs/apk/release/app-release.apk
-          "$ANDROID_HOME/build-tools/$(ls "$ANDROID_HOME/build-tools" | sort -V | tail -1)/aapt" dump badging app/build/outputs/apk/release/app-release.apk | grep -E "package:|versionCode|versionName"
+          BUILD_TOOLS="$ANDROID_HOME/build-tools/$(ls "$ANDROID_HOME/build-tools" | sort -V | tail -1)"
+          "$BUILD_TOOLS/apksigner" verify --verbose app/build/outputs/apk/release/app-release.apk
+          "$BUILD_TOOLS/aapt" dump badging app/build/outputs/apk/release/app-release.apk | grep -E "package:|versionCode|versionName"
 
       - name: Prepare release APK
         run: |
