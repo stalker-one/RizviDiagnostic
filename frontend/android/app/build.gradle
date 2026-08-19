@@ -8,8 +8,10 @@ android {
         applicationId "com.rizvi.diagnosticcenter"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode 2
-        versionName "1.0.1"
+        def ciRunNumber = System.getenv('GITHUB_RUN_NUMBER')
+        def releaseVersionCode = ciRunNumber ? Math.max(2, ciRunNumber.toInteger()) : 2
+        versionCode releaseVersionCode
+        versionName "1.0.${releaseVersionCode - 1}"
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         aaptOptions {
             ignoreAssetsPattern = '!.svn:!.git:!.ds_store:!*.scc:.*:!CVS:!thumbs.db:!picasa.ini:!*~'
