@@ -25,15 +25,10 @@ import Profile from './pages/Profile.jsx';
 import SiteControl from './pages/SiteControl.jsx';
 
 const REALTIME_INTERVAL_MS = 1500;
+const ANDROID_UPDATE_INTERVAL_MS = 15000;
 const AndroidUpdate = registerPlugin('AndroidUpdate');
 const IS_SUPERADMIN_APP = import.meta.env.VITE_SUPERADMIN_APP === 'true';
 
-/*
- * IMPORTANT: The Superadmin APK must not force every route back to /adminlogin.
- * Authentication is handled by ProtectedRoute/AuthContext. This guard only
- * prevents an unauthenticated native Superadmin app from opening arbitrary
- * public routes; it never redirects an already-authenticated user.
- */
 function SuperadminGuard() {
   const location = useLocation();
   const navigate = useNavigate();
@@ -55,9 +50,9 @@ function AndroidUpdateModal({ update, onLater, onUpdate, busy, error }) {
   return (
     <div style={{ position: 'fixed', inset: 0, zIndex: 99999, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,.55)', padding: 20 }}>
       <div style={{ width: '100%', maxWidth: 420, borderRadius: 18, background: '#fff', padding: 24, boxShadow: '0 20px 60px rgba(0,0,0,.3)' }}>
-        <h2 style={{ margin: '0 0 8px', fontSize: 22, fontWeight: 700 }}>Update available</h2>
+        <h2 style={{ margin: '0 0 8px', fontSize: 22, fontWeight: 700 }}>New update available</h2>
         <p style={{ margin: '0 0 8px', color: '#555' }}>A newer version of {IS_SUPERADMIN_APP ? 'Rizvi Diagnostic Center Superadmin' : 'Rizvi Diagnostic Center'} is available.</p>
-        <p style={{ margin: '0 0 16px', fontWeight: 600 }}>Version {update.versionName || update.versionCode}</p>
+        <p style={{ margin: '0 0 16px', fontWeight: 600 }}>Version {update.versionName} (build {update.versionCode})</p>
         {busy && <p style={{ margin: '0 0 12px', color: '#555' }}>Downloading update…</p>}
         {error && <p style={{ margin: '0 0 12px', color: '#b91c1c', fontSize: 14 }}>{error}</p>}
         <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
@@ -67,6 +62,14 @@ function AndroidUpdateModal({ update, onLater, onUpdate, busy, error }) {
       </div>
     </div>
   );
+}
+
+function parseRemoteVersion(release, apkAsset) {
+  const body = String(release?.body || '');
+  const bodyCode = Number(body.match(/Version code:\s*(\d+)/i)?.[1] || 0);
+  const assetCode = Number(String(apkAsset?.name || '').match(/-(\d+)-[0-9a-f]{7,40}\.apk$/i)?.[1] || 0);
+  const tagCode = Number(String(release?.tag_name || '').match(/(?:v|build-)(\d+)/i)?.[1] || 0);
+  return Math.max(bodyCode, assetCode, tagCode);
 }
 
 export default function App() {
@@ -96,39 +99,77 @@ export default function App() {
   useEffect(() => {
     if (!Capacitor.isNativePlatform() || Capacitor.getPlatform() !== 'android') return undefined;
     let cancelled = false;
+
     const checkAndroidUpdate = async () => {
       if (cancelled || checkingAndroidUpdate.current) return;
       checkingAndroidUpdate.current = true;
       try {
         const installed = await AndroidUpdate.getVersion();
+        const installedCode = Number(installed?.versionCode || 0);
         const tag = IS_SUPERADMIN_APP ? 'android-superadmin-latest' : 'android-latest';
-        const response = await fetch(`https://api.github.com/repos/stalker-one/RizviDiagnostic/releases/tags/${tag}?_=${Date.now()}`, { cache: 'no-store', headers: { Accept: 'application/vnd.github+json', 'Cache-Control': 'no-cache' } });
-        if (!response.ok) throw new Error(`Update check returned HTTP ${response.status}`);
+        const response = await fetch(`https://api.github.com/repos/stalker-one/RizviDiagnostic/releases/tags/${encodeURIComponent(tag)}?_=${Date.now()}`, {
+          cache: 'no-store',
+          headers: { Accept: 'application/vnd.github+json', 'Cache-Control': 'no-cache' }
+        });
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
         const release = await response.json();
-        const apkAsset = Array.isArray(release.assets) ? release.assets.find((asset) => /\.apk$/i.test(asset?.name || '')) : null;
-        if (!apkAsset?.browser_download_url || cancelled || release?.draft) return;
-        const match = String(apkAsset.name).match(/-(\d+)-/);
-        const remoteVersionCode = Number(match?.[1] || release.body?.match(/Version code:\s*(\d+)/i)?.[1] || 0);
-        if (remoteVersionCode > Number(installed?.versionCode || 0)) {
-          setAndroidUpdate({ versionCode: remoteVersionCode, versionName: release.body?.match(/Version name:\s*([^\n\r]+)/i)?.[1]?.trim() || `1.0.${Math.max(0, remoteVersionCode - 1)}`, url: apkAsset.browser_download_url });
-        }
-      } catch (error) { console.warn('Android update check failed:', error); }
-      finally { checkingAndroidUpdate.current = false; }
+        if (cancelled || release?.draft) return;
+
+        const expectedPackage = IS_SUPERADMIN_APP ? 'com.rizvi.diagnosticcenter.superadmin' : 'com.rizvi.diagnosticcenter';
+        const apkAsset = Array.isArray(release.assets)
+          ? release.assets.find((asset) => /\.apk$/i.test(asset?.name || ''))
+          : null;
+        if (!apkAsset?.browser_download_url) return;
+
+        const remoteVersionCode = parseRemoteVersion(release, apkAsset);
+        if (!remoteVersionCode || remoteVersionCode <= installedCode) return;
+
+        const bodyVersionName = release.body?.match(/Version name:\s*([^\n\r]+)/i)?.[1]?.trim();
+        const assetName = String(apkAsset.name || '');
+        const versionName = bodyVersionName || `1.0.${Math.max(0, remoteVersionCode - 1)}`;
+        setAndroidUpdate({
+          versionCode: remoteVersionCode,
+          versionName,
+          url: apkAsset.browser_download_url,
+          packageName: expectedPackage,
+          releaseName: release.name || tag
+        });
+      } catch (error) {
+        console.warn('Android update check failed:', error);
+      } finally {
+        checkingAndroidUpdate.current = false;
+      }
     };
+
+    // Check immediately every time the application starts.
     checkAndroidUpdate();
-    const onResume = () => checkAndroidUpdate();
+
+    // Check again whenever the Android app returns to the foreground.
+    const onResume = () => { if (document.visibilityState === 'visible') checkAndroidUpdate(); };
     document.addEventListener('visibilitychange', onResume);
     window.addEventListener('focus', onResume);
-    const timer = window.setInterval(checkAndroidUpdate, 5 * 60 * 1000);
-    return () => { cancelled = true; window.clearInterval(timer); document.removeEventListener('visibilitychange', onResume); window.removeEventListener('focus', onResume); };
+
+    // Realtime update detection while the app remains open.
+    const timer = window.setInterval(checkAndroidUpdate, ANDROID_UPDATE_INTERVAL_MS);
+    return () => {
+      cancelled = true;
+      window.clearInterval(timer);
+      document.removeEventListener('visibilitychange', onResume);
+      window.removeEventListener('focus', onResume);
+    };
   }, []);
 
   const installAndroidUpdate = async () => {
     if (!androidUpdate?.url || androidUpdateBusy) return;
-    setAndroidUpdateBusy(true); setAndroidUpdateError('');
-    try { await AndroidUpdate.installApk({ url: androidUpdate.url }); }
-    catch (error) { setAndroidUpdateError(error?.message || 'Unable to start the Android update.'); }
-    finally { setAndroidUpdateBusy(false); }
+    setAndroidUpdateBusy(true);
+    setAndroidUpdateError('');
+    try {
+      await AndroidUpdate.installApk({ url: androidUpdate.url });
+    } catch (error) {
+      setAndroidUpdateError(error?.message || 'Unable to start the Android update. Please allow this app to install updates and try again.');
+    } finally {
+      setAndroidUpdateBusy(false);
+    }
   };
 
   const protectedRoutes = (
@@ -172,7 +213,13 @@ export default function App() {
       <SiteLockGate />
       {IS_SUPERADMIN_APP && <SuperadminGuard />}
       <div key={refreshKey} className="contents">{routes}</div>
-      <AndroidUpdateModal update={androidUpdate} busy={androidUpdateBusy} error={androidUpdateError} onLater={() => { setAndroidUpdate(null); setAndroidUpdateError(''); }} onUpdate={installAndroidUpdate} />
+      <AndroidUpdateModal
+        update={androidUpdate}
+        busy={androidUpdateBusy}
+        error={androidUpdateError}
+        onLater={() => { setAndroidUpdate(null); setAndroidUpdateError(''); }}
+        onUpdate={installAndroidUpdate}
+      />
     </>
   );
 }
