@@ -24,20 +24,30 @@ function buildPrintableHtml(format) {
 
   const thermal = format === 'thermal';
   const width = thermal ? '80mm' : '190mm';
+
+  // IMPORTANT: Simple/A4 must preserve the same invoice component geometry
+  // the user sees on the invoice page. Do not replace its responsive/max-width
+  // layout with a generic full-width A4 table. Only constrain the printable
+  // canvas to the A4 page and let PrintSimpleInvoice keep its own styling.
   const outerCss = thermal
     ? `
       @page{size:80mm auto;margin:0!important;}
       html,body{width:80mm!important;max-width:80mm!important;margin:0!important;padding:0!important;background:#fff!important;}
       #printable-area{width:80mm!important;max-width:80mm!important;margin:0!important;padding:0!important;overflow:visible!important;box-shadow:none!important;border:0!important;}
-      #printable-area>div{width:80mm!important;max-width:80mm!important;min-width:0!important;margin:0!important;padding:2mm!important;box-shadow:none!important;border:0!important;overflow:visible!important;}
+      #printable-area>div{width:100%!important;max-width:80mm!important;min-width:0!important;margin:0!important;box-shadow:none!important;border:0!important;overflow:visible!important;}
       #printable-area table{width:100%!important;min-width:0!important;max-width:100%!important;table-layout:fixed!important;}
     `
     : `
       @page{size:A4;margin:10mm!important;}
-      html,body{width:190mm!important;max-width:190mm!important;margin:0!important;padding:0!important;background:#fff!important;}
-      #printable-area{width:190mm!important;max-width:190mm!important;margin:0!important;padding:0!important;overflow:visible!important;box-shadow:none!important;border:0!important;}
-      #printable-area>div{width:190mm!important;max-width:190mm!important;min-width:0!important;margin:0!important;padding:0!important;box-shadow:none!important;border:0!important;overflow:visible!important;}
-      #printable-area table{width:100%!important;min-width:0!important;max-width:100%!important;table-layout:fixed!important;}
+      html,body{width:100%!important;max-width:100%!important;margin:0!important;padding:0!important;background:#fff!important;}
+      #printable-area{width:100%!important;max-width:190mm!important;margin:0 auto!important;padding:0!important;overflow:visible!important;background:#fff!important;box-shadow:none!important;border:0!important;}
+      /* Preserve PrintSimpleInvoice's actual on-screen max-width, padding,
+         typography and responsive layout. The old implementation forced this
+         element to 190mm and zero padding, which made Android print preview
+         look completely different from the invoice being viewed. */
+      #printable-area>div{width:100%!important;max-width:768px!important;min-width:0!important;margin:0 auto!important;box-shadow:none!important;border:0!important;overflow:visible!important;}
+      #printable-area>div table{width:100%!important;max-width:100%!important;table-layout:auto!important;}
+      #printable-area>div .overflow-x-auto{overflow:visible!important;}
     `;
 
   return `<!doctype html>
