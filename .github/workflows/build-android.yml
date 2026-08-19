@@ -13,6 +13,8 @@ permissions:
 
 env:
   ANDROID_KEYSTORE_PATH: ${{ github.workspace }}/android-release.keystore
+  ANDROID_SDK_ROOT: /usr/local/lib/android/sdk
+  ANDROID_HOME: /usr/local/lib/android/sdk
 
 jobs:
   build-android:
@@ -24,10 +26,12 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '22'
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
 
       - name: Install frontend dependencies
         working-directory: frontend
-        run: npm install
+        run: npm ci
 
       - name: Build frontend for production API
         working-directory: frontend
@@ -40,18 +44,38 @@ jobs:
         run: npx cap sync android
 
       - name: Set up JDK 21
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@v5
         with:
           distribution: temurin
           java-version: '21'
+          cache: gradle
+          cache-dependency-path: frontend/android/**/*.gradle*
 
-      - name: Set up Android SDK
-        uses: android-actions/setup-android@v3
-        with:
-          packages: |
-            platform-tools
-            platforms;android-35
-            build-tools;35.0.0
+      - name: Set up Android SDK packages
+        shell: bash
+        run: |
+          set -euo pipefail
+          SDKMANAGER="$ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager"
+          if [ ! -x "$SDKMANAGER" ]; then
+            SDKMANAGER="$(find "$ANDROID_SDK_ROOT/cmdline-tools" -type f -name sdkmanager -print | sort -V | tail -1)"
+          fi
+          test -x "$SDKMANAGER" || { echo 'Android sdkmanager not found on runner'; exit 1; }
+          echo "Using sdkmanager: $SDKMANAGER"
+          yes | "$SDKMANAGER" --licenses >/dev/null 2>&1 || true
+          "$SDKMANAGER" --install \
+            'platform-tools' \
+            'platforms;android-36' \
+            'build-tools;36.0.0'
+
+      - name: Validate Android SDK
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -x "$ANDROID_SDK_ROOT/platform-tools/adb"
+          test -x "$ANDROID_SDK_ROOT/build-tools/36.0.0/apksigner"
+          test -x "$ANDROID_SDK_ROOT/build-tools/36.0.0/aapt"
+          test -d "$ANDROID_SDK_ROOT/platforms/android-36"
+          echo 'Android SDK platform/build-tools are ready.'
 
       - name: Validate Android signing secrets
         shell: bash
@@ -66,7 +90,7 @@ jobs:
           test -n "$ANDROID_KEY_ALIAS" || { echo 'Missing ANDROID_KEY_ALIAS secret'; exit 1; }
           test -n "$ANDROID_KEY_PASSWORD" || { echo 'Missing ANDROID_KEY_PASSWORD secret'; exit 1; }
           test -n "$ANDROID_KEYSTORE_BASE64" || { echo 'Missing ANDROID_KEYSTORE_BASE64 secret'; exit 1; }
-          echo "All Android signing secrets are present. Base64 secret length: ${#ANDROID_KEYSTORE_BASE64} characters."
+          echo 'All Android signing secrets are present.'
 
       - name: Restore Android signing keystore
         shell: bash
@@ -87,33 +111,17 @@ jobs:
           value = value.strip('"\'')
           value = value.replace('-', '+').replace('_', '/')
           value = value.rstrip('=')
-
           if not value:
               raise SystemExit('ANDROID_KEYSTORE_BASE64 is empty.')
-
-          candidates = [value]
-          filtered = re.sub(r'[^A-Za-z0-9+/=]', '', value)
-          if filtered != value:
-              candidates.append(filtered.rstrip('='))
-
-          data = None
-          for candidate in candidates:
-              padded = candidate + ('=' * (-len(candidate) % 4))
-              try:
-                  decoded = base64.b64decode(padded, validate=True)
-                  if len(decoded) >= 100:
-                      data = decoded
-                      break
-              except Exception:
-                  pass
-
-          if data is None:
-              raise SystemExit(
-                  'ANDROID_KEYSTORE_BASE64 could not be decoded as a valid keystore. '
-                  'Regenerate this secret directly from the original .jks/.keystore file using '
-                  '[Convert]::ToBase64String([IO.File]::ReadAllBytes("FILE")) in PowerShell.'
-              )
-
+          if not re.fullmatch(r'[A-Za-z0-9+/]+', value):
+              raise SystemExit('ANDROID_KEYSTORE_BASE64 contains invalid characters. Regenerate it from the original keystore file.')
+          value += '=' * (-len(value) % 4)
+          try:
+              data = base64.b64decode(value, validate=True)
+          except Exception as exc:
+              raise SystemExit(f'ANDROID_KEYSTORE_BASE64 is not valid Base64: {exc}')
+          if len(data) < 100:
+              raise SystemExit('Decoded keystore is unexpectedly small; refusing to use it.')
           path = os.environ['ANDROID_KEYSTORE_PATH']
           with open(path, 'wb') as f:
               f.write(data)
@@ -141,7 +149,7 @@ jobs:
         run: |
           set -euo pipefail
           chmod +x gradlew
-          ./gradlew clean assembleRelease --stacktrace
+          ./gradlew clean assembleRelease --stacktrace --no-daemon
 
       - name: Verify APK signature and metadata
         working-directory: frontend/android
@@ -149,7 +157,7 @@ jobs:
           set -euo pipefail
           APK=app/build/outputs/apk/release/app-release.apk
           test -s "$APK"
-          BUILD_TOOLS="$ANDROID_HOME/build-tools/$(ls "$ANDROID_HOME/build-tools" | sort -V | tail -1)"
+          BUILD_TOOLS="$ANDROID_SDK_ROOT/build-tools/36.0.0"
           "$BUILD_TOOLS/apksigner" verify --verbose "$APK"
           "$BUILD_TOOLS/aapt" dump badging "$APK" | grep -E 'package:|versionCode|versionName'
 
