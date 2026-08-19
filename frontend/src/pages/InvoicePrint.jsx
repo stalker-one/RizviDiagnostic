@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
+import { Capacitor, registerPlugin } from '@capacitor/core';
 import Layout from '../components/Layout.jsx';
 import PrintThermalInvoice from '../components/PrintThermalInvoice.jsx';
 import PrintSimpleInvoice from '../components/PrintSimpleInvoice.jsx';
@@ -8,13 +9,24 @@ import PageLoader from '../components/PageLoader.jsx';
 import { ArrowLeft, Printer, RefreshCw } from 'lucide-react';
 import api from '../api/axios';
 
+const NativePrint = registerPlugin('Print');
+
+async function printInvoice() {
+  if (Capacitor.getPlatform() === 'android') {
+    await NativePrint.print();
+    return;
+  }
+  window.print();
+}
+
 export default function InvoicePrint() {
   const { id } = useParams();
   const [invoice, setInvoice] = useState(null);
   const [settings, setSettings] = useState({});
-  const [format, setFormat] = useState('simple'); // 'simple' | 'thermal'
+  const [format, setFormat] = useState('simple');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [printing, setPrinting] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -22,11 +34,6 @@ export default function InvoicePrint() {
     async function loadInvoice() {
       setLoading(true);
       setError('');
-
-      // Load the invoice independently from settings. Previously Promise.all()
-      // meant a settings/API failure could make an otherwise valid invoice
-      // appear as "Invoice not found". The invoice itself is the required
-      // resource; settings are optional print preferences.
       try {
         const response = await api.get(`/invoices/${encodeURIComponent(id)}`);
         if (!cancelled) setInvoice(response.data);
@@ -43,7 +50,6 @@ export default function InvoicePrint() {
         }
       }
 
-      // Settings must never prevent an invoice from opening/printing.
       try {
         const response = await api.get('/settings');
         if (!cancelled && response.data) {
@@ -52,9 +58,6 @@ export default function InvoicePrint() {
           if (response.data.printFormat === 'simple') setFormat('simple');
         }
       } catch (err) {
-        // Use the safe simple/A4 defaults when settings are temporarily
-        // unavailable. Do not replace a successfully loaded invoice with an
-        // error state just because settings failed.
         console.warn('[invoice-print] Settings unavailable; using defaults.', err);
       }
 
@@ -64,6 +67,21 @@ export default function InvoicePrint() {
     loadInvoice();
     return () => { cancelled = true; };
   }, [id]);
+
+  const handlePrint = async () => {
+    if (printing) return;
+    setPrinting(true);
+    try {
+      await printInvoice();
+    } catch (err) {
+      console.error('[invoice-print] Print failed:', err);
+      // Android native printing is preferred. If the native bridge is not
+      // available in an older APK, retain the browser/WebView fallback.
+      try { window.print(); } catch (fallbackError) { console.error(fallbackError); }
+    } finally {
+      setPrinting(false);
+    }
+  };
 
   if (loading) return <Layout title="Invoice"><PageLoader message="Loading invoice..." /></Layout>;
 
@@ -86,31 +104,17 @@ export default function InvoicePrint() {
     <Layout title={`Invoice ${invoice.invoiceNumber}`}>
       <div className="no-print flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4 bg-white rounded-xl border border-slate-100 shadow-sm p-3 sm:p-4">
         <div className="flex gap-2 flex-wrap">
-          <button
-            onClick={() => setFormat('simple')}
-            className={`px-3 sm:px-4 py-2 rounded-lg text-xs sm:text-sm font-medium transition ${format === 'simple' ? 'bg-brand-600 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}
-          >
-            Simple (A4)
-          </button>
-          <button
-            onClick={() => setFormat('thermal')}
-            className={`px-3 sm:px-4 py-2 rounded-lg text-xs sm:text-sm font-medium transition ${format === 'thermal' ? 'bg-brand-600 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}
-          >
-            Thermal (80mm)
-          </button>
+          <button onClick={() => setFormat('simple')} className={`px-3 sm:px-4 py-2 rounded-lg text-xs sm:text-sm font-medium transition ${format === 'simple' ? 'bg-brand-600 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}>Simple (A4)</button>
+          <button onClick={() => setFormat('thermal')} className={`px-3 sm:px-4 py-2 rounded-lg text-xs sm:text-sm font-medium transition ${format === 'thermal' ? 'bg-brand-600 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}>Thermal (80mm)</button>
         </div>
         <div className="flex gap-2">
           <Button as={Link} to="/invoices" variant="secondary" icon={ArrowLeft} size="sm">Back</Button>
-          <Button variant="success" icon={Printer} onClick={() => window.print()} size="sm">Print</Button>
+          <Button variant="success" icon={Printer} onClick={handlePrint} disabled={printing} size="sm">{printing ? 'Opening printer...' : 'Print'}</Button>
         </div>
       </div>
 
       <div id="printable-area" className="bg-white rounded-xl border border-slate-100 shadow-sm py-6 overflow-x-auto">
-        {format === 'simple' ? (
-          <PrintSimpleInvoice invoice={invoice} settings={settings} />
-        ) : (
-          <PrintThermalInvoice invoice={invoice} settings={settings} />
-        )}
+        {format === 'simple' ? <PrintSimpleInvoice invoice={invoice} settings={settings} /> : <PrintThermalInvoice invoice={invoice} settings={settings} />}
       </div>
     </Layout>
   );
