@@ -22,20 +22,17 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
           cache: npm
           cache-dependency-path: frontend/package-lock.json
-
       - name: Install dependencies
         working-directory: frontend
         run: |
           set -euo pipefail
           npm install --package-lock-only --ignore-scripts
           npm ci --ignore-scripts
-
       - name: Build Superadmin frontend and sync Android
         working-directory: frontend
         env:
@@ -45,33 +42,24 @@ jobs:
           set -euo pipefail
           npm run build
           npx cap sync android
-
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: '21'
           cache: gradle
-
       - name: Prepare Android SDK
         shell: bash
         run: |
           set -euo pipefail
           SDKMANAGER=''
-          for candidate in \
-            "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" \
-            "$ANDROID_HOME/cmdline-tools/16.0/bin/sdkmanager" \
-            "$ANDROID_HOME/cmdline-tools/bin/sdkmanager" \
-            "$ANDROID_HOME/tools/bin/sdkmanager"; do
+          for candidate in "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "$ANDROID_HOME/cmdline-tools/16.0/bin/sdkmanager" "$ANDROID_HOME/cmdline-tools/bin/sdkmanager" "$ANDROID_HOME/tools/bin/sdkmanager"; do
             if [ -x "$candidate" ]; then SDKMANAGER="$candidate"; break; fi
           done
-          if [ -z "$SDKMANAGER" ]; then
-            SDKMANAGER="$(find "$ANDROID_HOME/cmdline-tools" -type f -path '*/bin/sdkmanager' -print -quit 2>/dev/null || true)"
-          fi
+          if [ -z "$SDKMANAGER" ]; then SDKMANAGER="$(find "$ANDROID_HOME/cmdline-tools" -type f -path '*/bin/sdkmanager' -print -quit 2>/dev/null || true)"; fi
           test -n "$SDKMANAGER" && test -x "$SDKMANAGER" || { echo 'Android sdkmanager not found'; exit 1; }
           yes | "$SDKMANAGER" --licenses >/dev/null 2>&1 || true
           "$SDKMANAGER" platform-tools 'platforms;android-36' 'build-tools;36.0.0'
           test -x "$ANDROID_HOME/build-tools/36.0.0/apksigner"
-
       - name: Restore or create persistent Android signing keystore
         shell: bash
         env:
@@ -86,15 +74,10 @@ jobs:
           test -n "$ANDROID_KEY_PASSWORD" || { echo 'Missing ANDROID_KEY_PASSWORD'; exit 1; }
           mkdir -p .github/android-signing
           rm -f "$ANDROID_KEYSTORE_PATH"
-
           if [ -s .github/android-signing/keystore.p12.enc ]; then
-            openssl enc -d -aes-256-cbc -pbkdf2 -pass env:ANDROID_KEYSTORE_PASSWORD \
-              -in .github/android-signing/keystore.p12.enc -out "$ANDROID_KEYSTORE_PATH" 2>/tmp/keystore.err || true
-            if ! keytool -list -keystore "$ANDROID_KEYSTORE_PATH" -storepass "$ANDROID_KEYSTORE_PASSWORD" -alias "$ANDROID_KEY_ALIAS" >/dev/null 2>&1; then
-              rm -f "$ANDROID_KEYSTORE_PATH"
-            fi
+            openssl enc -d -aes-256-cbc -pbkdf2 -pass env:ANDROID_KEYSTORE_PASSWORD -in .github/android-signing/keystore.p12.enc -out "$ANDROID_KEYSTORE_PATH" 2>/tmp/keystore.err || true
+            if ! keytool -list -keystore "$ANDROID_KEYSTORE_PATH" -storepass "$ANDROID_KEYSTORE_PASSWORD" -alias "$ANDROID_KEY_ALIAS" >/dev/null 2>&1; then rm -f "$ANDROID_KEYSTORE_PATH"; fi
           fi
-
           if [ ! -s "$ANDROID_KEYSTORE_PATH" ] && [ -n "${ANDROID_KEYSTORE_BASE64:-}" ]; then
             NORMALIZED_B64="$(printf '%s' "$ANDROID_KEYSTORE_BASE64" | tr -d '[:space:]')"
             NORMALIZED_B64="${NORMALIZED_B64#\"}"; NORMALIZED_B64="${NORMALIZED_B64%\"}"
@@ -103,17 +86,10 @@ jobs:
             printf '%s' "$NORMALIZED_B64" | tr '_-' '/+' | base64 --decode > "$ANDROID_KEYSTORE_PATH" 2>/tmp/base64.err || rm -f "$ANDROID_KEYSTORE_PATH"
             if [ -s "$ANDROID_KEYSTORE_PATH" ] && ! keytool -list -keystore "$ANDROID_KEYSTORE_PATH" -storepass "$ANDROID_KEYSTORE_PASSWORD" -alias "$ANDROID_KEY_ALIAS" >/dev/null 2>&1; then rm -f "$ANDROID_KEYSTORE_PATH"; fi
           fi
-
           if [ ! -s "$ANDROID_KEYSTORE_PATH" ]; then
-            keytool -genkeypair -v -storetype PKCS12 \
-              -keystore "$ANDROID_KEYSTORE_PATH" \
-              -storepass "$ANDROID_KEYSTORE_PASSWORD" \
-              -keypass "$ANDROID_KEY_PASSWORD" \
-              -alias "$ANDROID_KEY_ALIAS" -keyalg RSA -keysize 4096 -validity 10000 \
-              -dname 'CN=Rizvi Diagnostic Center Superadmin, OU=Mobile, O=Rizvi Diagnostic Center, L=Unknown, ST=Unknown, C=PK'
+            keytool -genkeypair -v -storetype PKCS12 -keystore "$ANDROID_KEYSTORE_PATH" -storepass "$ANDROID_KEYSTORE_PASSWORD" -keypass "$ANDROID_KEY_PASSWORD" -alias "$ANDROID_KEY_ALIAS" -keyalg RSA -keysize 4096 -validity 10000 -dname 'CN=Rizvi Diagnostic Center Superadmin, OU=Mobile, O=Rizvi Diagnostic Center, L=Unknown, ST=Unknown, C=PK'
             chmod 600 "$ANDROID_KEYSTORE_PATH"
-            openssl enc -aes-256-cbc -pbkdf2 -pass env:ANDROID_KEYSTORE_PASSWORD \
-              -in "$ANDROID_KEYSTORE_PATH" -out .github/android-signing/keystore.p12.enc
+            openssl enc -aes-256-cbc -pbkdf2 -pass env:ANDROID_KEYSTORE_PASSWORD -in "$ANDROID_KEYSTORE_PATH" -out .github/android-signing/keystore.p12.enc
             git config user.name 'github-actions[bot]'
             git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
             git add .github/android-signing/keystore.p12.enc
@@ -121,7 +97,6 @@ jobs:
             git push origin HEAD:main || true
           fi
           keytool -list -keystore "$ANDROID_KEYSTORE_PATH" -storepass "$ANDROID_KEYSTORE_PASSWORD" -alias "$ANDROID_KEY_ALIAS" >/dev/null
-
       - name: Build Superadmin APK
         working-directory: frontend/android
         env:
@@ -139,7 +114,6 @@ jobs:
           "$ANDROID_HOME/build-tools/36.0.0/aapt" dump badging "$APK" | grep -E 'package:|versionCode|versionName'
           mkdir -p dist-superadmin
           cp "$APK" "dist-superadmin/RizviDiagnosticSuperadmin-${GITHUB_RUN_NUMBER}-${GITHUB_SHA}.apk"
-
       - name: Upload Superadmin APK
         uses: actions/upload-artifact@v4
         with:
@@ -147,7 +121,6 @@ jobs:
           path: frontend/android/dist-superadmin/*.apk
           retention-days: 90
           if-no-files-found: error
-
       - name: Publish Superadmin latest release
         uses: softprops/action-gh-release@v2
         with:
@@ -157,7 +130,8 @@ jobs:
             Dedicated Superadmin Android application.
             Package: com.rizvi.diagnosticcenter.superadmin
             Login route: /adminlogin
-            Version code: ${{ github.run_number }}.
+            Version code: ${{ github.run_number }}
+            Version name: 1.0.${{ github.run_number }}
             Built from commit ${{ github.sha }}.
           files: frontend/android/dist-superadmin/*.apk
           prerelease: true
@@ -166,7 +140,6 @@ jobs:
           overwrite_files: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
       - name: Remove signing keystore
         if: always()
         run: rm -f "$ANDROID_KEYSTORE_PATH"
