@@ -11,9 +11,36 @@ import api from '../api/axios';
 
 const NativePrint = registerPlugin('Print');
 
+function buildPrintableHtml() {
+  const target = document.getElementById('printable-area');
+  if (!target) throw new Error('Printable invoice area was not found.');
+
+  const styles = Array.from(document.querySelectorAll('style'))
+    .map((style) => style.textContent || '')
+    .join('\n');
+
+  const links = Array.from(document.querySelectorAll('link[rel="stylesheet"]'))
+    .map((link) => `<link rel="stylesheet" href="${link.href}">`)
+    .join('\n');
+
+  return `<!doctype html>
+<html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+${links}<style>${styles}
+html,body{margin:0;padding:0;background:#fff;}
+body{font-family:Arial,Helvetica,sans-serif;color:#111;}
+.no-print{display:none!important;}
+#printable-area{box-shadow:none!important;border:0!important;margin:0!important;overflow:visible!important;}
+@page{margin:8mm;}
+</style></head><body>${target.outerHTML}</body></html>`;
+}
+
 async function printInvoice() {
   if (Capacitor.getPlatform() === 'android') {
-    await NativePrint.print();
+    const html = buildPrintableHtml();
+    await NativePrint.print({
+      html,
+      name: 'Rizvi Diagnostic Invoice',
+    });
     return;
   }
   window.print();
@@ -74,10 +101,13 @@ export default function InvoicePrint() {
     try {
       await printInvoice();
     } catch (err) {
-      console.error('[invoice-print] Print failed:', err);
-      // Android native printing is preferred. If the native bridge is not
-      // available in an older APK, retain the browser/WebView fallback.
-      try { window.print(); } catch (fallbackError) { console.error(fallbackError); }
+      console.error('[invoice-print] Native print failed:', err);
+      try {
+        window.print();
+      } catch (fallbackError) {
+        console.error('[invoice-print] Browser print fallback failed:', fallbackError);
+        setError('Printing could not be started. Please check that an Android print service/printer is available and try again.');
+      }
     } finally {
       setPrinting(false);
     }
