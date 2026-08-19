@@ -21,69 +21,46 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-
       - name: Set up Node
         uses: actions/setup-node@v4
         with:
           node-version: '22'
           cache: npm
           cache-dependency-path: frontend/package-lock.json
-
-      - name: Repair frontend lockfile and install dependencies
+      - name: Install frontend dependencies
         working-directory: frontend
         run: |
           set -euo pipefail
           npm install --package-lock-only --ignore-scripts
           npm ci --ignore-scripts
-
       - name: Build frontend for production API
         working-directory: frontend
         env:
           VITE_API_BASE_URL: https://stalker-one-rizvidiagnostic.vercel.app/api
         run: npm run build
-
       - name: Sync Capacitor Android project
         working-directory: frontend
         run: npx cap sync android
-
       - name: Set up JDK 21
         uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: '21'
           cache: gradle
-
       - name: Prepare Android SDK
         shell: bash
         run: |
           set -euo pipefail
           SDKMANAGER=''
-          for candidate in \
-            "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" \
-            "$ANDROID_HOME/cmdline-tools/bin/sdkmanager" \
-            "$ANDROID_HOME/cmdline-tools/16.0/bin/sdkmanager" \
-            "$ANDROID_HOME/tools/bin/sdkmanager"; do
-            if [ -x "$candidate" ]; then
-              SDKMANAGER="$candidate"
-              break
-            fi
+          for candidate in "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "$ANDROID_HOME/cmdline-tools/bin/sdkmanager" "$ANDROID_HOME/cmdline-tools/16.0/bin/sdkmanager" "$ANDROID_HOME/tools/bin/sdkmanager"; do
+            if [ -x "$candidate" ]; then SDKMANAGER="$candidate"; break; fi
           done
-          if [ -z "$SDKMANAGER" ]; then
-            SDKMANAGER="$(find "$ANDROID_HOME/cmdline-tools" -type f -path '*/bin/sdkmanager' -print -quit 2>/dev/null || true)"
-          fi
-          if [ -z "$SDKMANAGER" ] || [ ! -x "$SDKMANAGER" ]; then
-            echo "Android sdkmanager was not found under $ANDROID_HOME"
-            find "$ANDROID_HOME" -maxdepth 4 -type f -name sdkmanager -print 2>/dev/null || true
-            exit 1
-          fi
-          echo "Using sdkmanager: $SDKMANAGER"
-          echo "ANDROID_HOME=$ANDROID_HOME"
+          if [ -z "$SDKMANAGER" ]; then SDKMANAGER="$(find "$ANDROID_HOME/cmdline-tools" -type f -path '*/bin/sdkmanager' -print -quit 2>/dev/null || true)"; fi
+          test -n "$SDKMANAGER" && test -x "$SDKMANAGER" || { echo "Android sdkmanager was not found under $ANDROID_HOME"; exit 1; }
           yes | "$SDKMANAGER" --licenses >/dev/null 2>&1 || true
           "$SDKMANAGER" "platform-tools" "platforms;android-36" "build-tools;36.0.0"
-          test -x "$ANDROID_HOME/platform-tools/adb"
           test -x "$ANDROID_HOME/build-tools/36.0.0/apksigner"
           test -x "$ANDROID_HOME/build-tools/36.0.0/aapt"
-
       - name: Validate Android signing secrets
         shell: bash
         env:
@@ -97,8 +74,7 @@ jobs:
           test -n "$ANDROID_KEY_ALIAS" || { echo 'Missing ANDROID_KEY_ALIAS secret'; exit 1; }
           test -n "$ANDROID_KEY_PASSWORD" || { echo 'Missing ANDROID_KEY_PASSWORD secret'; exit 1; }
           test -n "$ANDROID_KEYSTORE_BASE64" || { echo 'Missing ANDROID_KEYSTORE_BASE64 secret'; exit 1; }
-          echo "All Android signing secrets are present. Base64 secret length: ${#ANDROID_KEYSTORE_BASE64} characters."
-
+          echo 'All Android signing secrets are present.'
       - name: Restore Android signing keystore
         shell: bash
         env:
@@ -107,30 +83,17 @@ jobs:
           set -euo pipefail
           python3 - <<'PY'
           import base64, os, re, urllib.parse
-          raw = os.environ.get('ANDROID_KEYSTORE_BASE64', '')
-          value = raw.strip().lstrip('\ufeff')
-          if value.lower().startswith('data:') and ',' in value:
-              value = value.split(',', 1)[1]
-          value = urllib.parse.unquote(value)
-          value = value.replace('\\r', '').replace('\\n', '')
-          value = re.sub(r'\s+', '', value).strip('"\'')
-          value = value.replace('-', '+').replace('_', '/').rstrip('=')
-          if not value:
-              raise SystemExit('ANDROID_KEYSTORE_BASE64 is empty.')
-          padded = value + ('=' * (-len(value) % 4))
-          try:
-              data = base64.b64decode(padded, validate=True)
-          except Exception as exc:
-              raise SystemExit(f'ANDROID_KEYSTORE_BASE64 is invalid after normalization: {exc}')
-          if len(data) < 100:
-              raise SystemExit('Decoded keystore is unexpectedly small.')
-          path = os.environ['ANDROID_KEYSTORE_PATH']
-          with open(path, 'wb') as f:
-              f.write(data)
-          os.chmod(path, 0o600)
+          value=os.environ['ANDROID_KEYSTORE_BASE64'].strip().lstrip('\ufeff')
+          if value.lower().startswith('data:') and ',' in value: value=value.split(',',1)[1]
+          value=urllib.parse.unquote(value).replace('\\r','').replace('\\n','')
+          value=re.sub(r'\s+','',value).strip('"\'').replace('-','+').replace('_','/').rstrip('=')
+          try: data=base64.b64decode(value + '='*(-len(value)%4), validate=True)
+          except Exception as e: raise SystemExit(f'ANDROID_KEYSTORE_BASE64 is invalid: {e}')
+          if len(data)<100: raise SystemExit('Decoded keystore is unexpectedly small.')
+          with open(os.environ['ANDROID_KEYSTORE_PATH'],'wb') as f: f.write(data)
+          os.chmod(os.environ['ANDROID_KEYSTORE_PATH'],0o600)
           print(f'Keystore restored successfully ({len(data)} bytes).')
           PY
-
       - name: Verify signing keystore
         shell: bash
         env:
@@ -138,9 +101,21 @@ jobs:
           ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
         run: |
           set -euo pipefail
-          keytool -list -keystore "$ANDROID_KEYSTORE_PATH" -storepass "$ANDROID_KEYSTORE_PASSWORD" -alias "$ANDROID_KEY_ALIAS" >/dev/null
+          echo 'Reading keystore metadata...'
+          if ! OUTPUT="$(keytool -list -v -keystore "$ANDROID_KEYSTORE_PATH" -storepass "$ANDROID_KEYSTORE_PASSWORD" 2>&1)"; then
+            echo 'ERROR: The decoded keystore cannot be opened with ANDROID_KEYSTORE_PASSWORD.'
+            echo "$OUTPUT" | sed -n '1,20p'
+            exit 1
+          fi
+          echo "$OUTPUT" | grep -E 'Keystore type:|Keystore provider:|Your keystore contains' || true
+          echo 'Checking configured alias...'
+          if ! keytool -list -keystore "$ANDROID_KEYSTORE_PATH" -storepass "$ANDROID_KEYSTORE_PASSWORD" -alias "$ANDROID_KEY_ALIAS" >/dev/null 2>&1; then
+            echo 'ERROR: The keystore password works, but ANDROID_KEY_ALIAS does not exist in this keystore.'
+            echo 'Available aliases:'
+            keytool -list -keystore "$ANDROID_KEYSTORE_PATH" -storepass "$ANDROID_KEYSTORE_PASSWORD" 2>&1 | sed -n '/Your keystore contains/,$p' | head -20
+            exit 1
+          fi
           echo 'Signing keystore, password, and alias verified.'
-
       - name: Build signed release APK
         working-directory: frontend/android
         env:
@@ -152,7 +127,6 @@ jobs:
           set -euo pipefail
           chmod +x gradlew
           ./gradlew clean assembleRelease --stacktrace
-
       - name: Verify APK signature and metadata
         working-directory: frontend/android
         run: |
@@ -162,20 +136,17 @@ jobs:
           BUILD_TOOLS="$ANDROID_HOME/build-tools/36.0.0"
           "$BUILD_TOOLS/apksigner" verify --verbose "$APK"
           "$BUILD_TOOLS/aapt" dump badging "$APK" | grep -E 'package:|versionCode|versionName'
-
       - name: Prepare release APK
         run: |
           set -euo pipefail
           mkdir -p dist-android
           cp frontend/android/app/build/outputs/apk/release/app-release.apk "dist-android/RizviDiagnosticCenter-${{ github.run_number }}-${{ github.sha }}.apk"
-
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
         with:
           name: RizviDiagnosticCenter-android
           path: dist-android/*.apk
           retention-days: 90
-
       - name: Publish android-latest release
         uses: softprops/action-gh-release@v2
         with:
@@ -192,7 +163,6 @@ jobs:
           make_latest: false
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
       - name: Remove signing keystore
         if: always()
         run: rm -f "$ANDROID_KEYSTORE_PATH"
