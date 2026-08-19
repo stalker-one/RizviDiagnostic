@@ -115,41 +115,33 @@ jobs:
 
           if [ ! -s "$ANDROID_KEYSTORE_PATH" ] && [ -n "${ANDROID_KEYSTORE_BASE64:-}" ]; then
             echo 'Trying legacy ANDROID_KEYSTORE_BASE64 secret...'
-            python3 - <<'PY'
-import base64, os, re, urllib.parse
-raw = os.environ.get('ANDROID_KEYSTORE_BASE64', '')
-value = raw.strip().lstrip('\ufeff')
-if value.lower().startswith('data:') and ',' in value:
-    value = value.split(',', 1)[1]
-value = urllib.parse.unquote(value)
-value = re.sub(r'\s+', '', value).strip('"\'')
-# Accept standard and URL-safe Base64 and repair missing padding.
-value = value.replace('-', '+').replace('_', '/')
-value = value.rstrip('=')
-try:
-    data = base64.b64decode(value + ('=' * (-len(value) % 4)), validate=True)
-except Exception as exc:
-    print(f'Legacy Base64 secret could not be decoded: {exc}')
-    data = b''
-if data:
-    with open(os.environ['ANDROID_KEYSTORE_PATH'], 'wb') as fh:
-        fh.write(data)
-    print(f'Decoded legacy keystore bytes: {len(data)}')
-else:
-    print('Legacy Base64 secret produced no usable bytes; workflow will generate a persistent key.')
-PY
-            chmod 600 "$ANDROID_KEYSTORE_PATH" || true
-            if ! keytool -list -keystore "$ANDROID_KEYSTORE_PATH" -storepass "$ANDROID_KEYSTORE_PASSWORD" -alias "$ANDROID_KEY_ALIAS" >/dev/null 2>&1; then
+            NORMALIZED_B64="$(printf '%s' "$ANDROID_KEYSTORE_BASE64" | tr -d '[:space:]')"
+            NORMALIZED_B64="${NORMALIZED_B64#\"}"
+            NORMALIZED_B64="${NORMALIZED_B64%\"}"
+            NORMALIZED_B64="${NORMALIZED_B64#\'}"
+            NORMALIZED_B64="${NORMALIZED_B64%\'}"
+            if printf '%s' "$NORMALIZED_B64" | grep -qi '^data:'; then
+              NORMALIZED_B64="${NORMALIZED_B64#*,}"
+            fi
+            if printf '%s' "$NORMALIZED_B64" | grep -q '[-_]'; then
+              NORMALIZED_B64="$(printf '%s' "$NORMALIZED_B64" | tr '_-' '/+')"
+            fi
+            case $(( ${#NORMALIZED_B64} % 4 )) in
+              2) NORMALIZED_B64="${NORMALIZED_B64}==" ;;
+              3) NORMALIZED_B64="${NORMALIZED_B64}=" ;;
+            esac
+            if ! printf '%s' "$NORMALIZED_B64" | base64 --decode > "$ANDROID_KEYSTORE_PATH" 2>/tmp/base64.err; then
+              echo 'Legacy Base64 secret could not be decoded; generating a persistent keystore instead.'
+              rm -f "$ANDROID_KEYSTORE_PATH"
+            fi
+            if [ -s "$ANDROID_KEYSTORE_PATH" ] && ! keytool -list -keystore "$ANDROID_KEYSTORE_PATH" -storepass "$ANDROID_KEYSTORE_PASSWORD" -alias "$ANDROID_KEY_ALIAS" >/dev/null 2>&1; then
               echo 'Legacy keystore is not usable with the configured password/alias; it will not be used.'
               rm -f "$ANDROID_KEYSTORE_PATH"
-            else
-              echo 'Legacy signing keystore is valid and unlockable.'
             fi
           fi
 
           if [ ! -s "$ANDROID_KEYSTORE_PATH" ]; then
             echo 'No usable signing keystore exists. Generating a new persistent PKCS12 signing key.'
-            echo 'WARNING: this creates a new signing identity and cannot update an APK signed by a lost previous key.'
             keytool -genkeypair \
               -v \
               -storetype PKCS12 \
