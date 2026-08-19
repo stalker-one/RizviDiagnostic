@@ -24,11 +24,9 @@ public class PrintPlugin extends Plugin {
         if (getActivity() == null) { call.reject("Print service is not available."); return; }
         if (html == null || html.trim().isEmpty()) { call.reject("No printable HTML was provided."); return; }
 
-        // The web page now sends the selected format explicitly. Do not guess
-        // from the HTML text because clinic names, invoice descriptions, or
-        // CSS can accidentally contain words such as "receipt" or "thermal".
-        final boolean thermal = requestedType.toLowerCase().contains("thermal") || requestedType.toLowerCase().contains("58mm") || requestedType.toLowerCase().contains("80mm");
-        final boolean narrow58 = requestedType.toLowerCase().contains("58mm");
+        final String type = requestedType == null ? "simple-a4" : requestedType.toLowerCase();
+        final boolean thermal = type.contains("thermal") || type.contains("58mm") || type.contains("80mm");
+        final boolean narrow58 = type.contains("58mm");
         final String preparedHtml = preparePrintHtml(html, thermal, narrow58);
 
         getActivity().runOnUiThread(() -> {
@@ -90,15 +88,16 @@ public class PrintPlugin extends Plugin {
                     ".no-print{display:none!important;}" +
                     "</style>";
         } else {
+            // Simple print must retain the same invoice geometry as the web
+            // invoice. Only remove screen-only decoration and set the A4 page;
+            // do not impose a competing width, font size, table layout, or
+            // padding that changes the invoice's own print CSS.
             css = "<style id=\"android-simple-print\">" +
                     "@page{size:A4;margin:10mm!important;}" +
-                    "html,body{width:190mm!important;max-width:190mm!important;margin:0!important;padding:0!important;}" +
-                    "body{font-family:Arial,Helvetica,sans-serif!important;font-size:12px!important;line-height:1.35!important;color:#000!important;background:#fff!important;overflow:visible!important;}" +
-                    "*{box-sizing:border-box!important;}" +
-                    "#printable-area{width:190mm!important;max-width:190mm!important;min-width:0!important;margin:0!important;padding:0!important;overflow:visible!important;border:0!important;box-shadow:none!important;}" +
-                    "#printable-area>div{width:190mm!important;max-width:190mm!important;min-width:0!important;margin:0!important;padding:0!important;overflow:visible!important;border:0!important;box-shadow:none!important;}" +
-                    "table{width:100%!important;max-width:100%!important;min-width:0!important;border-collapse:collapse!important;table-layout:fixed!important;}" +
-                    "th,td{padding:5px 4px!important;vertical-align:top!important;overflow-wrap:anywhere!important;word-break:break-word!important;}" +
+                    "html,body{margin:0!important;padding:0!important;background:#fff!important;overflow:visible!important;}" +
+                    "body{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;}" +
+                    "#printable-area{overflow:visible!important;border:0!important;box-shadow:none!important;}" +
+                    "#printable-area>div{overflow:visible!important;border:0!important;box-shadow:none!important;}" +
                     "img{max-width:100%!important;height:auto!important;}" +
                     "h1,h2,h3,h4{page-break-after:avoid!important;}" +
                     "tr{page-break-inside:avoid!important;}" +
