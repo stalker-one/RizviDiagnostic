@@ -127,12 +127,23 @@ jobs:
           tag_name: android-superadmin-latest
           name: Android Superadmin App (latest build)
           body: |
+            # What's new
+            - Updated Superadmin Android application to version 1.0.${{ github.run_number }}.
+            - Improved mandatory realtime update detection and update modal.
+            - Update modal now shows current version, new version/build, and these release changes.
+            - Improved Simple Print and Thermal Print layouts for Android.
+            - Thermal receipts use the correct narrow receipt format instead of A4.
+            - Fixed Android printing to use the live Vercel application URL instead of localhost.
+            - Includes current Superadmin bug fixes and performance improvements.
+
+            # Build information
             Dedicated Superadmin Android application.
             Package: com.rizvi.diagnosticcenter.superadmin
             Login route: /adminlogin
             Version code: ${{ github.run_number }}
             Version name: 1.0.${{ github.run_number }}
-            Built from commit ${{ github.sha }}.
+            Commit: ${{ github.sha }}
+            Release-signed APK for sideloading.
           files: frontend/android/dist-superadmin/RizviDiagnosticSuperadmin-latest.apk
           prerelease: true
           make_latest: false
