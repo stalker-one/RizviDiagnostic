@@ -66,9 +66,56 @@ jobs:
           ANDROID_KEYSTORE_PATH: ${{ github.workspace }}/android-release.keystore
         run: |
           set -euo pipefail
-          printf '%s' "$ANDROID_KEYSTORE_BASE64" | base64 --decode > "$ANDROID_KEYSTORE_PATH"
+          python3 - <<'PY'
+          import base64
+          import os
+          import re
+          import sys
+
+          value = os.environ["ANDROID_KEYSTORE_BASE64"].strip()
+
+          # Accept a pasted data URI as well as plain base64.
+          if value.lower().startswith("data:") and "," in value:
+              value = value.split(",", 1)[1]
+
+          # Remove spaces/newlines introduced by copied base64 output.
+          value = re.sub(r"\s+", "", value)
+
+          # Support both standard and URL-safe base64 and missing padding.
+          value += "=" * (-len(value) % 4)
+
+          if not re.fullmatch(r"[A-Za-z0-9+/=_-]+", value):
+              print("ANDROID_KEYSTORE_BASE64 contains invalid characters.", file=sys.stderr)
+              sys.exit(1)
+
+          try:
+              data = base64.b64decode(value, altchars=b"-_", validate=True)
+          except Exception as exc:
+              print("ANDROID_KEYSTORE_BASE64 is not valid base64. Recreate the secret from the keystore file using base64 encoding.", file=sys.stderr)
+              sys.exit(1)
+
+          if not data:
+              print("Decoded Android keystore is empty.", file=sys.stderr)
+              sys.exit(1)
+
+          path = os.environ["ANDROID_KEYSTORE_PATH"]
+          with open(path, "wb") as f:
+              f.write(data)
+          os.chmod(path, 0o600)
+          print(f"Keystore restored successfully ({len(data)} bytes).")
+          PY
           test -s "$ANDROID_KEYSTORE_PATH"
-          chmod 600 "$ANDROID_KEYSTORE_PATH"
+
+      - name: Verify restored keystore
+        shell: bash
+        env:
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEYSTORE_PATH: ${{ github.workspace }}/android-release.keystore
+        run: |
+          set -euo pipefail
+          keytool -list -keystore "$ANDROID_KEYSTORE_PATH" -storepass "$ANDROID_KEYSTORE_PASSWORD" -alias "$ANDROID_KEY_ALIAS" >/dev/null
+          echo "Android signing keystore and alias verified."
 
       - name: Build signed release APK
         working-directory: frontend/android
