@@ -48,7 +48,10 @@ jobs:
       - name: Set up Android SDK
         uses: android-actions/setup-android@v3
         with:
-          packages: 'platform-tools;platforms;build-tools;platforms;android-35;build-tools;35.0.0'
+          packages: |
+            platform-tools
+            platforms;android-35
+            build-tools;35.0.0
 
       - name: Validate Android signing secrets
         shell: bash
@@ -88,15 +91,12 @@ jobs:
           if not value:
               raise SystemExit('ANDROID_KEYSTORE_BASE64 is empty.')
 
-          # First try strict Base64. If the value was copied from a tool that
-          # inserted harmless non-Base64 separators, retry after removing them.
           candidates = [value]
           filtered = re.sub(r'[^A-Za-z0-9+/=]', '', value)
           if filtered != value:
               candidates.append(filtered.rstrip('='))
 
           data = None
-          errors = []
           for candidate in candidates:
               padded = candidate + ('=' * (-len(candidate) % 4))
               try:
@@ -104,8 +104,8 @@ jobs:
                   if len(decoded) >= 100:
                       data = decoded
                       break
-              except Exception as exc:
-                  errors.append(str(exc))
+              except Exception:
+                  pass
 
           if data is None:
               raise SystemExit(
