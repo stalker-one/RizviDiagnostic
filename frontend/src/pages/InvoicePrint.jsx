@@ -11,35 +11,55 @@ import api from '../api/axios';
 
 const NativePrint = registerPlugin('Print');
 
-function buildPrintableHtml() {
+function buildPrintableHtml(format) {
   const target = document.getElementById('printable-area');
   if (!target) throw new Error('Printable invoice area was not found.');
 
   const styles = Array.from(document.querySelectorAll('style'))
     .map((style) => style.textContent || '')
     .join('\n');
-
   const links = Array.from(document.querySelectorAll('link[rel="stylesheet"]'))
     .map((link) => `<link rel="stylesheet" href="${link.href}">`)
     .join('\n');
 
+  const thermal = format === 'thermal';
+  const width = thermal ? '80mm' : '190mm';
+  const outerCss = thermal
+    ? `
+      @page{size:80mm auto;margin:0!important;}
+      html,body{width:80mm!important;max-width:80mm!important;margin:0!important;padding:0!important;background:#fff!important;}
+      #printable-area{width:80mm!important;max-width:80mm!important;margin:0!important;padding:0!important;overflow:visible!important;box-shadow:none!important;border:0!important;}
+      #printable-area>div{width:80mm!important;max-width:80mm!important;min-width:0!important;margin:0!important;padding:2mm!important;box-shadow:none!important;border:0!important;overflow:visible!important;}
+      #printable-area table{width:100%!important;min-width:0!important;max-width:100%!important;table-layout:fixed!important;}
+    `
+    : `
+      @page{size:A4;margin:10mm!important;}
+      html,body{width:190mm!important;max-width:190mm!important;margin:0!important;padding:0!important;background:#fff!important;}
+      #printable-area{width:190mm!important;max-width:190mm!important;margin:0!important;padding:0!important;overflow:visible!important;box-shadow:none!important;border:0!important;}
+      #printable-area>div{width:190mm!important;max-width:190mm!important;min-width:0!important;margin:0!important;padding:0!important;box-shadow:none!important;border:0!important;overflow:visible!important;}
+      #printable-area table{width:100%!important;min-width:0!important;max-width:100%!important;table-layout:fixed!important;}
+    `;
+
   return `<!doctype html>
-<html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<html><head><meta charset="utf-8"><meta name="viewport" content="width=${width}">
 ${links}<style>${styles}
-html,body{margin:0;padding:0;background:#fff;}
-body{font-family:Arial,Helvetica,sans-serif;color:#111;}
+html,body{background:#fff;color:#111;font-family:Arial,Helvetica,sans-serif;}
 .no-print{display:none!important;}
-#printable-area{box-shadow:none!important;border:0!important;margin:0!important;overflow:visible!important;}
-@page{margin:8mm;}
+*{box-sizing:border-box!important;}
+img{max-width:100%!important;height:auto!important;}
+#printable-area{box-shadow:none!important;border:0!important;}
+${outerCss}
+@media print{html,body{margin:0!important;padding:0!important;}*{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;}}
 </style></head><body>${target.outerHTML}</body></html>`;
 }
 
-async function printInvoice() {
+async function printInvoice(format) {
   if (Capacitor.getPlatform() === 'android') {
-    const html = buildPrintableHtml();
+    const html = buildPrintableHtml(format);
     await NativePrint.print({
       html,
-      name: 'Rizvi Diagnostic Invoice',
+      type: format === 'thermal' ? 'thermal-80mm' : 'simple-a4',
+      name: format === 'thermal' ? 'Rizvi Diagnostic Thermal Invoice' : 'Rizvi Diagnostic Invoice',
     });
     return;
   }
@@ -57,7 +77,6 @@ export default function InvoicePrint() {
 
   useEffect(() => {
     let cancelled = false;
-
     async function loadInvoice() {
       setLoading(true);
       setError('');
@@ -76,7 +95,6 @@ export default function InvoicePrint() {
           );
         }
       }
-
       try {
         const response = await api.get('/settings');
         if (!cancelled && response.data) {
@@ -87,10 +105,8 @@ export default function InvoicePrint() {
       } catch (err) {
         console.warn('[invoice-print] Settings unavailable; using defaults.', err);
       }
-
       if (!cancelled) setLoading(false);
     }
-
     loadInvoice();
     return () => { cancelled = true; };
   }, [id]);
@@ -99,7 +115,7 @@ export default function InvoicePrint() {
     if (printing) return;
     setPrinting(true);
     try {
-      await printInvoice();
+      await printInvoice(format);
     } catch (err) {
       console.error('[invoice-print] Native print failed:', err);
       try {
