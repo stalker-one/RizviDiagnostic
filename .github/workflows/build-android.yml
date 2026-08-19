@@ -105,13 +105,8 @@ jobs:
           rm -f "$ANDROID_KEYSTORE_PATH"
 
           if [ -s .github/android-signing/keystore.p12.enc ]; then
-            openssl enc -d -aes-256-cbc -pbkdf2 \
-              -pass env:ANDROID_KEYSTORE_PASSWORD \
-              -in .github/android-signing/keystore.p12.enc \
-              -out "$ANDROID_KEYSTORE_PATH" 2>/tmp/keystore-decrypt.err || true
-            if ! keytool -list -keystore "$ANDROID_KEYSTORE_PATH" -storepass "$ANDROID_KEYSTORE_PASSWORD" -alias "$ANDROID_KEY_ALIAS" >/dev/null 2>&1; then
-              rm -f "$ANDROID_KEYSTORE_PATH"
-            fi
+            openssl enc -d -aes-256-cbc -pbkdf2 -pass env:ANDROID_KEYSTORE_PASSWORD -in .github/android-signing/keystore.p12.enc -out "$ANDROID_KEYSTORE_PATH" 2>/tmp/keystore-decrypt.err || true
+            if ! keytool -list -keystore "$ANDROID_KEYSTORE_PATH" -storepass "$ANDROID_KEYSTORE_PASSWORD" -alias "$ANDROID_KEY_ALIAS" >/dev/null 2>&1; then rm -f "$ANDROID_KEYSTORE_PATH"; fi
           fi
 
           if [ ! -s "$ANDROID_KEYSTORE_PATH" ] && [ -n "${ANDROID_KEYSTORE_BASE64:-}" ]; then
@@ -124,15 +119,9 @@ jobs:
           fi
 
           if [ ! -s "$ANDROID_KEYSTORE_PATH" ]; then
-            keytool -genkeypair -v -storetype PKCS12 \
-              -keystore "$ANDROID_KEYSTORE_PATH" \
-              -storepass "$ANDROID_KEYSTORE_PASSWORD" \
-              -keypass "$ANDROID_KEY_PASSWORD" \
-              -alias "$ANDROID_KEY_ALIAS" -keyalg RSA -keysize 4096 -validity 10000 \
-              -dname 'CN=Rizvi Diagnostic Center, OU=Mobile, O=Rizvi Diagnostic Center, L=Unknown, ST=Unknown, C=PK'
+            keytool -genkeypair -v -storetype PKCS12 -keystore "$ANDROID_KEYSTORE_PATH" -storepass "$ANDROID_KEYSTORE_PASSWORD" -keypass "$ANDROID_KEY_PASSWORD" -alias "$ANDROID_KEY_ALIAS" -keyalg RSA -keysize 4096 -validity 10000 -dname 'CN=Rizvi Diagnostic Center, OU=Mobile, O=Rizvi Diagnostic Center, L=Unknown, ST=Unknown, C=PK'
             chmod 600 "$ANDROID_KEYSTORE_PATH"
-            openssl enc -aes-256-cbc -pbkdf2 -pass env:ANDROID_KEYSTORE_PASSWORD \
-              -in "$ANDROID_KEYSTORE_PATH" -out .github/android-signing/keystore.p12.enc
+            openssl enc -aes-256-cbc -pbkdf2 -pass env:ANDROID_KEYSTORE_PASSWORD -in "$ANDROID_KEYSTORE_PATH" -out .github/android-signing/keystore.p12.enc
             git config user.name 'github-actions[bot]'
             git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
             git add .github/android-signing/keystore.p12.enc
@@ -184,6 +173,8 @@ jobs:
             Automatically rebuilt from commit ${{ github.sha }}.
             Release-signed APK for sideloading.
             Package: com.rizvi.diagnosticcenter
+            Version code: ${{ github.run_number }}
+            Version name: 1.0.${{ github.run_number }}
           files: dist-android/*.apk
           make_latest: false
 
