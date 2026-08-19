@@ -14,6 +14,9 @@ permissions:
 jobs:
   build-android:
     runs-on: ubuntu-latest
+    env:
+      ANDROID_KEYSTORE_PATH: ${{ github.workspace }}/android-release.keystore
+
     steps:
       - uses: actions/checkout@v4
 
@@ -44,6 +47,12 @@ jobs:
 
       - name: Set up Android SDK
         uses: android-actions/setup-android@v3
+        with:
+          packages: platform-tools
+
+      - name: Accept Android SDK licenses
+        shell: bash
+        run: yes | sdkmanager --licenses >/dev/null || true
 
       - name: Validate Android signing secrets
         shell: bash
@@ -59,76 +68,52 @@ jobs:
           test -n "$ANDROID_KEY_PASSWORD" || { echo "Missing ANDROID_KEY_PASSWORD secret"; exit 1; }
           test -n "$ANDROID_KEYSTORE_BASE64" || { echo "Missing ANDROID_KEYSTORE_BASE64 secret"; exit 1; }
 
-      - name: Restore stable Android signing keystore
+      - name: Restore Android signing keystore
         shell: bash
         env:
           ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
-          ANDROID_KEYSTORE_PATH: ${{ github.workspace }}/android-release.keystore
         run: |
           set -euo pipefail
           python3 - <<'PY'
-          import base64
-          import os
-          import re
-          import sys
-
-          value = os.environ["ANDROID_KEYSTORE_BASE64"].strip()
-
-          # Accept a data URI or a value accidentally wrapped in quotes.
-          if value.lower().startswith("data:") and "," in value:
-              value = value.split(",", 1)[1]
+          import base64, os, re, sys
+          value = os.environ['ANDROID_KEYSTORE_BASE64'].strip()
+          if value.lower().startswith('data:') and ',' in value:
+              value = value.split(',', 1)[1]
           value = value.strip().strip('"').strip("'")
-
-          # Handle literal escaped line breaks and normal copied whitespace.
-          value = value.replace("\\r", "").replace("\\n", "")
-          value = re.sub(r"\s+", "", value)
-
-          # Normalize URL-safe Base64 to standard Base64.
-          value = value.replace("-", "+").replace("_", "/")
-
-          # Remove existing padding and add exactly the required padding.
-          value = value.rstrip("=")
+          value = value.replace('\\r', '').replace('\\n', '')
+          value = re.sub(r'\s+', '', value)
+          value = value.replace('-', '+').replace('_', '/')
+          value = value.rstrip('=')
           if not value:
-              print("ANDROID_KEYSTORE_BASE64 is empty after normalization.", file=sys.stderr)
-              sys.exit(1)
-          if not re.fullmatch(r"[A-Za-z0-9+/]+", value):
-              print("ANDROID_KEYSTORE_BASE64 contains invalid characters.", file=sys.stderr)
-              sys.exit(1)
-          value += "=" * (-len(value) % 4)
-
+              raise SystemExit('ANDROID_KEYSTORE_BASE64 is empty.')
+          if not re.fullmatch(r'[A-Za-z0-9+/]+', value):
+              raise SystemExit('ANDROID_KEYSTORE_BASE64 contains invalid characters. Recreate it from the original keystore file.')
+          value += '=' * (-len(value) % 4)
           try:
               data = base64.b64decode(value, validate=True)
-          except Exception:
-              print("ANDROID_KEYSTORE_BASE64 cannot be decoded. Ensure the secret is the Base64 of the original .jks/.keystore file.", file=sys.stderr)
-              sys.exit(1)
-
-          if not data:
-              print("Decoded Android keystore is empty.", file=sys.stderr)
-              sys.exit(1)
-
-          path = os.environ["ANDROID_KEYSTORE_PATH"]
-          with open(path, "wb") as f:
+          except Exception as exc:
+              raise SystemExit(f'ANDROID_KEYSTORE_BASE64 is not valid Base64: {exc}')
+          if len(data) < 100:
+              raise SystemExit('Decoded keystore is unexpectedly small; refusing to use it.')
+          with open(os.environ['ANDROID_KEYSTORE_PATH'], 'wb') as f:
               f.write(data)
-          os.chmod(path, 0o600)
-          print(f"Keystore restored successfully ({len(data)} bytes).")
+          os.chmod(os.environ['ANDROID_KEYSTORE_PATH'], 0o600)
+          print(f'Keystore decoded successfully: {len(data)} bytes')
           PY
-          test -s "$ANDROID_KEYSTORE_PATH"
 
-      - name: Verify restored keystore
+      - name: Verify signing keystore
         shell: bash
         env:
           ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
           ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
-          ANDROID_KEYSTORE_PATH: ${{ github.workspace }}/android-release.keystore
         run: |
           set -euo pipefail
           keytool -list -keystore "$ANDROID_KEYSTORE_PATH" -storepass "$ANDROID_KEYSTORE_PASSWORD" -alias "$ANDROID_KEY_ALIAS" >/dev/null
-          echo "Android signing keystore and alias verified."
+          echo 'Signing keystore, password, and alias verified.'
 
       - name: Build signed release APK
         working-directory: frontend/android
         env:
-          ANDROID_KEYSTORE_PATH: ${{ github.workspace }}/android-release.keystore
           ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
           ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
           ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
@@ -136,14 +121,15 @@ jobs:
           chmod +x gradlew
           ./gradlew clean assembleRelease
 
-      - name: Verify APK signature and version
+      - name: Verify APK signature and metadata
         working-directory: frontend/android
-        env:
-          ANDROID_HOME: ${{ env.ANDROID_HOME }}
         run: |
+          set -euo pipefail
+          APK=app/build/outputs/apk/release/app-release.apk
+          test -s "$APK"
           BUILD_TOOLS="$ANDROID_HOME/build-tools/$(ls "$ANDROID_HOME/build-tools" | sort -V | tail -1)"
-          "$BUILD_TOOLS/apksigner" verify --verbose app/build/outputs/apk/release/app-release.apk
-          "$BUILD_TOOLS/aapt" dump badging app/build/outputs/apk/release/app-release.apk | grep -E "package:|versionCode|versionName"
+          "$BUILD_TOOLS/apksigner" verify --verbose "$APK"
+          "$BUILD_TOOLS/aapt" dump badging "$APK" | grep -E 'package:|versionCode|versionName'
 
       - name: Prepare release APK
         run: |
@@ -151,25 +137,24 @@ jobs:
           mkdir -p dist-android
           cp frontend/android/app/build/outputs/apk/release/app-release.apk "dist-android/RizviDiagnosticCenter-${{ github.run_number }}-${{ github.sha }}.apk"
 
-      - name: Upload APK as workflow artifact
+      - name: Upload APK artifact
         uses: actions/upload-artifact@v4
         with:
           name: RizviDiagnosticCenter-android
           path: dist-android/*.apk
           retention-days: 90
 
-      - name: Publish to android-latest release
+      - name: Publish android-latest release
         uses: softprops/action-gh-release@v2
         with:
           tag_name: android-latest
-          name: 'Android App (latest build)'
+          name: Android App (latest build)
           body: |
             Automatically rebuilt from commit ${{ github.sha }}.
             Release-signed APK for sideloading.
             Package: com.rizvi.diagnosticcenter
-            Version code: ${{ github.run_number }} (minimum 2)
+            Version code: ${{ github.run_number }}.
             API: https://stalker-one-rizvidiagnostic.vercel.app/api
-            Future builds use the same signing key and an automatically increasing version code for in-place updates.
           files: dist-android/*.apk
           prerelease: true
           make_latest: false
@@ -178,4 +163,4 @@ jobs:
 
       - name: Remove signing keystore
         if: always()
-        run: rm -f "${{ github.workspace }}/android-release.keystore"
+        run: rm -f "$ANDROID_KEYSTORE_PATH"
