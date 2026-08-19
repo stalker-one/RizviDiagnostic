@@ -25,6 +25,14 @@ public class UpdatePlugin extends Plugin {
     private final ExecutorService executor = Executors.newSingleThreadExecutor();
 
     @PluginMethod
+    public void getVersion(PluginCall call) {
+        com.getcapacitor.JSObject result = new com.getcapacitor.JSObject();
+        result.put("versionCode", BuildConfig.VERSION_CODE);
+        result.put("versionName", BuildConfig.VERSION_NAME);
+        call.resolve(result);
+    }
+
+    @PluginMethod
     public void installApk(PluginCall call) {
         String url = call.getString("url", "");
         if (url == null || url.trim().isEmpty()) {
