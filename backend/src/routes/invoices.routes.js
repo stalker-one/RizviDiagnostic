@@ -13,30 +13,19 @@ function computeTotals(items, discount) {
   return { subTotal, discountAmount, total };
 }
 
-// Invoice listing with filters + pagination. Refresh from Atlas on every read
-// so a Vercel serverless instance never serves a stale in-memory invoice list.
 router.get('/', async (req, res) => {
   const { patientId, page, pageSize } = req.query;
   let { range, from, to } = req.query;
   let invoices = await getFreshTable('invoices', readTable('invoices'));
-
   if (patientId) {
     invoices = invoices.filter((i) => i.patientId === patientId);
     return res.json({ rows: invoices.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt)), total: invoices.length, page: 1, pageSize: invoices.length, totalPages: 1 });
   }
-
   const isStaff = req.user.role === 'staff';
-  if (isStaff) {
-    range = 'today';
-    from = undefined;
-    to = undefined;
-  } else if (!range && !from && !to) {
-    range = 'today';
-  }
-
+  if (isStaff) { range = 'today'; from = undefined; to = undefined; }
+  else if (!range && !from && !to) range = 'today';
   invoices = applyDateRange(invoices, { range, from, to });
   invoices = invoices.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
-
   let staffLimit = null;
   if (isStaff) {
     const settings = readTable('settings');
@@ -44,99 +33,36 @@ router.get('/', async (req, res) => {
     invoices = applyStaffEntryLimit(invoices, settings);
     staffLimit = staffLimitInfo(settings, totalAvailable, invoices.length);
   }
-
   const result = paginate(invoices, page, pageSize);
   res.json({ ...result, range, staffLimit });
 });
 
-// Always read this invoice from Atlas first. This is important on Vercel:
-// multiple serverless instances have separate in-memory caches, so the
-// instance serving the print page may not be the instance that created it.
 router.get('/:id', async (req, res) => {
   const invoices = await getFreshTable('invoices', readTable('invoices'));
   const invoice = invoices.find((i) => i.id === req.params.id);
   if (!invoice) return res.status(404).json({ message: 'Invoice not found.' });
-
   const patients = readTable('patients');
   const patient = patients.find((p) => p.id === invoice.patientId) || null;
   res.json({ ...invoice, patient });
 });
 
 router.post('/', (req, res) => {
-  const {
-    patientId,
-    items,
-    discount,
-    referralId,
-    paymentMode,
-    amountPaid,
-    notes,
-  } = req.body;
-
+  const { patientId, items, discount, referralId, paymentMode, amountPaid, notes } = req.body;
   if (!patientId) return res.status(400).json({ message: 'Patient is required.' });
-  if (!Array.isArray(items) || items.length === 0) {
-    return res.status(400).json({ message: 'At least one procedure must be added.' });
-  }
-
+  if (!Array.isArray(items) || items.length === 0) return res.status(400).json({ message: 'At least one procedure must be added.' });
   const patients = readTable('patients');
   const patient = patients.find((p) => p.id === patientId);
   if (!patient) return res.status(404).json({ message: 'Patient not found.' });
-
   const effectiveReferralId = referralId || patient.referredBy || null;
-
-  const normalizedItems = items.map((it) => ({
-    id: generateId('item'),
-    procedureId: it.procedureId || null,
-    description: it.description,
-    rate: Number(it.rate),
-    quantity: Number(it.quantity) || 1,
-    amount: Number(it.rate) * (Number(it.quantity) || 1),
-    performedBy: it.performedBy || '',
-    completionDateTime: it.completionDateTime || new Date().toISOString(),
-  }));
-
+  const normalizedItems = items.map((it) => ({ id: generateId('item'), procedureId: it.procedureId || null, description: it.description, rate: Number(it.rate), quantity: Number(it.quantity) || 1, amount: Number(it.rate) * (Number(it.quantity) || 1), performedBy: it.performedBy || '', completionDateTime: it.completionDateTime || new Date().toISOString() }));
   const { subTotal, discountAmount, total } = computeTotals(normalizedItems, discount);
   const paid = Number(amountPaid) || 0;
   const dueAmount = Math.max(total - paid, 0);
   const advance = Math.max(paid - total, 0);
-
   const referrals = readTable('referrals');
   const referral = effectiveReferralId ? referrals.find((r) => r.id === effectiveReferralId) : null;
-
   const invoices = readTable('invoices');
-  const newInvoice = {
-    id: generateId('inv'),
-    invoiceNumber: nextInvoiceNumber(),
-    patientId,
-    patientSnapshot: {
-      name: patient.name,
-      gender: patient.gender,
-      age: patient.age,
-      mrNumber: patient.mrNumber,
-      phone: patient.phone,
-      address: patient.address,
-      department: patient.department || '',
-      doctorId: patient.doctorId || '',
-      doctorName: patient.doctorName || '',
-    },
-    referralId: effectiveReferralId,
-    referralName: referral?.name || '',
-    items: normalizedItems,
-    subTotal,
-    discountAmount,
-    total,
-    amountPaid: paid,
-    dueAmount,
-    advance,
-    paymentMode: paymentMode || 'Cash',
-    notes: notes || '',
-    status: dueAmount > 0 ? 'due' : 'paid',
-    createdBy: req.user.id,
-    createdByName: req.user.name,
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
-  };
-
+  const newInvoice = { id: generateId('inv'), invoiceNumber: nextInvoiceNumber(), patientId, patientSnapshot: { name: patient.name, gender: patient.gender, age: patient.age, mrNumber: patient.mrNumber, phone: patient.phone, address: patient.address, department: patient.department || '', doctorId: patient.doctorId || '', doctorName: patient.doctorName || '' }, referralId: effectiveReferralId, referralName: referral?.name || '', items: normalizedItems, subTotal, discountAmount, total, amountPaid: paid, dueAmount, advance, paymentMode: paymentMode || 'Cash', notes: notes || '', status: dueAmount > 0 ? 'due' : 'paid', createdBy: req.user.id, createdByName: req.user.name, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() };
   invoices.push(newInvoice);
   writeTable('invoices', invoices);
   res.status(201).json(newInvoice);
@@ -146,49 +72,25 @@ router.put('/:id', (req, res) => {
   const invoices = readTable('invoices');
   const invoice = invoices.find((i) => i.id === req.params.id);
   if (!invoice) return res.status(404).json({ message: 'Invoice not found.' });
-
   const { items, discount, referralId, paymentMode, amountPaid, notes } = req.body;
-
-  if (Array.isArray(items) && items.length > 0) {
-    invoice.items = items.map((it) => ({
-      id: it.id || generateId('item'),
-      procedureId: it.procedureId || null,
-      description: it.description,
-      rate: Number(it.rate),
-      quantity: Number(it.quantity) || 1,
-      amount: Number(it.rate) * (Number(it.quantity) || 1),
-      performedBy: it.performedBy || '',
-      completionDateTime: it.completionDateTime || new Date().toISOString(),
-    }));
-  }
+  if (Array.isArray(items) && items.length > 0) invoice.items = items.map((it) => ({ id: it.id || generateId('item'), procedureId: it.procedureId || null, description: it.description, rate: Number(it.rate), quantity: Number(it.quantity) || 1, amount: Number(it.rate) * (Number(it.quantity) || 1), performedBy: it.performedBy || '', completionDateTime: it.completionDateTime || new Date().toISOString() }));
   if (discount !== undefined) invoice.discountAmount = Number(discount) || 0;
-  if (referralId !== undefined) {
-    invoice.referralId = referralId;
-    const referral = referralId ? readTable('referrals').find((r) => r.id === referralId) : null;
-    invoice.referralName = referral?.name || '';
-  }
+  if (referralId !== undefined) { invoice.referralId = referralId; const referral = referralId ? readTable('referrals').find((r) => r.id === referralId) : null; invoice.referralName = referral?.name || ''; }
   if (paymentMode !== undefined) invoice.paymentMode = paymentMode;
   if (notes !== undefined) invoice.notes = notes;
-
   const { subTotal, discountAmount, total } = computeTotals(invoice.items, invoice.discountAmount);
-  invoice.subTotal = subTotal;
-  invoice.discountAmount = discountAmount;
-  invoice.total = total;
-
+  invoice.subTotal = subTotal; invoice.discountAmount = discountAmount; invoice.total = total;
   if (amountPaid !== undefined) invoice.amountPaid = Number(amountPaid) || 0;
   invoice.dueAmount = Math.max(invoice.total - invoice.amountPaid, 0);
   invoice.advance = Math.max(invoice.amountPaid - invoice.total, 0);
   invoice.status = invoice.dueAmount > 0 ? 'due' : 'paid';
-  invoice.updatedAt = new Date().toISOString();
-  invoice.updatedBy = req.user.id;
-  invoice.updatedByName = req.user.name;
-
+  invoice.updatedAt = new Date().toISOString(); invoice.updatedBy = req.user.id; invoice.updatedByName = req.user.name;
   writeTable('invoices', invoices);
   res.json(invoice);
 });
 
-router.delete('/:id', requireRole('admin', 'superadmin'), (req, res) => {
-  const invoices = readTable('invoices');
+router.delete('/:id', requireRole('admin', 'superadmin'), async (req, res) => {
+  const invoices = await getFreshTable('invoices', readTable('invoices'));
   const idx = invoices.findIndex((i) => i.id === req.params.id);
   if (idx === -1) return res.status(404).json({ message: 'Invoice not found.' });
   invoices.splice(idx, 1);
