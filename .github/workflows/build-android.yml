@@ -1,10 +1,8 @@
 name: Build Android App
 
-# Runs on GitHub's own servers, not in any sandboxed dev environment — this
-# is what actually compiles the Capacitor-wrapped frontend into a real,
-# installable Android APK. Builds automatically on every push to main that
-# touches the frontend, and can also be triggered manually from the Actions
-# tab (the "Run workflow" button) any time you just want a fresh build.
+# Builds the Capacitor-wrapped frontend into a real installable Android APK.
+# The packaged app must use the current public Vercel API URL because a native
+# app does not share the browser's same-origin /api path.
 on:
   push:
     branches: [main]
@@ -31,13 +29,12 @@ jobs:
         working-directory: frontend
         run: npm install
 
-      # VITE_API_BASE_URL points the packaged app at your live Vercel API
-      # (there's no "same origin" for a native app the way there is for a
-      # website, so it needs the full URL baked in at build time).
+      # IMPORTANT: this must match the current production Vercel deployment.
+      # The old rizvi-diagnostic-chi.vercel.app domain is no longer the live API.
       - name: Build frontend
         working-directory: frontend
         env:
-          VITE_API_BASE_URL: https://rizvi-diagnostic-chi.vercel.app/api
+          VITE_API_BASE_URL: https://stalker-one-rizvidiagnostic.vercel.app/api
         run: npm run build
 
       - name: Sync Capacitor Android project with latest build
@@ -73,20 +70,15 @@ jobs:
           path: dist-android/*.apk
           retention-days: 90
 
-      # Also publishes to a standing "android-latest" GitHub Release so
-      # there's always one stable download link, without having to dig
-      # through individual Actions run pages each time.
-      - name: Publish to "android-latest" release
+      - name: Publish to android-latest release
         uses: softprops/action-gh-release@v2
         with:
           tag_name: android-latest
           name: 'Android App (latest build)'
           body: |
-            Automatically rebuilt from commit ${{ github.sha }} on ${{ github.event.repository.updated_at }}.
+            Automatically rebuilt from commit ${{ github.sha }}.
             This is a debug-signed APK for sideloading — not from the Play Store.
-            To install: download the .apk on your Android phone, then open it
-            (you may need to allow "Install unknown apps" for your browser/
-            files app the first time).
+            The app is configured to use the current Rizvi Diagnostic production API.
           files: dist-android/*.apk
           prerelease: true
           make_latest: false
