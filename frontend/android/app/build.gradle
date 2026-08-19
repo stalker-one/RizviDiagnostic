@@ -11,7 +11,10 @@ android {
         def ciRunNumber = System.getenv('GITHUB_RUN_NUMBER')
         def releaseVersionCode = ciRunNumber ? Math.max(2, ciRunNumber.toInteger()) : 2
         versionCode releaseVersionCode
-        versionName "1.0.${releaseVersionCode - 1}"
+        // IMPORTANT: versionName must match the versionCode. Previously this used
+        // releaseVersionCode - 1, so a release published as 1.0.103 installed
+        // as 1.0.102 (and 1.0.32 installed as 1.0.31).
+        versionName "1.0.${releaseVersionCode}"
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         aaptOptions {
             ignoreAssetsPattern = '!.svn:!.git:!.ds_store:!*.scc:.*:!CVS:!thumbs.db:!picasa.ini:!*~'
