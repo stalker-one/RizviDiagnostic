@@ -25,23 +25,20 @@ const syncRoutes = require('./routes/sync.routes');
 const app = express();
 
 app.use(cors());
-app.use(express.json({ limit: '5mb' })); // raised so base64-encoded clinic logo uploads (Settings page) aren't rejected
+app.use(express.json({ limit: '5mb' }));
 app.use(morgan('dev'));
 
 app.get('/api/health', (req, res) => res.json({ status: 'ok', clinic: process.env.CLINIC_NAME }));
 
 // Keep the in-memory/local fallback copy synchronized with Atlas before every
-// application request. Vercel and Electron can have long-lived processes with
-// their own memory, so boot-time synchronization alone is not enough when a
-// second phone, browser window, or PC changes the same shared database.
-// Mutate the existing objects in place so every route that imports readTable()
-// immediately sees the fresh copy without changing the synchronous DB API.
+// application request. Each Vercel/Electron process can have its own memory,
+// so boot-time synchronization is not enough when another device changes the
+// shared database. Objects are updated in place so existing readTable() users
+// immediately see the fresh data without changing the synchronous DB API.
 const SYNC_TABLES = ['users', 'patients', 'procedures', 'referrals', 'doctors', 'invoices', 'settings', 'counters'];
 let refreshPromise = null;
 let refreshAt = 0;
 async function refreshRuntimeTables() {
-  // Avoid duplicate Atlas reads when several requests arrive in the same
-  // event-loop turn, while still checking frequently enough for realtime use.
   const now = Date.now();
   if (refreshPromise && now - refreshAt < 250) return refreshPromise;
   refreshAt = now;
@@ -65,10 +62,11 @@ async function refreshRuntimeTables() {
   return refreshPromise;
 }
 
-// The realtime version endpoint itself must also run after this refresh so a
-// client never receives a change signal before the next list request can see
-// the corresponding Atlas data.
+// Change-token requests are intentionally lightweight and must not trigger the
+// full table refresh themselves. A normal data request immediately following
+// a changed token performs the full Atlas refresh before reading the table.
 app.use('/api/sync', async (req, res, next) => {
+  if (req.path === '/version') return next();
   try {
     await refreshRuntimeTables();
   } catch (err) {
@@ -78,7 +76,7 @@ app.use('/api/sync', async (req, res, next) => {
 });
 
 app.use(async (req, res, next) => {
-  if (req.path === '/api/health' || req.path === '/health') return next();
+  if (req.path === '/api/health' || req.path === '/health' || req.path === '/api/sync/version') return next();
   try {
     await refreshRuntimeTables();
   } catch (err) {
@@ -99,8 +97,6 @@ app.use('/api/settings', settingsRoutes);
 app.use('/api/site', siteRoutes);
 app.use('/api/sync', syncRoutes);
 
-// Serves the built frontend (frontend/dist, from `npm run build`) so the
-// whole app — API + UI can run as a single process.
 const FRONTEND_DIST = path.join(__dirname, '../../frontend/dist');
 if (fs.existsSync(path.join(FRONTEND_DIST, 'index.html'))) {
   app.use(express.static(FRONTEND_DIST));
