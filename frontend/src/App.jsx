@@ -25,18 +25,28 @@ import Profile from './pages/Profile.jsx';
 import SiteControl from './pages/SiteControl.jsx';
 
 const REALTIME_INTERVAL_MS = 1500;
-const ANDROID_RELEASE_API = 'https://api.github.com/repos/stalker-one/RizviDiagnostic/releases/tags/android-latest';
 const AndroidUpdate = registerPlugin('AndroidUpdate');
 const IS_SUPERADMIN_APP = import.meta.env.VITE_SUPERADMIN_APP === 'true';
 
+/*
+ * IMPORTANT: The Superadmin APK must not force every route back to /adminlogin.
+ * Authentication is handled by ProtectedRoute/AuthContext. This guard only
+ * prevents an unauthenticated native Superadmin app from opening arbitrary
+ * public routes; it never redirects an already-authenticated user.
+ */
 function SuperadminGuard() {
   const location = useLocation();
   const navigate = useNavigate();
+  const token = localStorage.getItem('rdc_token');
+  const publicRoutes = ['/adminlogin'];
+
   useEffect(() => {
-    if (IS_SUPERADMIN_APP && location.pathname !== '/adminlogin' && location.pathname !== '/site-control') {
+    if (!IS_SUPERADMIN_APP) return;
+    if (!token && !publicRoutes.includes(location.pathname)) {
       navigate('/adminlogin', { replace: true });
     }
-  }, [location.pathname, navigate]);
+  }, [location.pathname, navigate, token]);
+
   return null;
 }
 
@@ -121,18 +131,8 @@ export default function App() {
     finally { setAndroidUpdateBusy(false); }
   };
 
-  const routes = IS_SUPERADMIN_APP ? (
-    <Routes>
-      <Route path="/adminlogin" element={<AdminLogin />} />
-      <Route path="/site-control" element={<ProtectedRoute superadminOnly><SiteControl /></ProtectedRoute>} />
-      <Route path="/profile" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
-      <Route path="*" element={<Navigate to="/adminlogin" replace />} />
-    </Routes>
-  ) : (
-    <Routes>
-      <Route path="/" element={<Home />} />
-      <Route path="/login" element={<Login />} />
-      <Route path="/adminlogin" element={<AdminLogin />} />
+  const protectedRoutes = (
+    <>
       <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
       <Route path="/patients" element={<ProtectedRoute><Patients /></ProtectedRoute>} />
       <Route path="/patients/:id" element={<ProtectedRoute><PatientDetail /></ProtectedRoute>} />
@@ -148,6 +148,21 @@ export default function App() {
       <Route path="/settings" element={<ProtectedRoute adminOnly><Settings /></ProtectedRoute>} />
       <Route path="/site-control" element={<ProtectedRoute superadminOnly><SiteControl /></ProtectedRoute>} />
       <Route path="/profile" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
+    </>
+  );
+
+  const routes = IS_SUPERADMIN_APP ? (
+    <Routes>
+      <Route path="/adminlogin" element={<AdminLogin />} />
+      {protectedRoutes}
+      <Route path="*" element={<Navigate to="/dashboard" replace />} />
+    </Routes>
+  ) : (
+    <Routes>
+      <Route path="/" element={<Home />} />
+      <Route path="/login" element={<Login />} />
+      <Route path="/adminlogin" element={<AdminLogin />} />
+      {protectedRoutes}
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   );
