@@ -29,7 +29,10 @@ jobs:
           cache-dependency-path: frontend/package-lock.json
       - name: Install dependencies
         working-directory: frontend
-        run: npm ci --ignore-scripts
+        run: |
+          set -euo pipefail
+          npm install --package-lock-only --ignore-scripts
+          npm ci --ignore-scripts
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
@@ -39,11 +42,20 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          SDKMANAGER="$(find "$ANDROID_HOME/cmdline-tools" -type f -path '*/bin/sdkmanager' -print -quit 2>/dev/null || true)"
+          SDKMANAGER=''
+          for candidate in \
+            "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" \
+            "$ANDROID_HOME/cmdline-tools/16.0/bin/sdkmanager" \
+            "$ANDROID_HOME/cmdline-tools/bin/sdkmanager"; do
+            if [ -x "$candidate" ]; then SDKMANAGER="$candidate"; break; fi
+          done
+          if [ -z "$SDKMANAGER" ]; then
+            SDKMANAGER="$(find "$ANDROID_HOME/cmdline-tools" -type f -path '*/bin/sdkmanager' -print -quit 2>/dev/null || true)"
+          fi
           test -n "$SDKMANAGER" && test -x "$SDKMANAGER" || { echo 'sdkmanager not found'; exit 1; }
           yes | "$SDKMANAGER" --licenses >/dev/null 2>&1 || true
           "$SDKMANAGER" platform-tools 'platforms;android-36' 'build-tools;36.0.0'
-      - name: Restore persistent signing key
+      - name: Restore or create persistent Android signing keystore
         shell: bash
         env:
           ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
@@ -52,12 +64,24 @@ jobs:
           ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
         run: |
           set -euo pipefail
+          test -n "$ANDROID_KEYSTORE_PASSWORD" || { echo 'Missing ANDROID_KEYSTORE_PASSWORD'; exit 1; }
+          test -n "$ANDROID_KEY_ALIAS" || { echo 'Missing ANDROID_KEY_ALIAS'; exit 1; }
+          test -n "$ANDROID_KEY_PASSWORD" || { echo 'Missing ANDROID_KEY_PASSWORD'; exit 1; }
           mkdir -p .github/android-signing
+          GENERATED=false
+          rm -f "$ANDROID_KEYSTORE_PATH"
+
           if [ -s .github/android-signing/keystore.p12.enc ]; then
-            openssl enc -d -aes-256-cbc -pbkdf2 -pass env:ANDROID_KEYSTORE_PASSWORD -in .github/android-signing/keystore.p12.enc -out "$ANDROID_KEYSTORE_PATH" 2>/dev/null || true
+            echo 'Restoring repository-persisted encrypted signing keystore...'
+            openssl enc -d -aes-256-cbc -pbkdf2 -pass env:ANDROID_KEYSTORE_PASSWORD \
+              -in .github/android-signing/keystore.p12.enc -out "$ANDROID_KEYSTORE_PATH" 2>/tmp/keystore.err || true
+            if ! keytool -list -keystore "$ANDROID_KEYSTORE_PATH" -storepass "$ANDROID_KEYSTORE_PASSWORD" -alias "$ANDROID_KEY_ALIAS" >/dev/null 2>&1; then
+              echo 'Persisted keystore is not usable with current credentials.'
+              rm -f "$ANDROID_KEYSTORE_PATH"
+            fi
           fi
-          if ! keytool -list -keystore "$ANDROID_KEYSTORE_PATH" -storepass "$ANDROID_KEYSTORE_PASSWORD" -alias "$ANDROID_KEY_ALIAS" >/dev/null 2>&1; then
-            rm -f "$ANDROID_KEYSTORE_PATH"
+
+          if [ ! -s "$ANDROID_KEYSTORE_PATH" ] && [ -n "${ANDROID_KEYSTORE_BASE64:-}" ]; then
             python3 - <<'PY'
 import base64, os, re, urllib.parse
 v=urllib.parse.unquote(os.environ.get('ANDROID_KEYSTORE_BASE64','').strip().lstrip('\ufeff'))
@@ -67,10 +91,35 @@ try: data=base64.b64decode(v+'='*(-len(v)%4),validate=True)
 except Exception: data=b''
 if data: open(os.environ['ANDROID_KEYSTORE_PATH'],'wb').write(data)
 PY
+            chmod 600 "$ANDROID_KEYSTORE_PATH" || true
+            if ! keytool -list -keystore "$ANDROID_KEYSTORE_PATH" -storepass "$ANDROID_KEYSTORE_PASSWORD" -alias "$ANDROID_KEY_ALIAS" >/dev/null 2>&1; then
+              rm -f "$ANDROID_KEYSTORE_PATH"
+            fi
           fi
-          if ! keytool -list -keystore "$ANDROID_KEYSTORE_PATH" -storepass "$ANDROID_KEYSTORE_PASSWORD" -alias "$ANDROID_KEY_ALIAS" >/dev/null 2>&1; then
-            echo 'No usable Android signing keystore. The regular Android workflow must create/persist it first.'
-            exit 1
+
+          if [ ! -s "$ANDROID_KEYSTORE_PATH" ]; then
+            echo 'Creating a persistent signing keystore for the Android release channels.'
+            keytool -genkeypair -v -storetype PKCS12 \
+              -keystore "$ANDROID_KEYSTORE_PATH" \
+              -storepass "$ANDROID_KEYSTORE_PASSWORD" \
+              -keypass "$ANDROID_KEY_PASSWORD" \
+              -alias "$ANDROID_KEY_ALIAS" -keyalg RSA -keysize 4096 -validity 10000 \
+              -dname 'CN=Rizvi Diagnostic Center, OU=Mobile, O=Rizvi Diagnostic Center, L=Unknown, ST=Unknown, C=PK'
+            chmod 600 "$ANDROID_KEYSTORE_PATH"
+            keytool -list -keystore "$ANDROID_KEYSTORE_PATH" -storepass "$ANDROID_KEYSTORE_PASSWORD" -alias "$ANDROID_KEY_ALIAS" >/dev/null
+            openssl enc -aes-256-cbc -pbkdf2 -pass env:ANDROID_KEYSTORE_PASSWORD \
+              -in "$ANDROID_KEYSTORE_PATH" -out .github/android-signing/keystore.p12.enc
+            chmod 600 .github/android-signing/keystore.p12.enc
+            GENERATED=true
+          fi
+
+          keytool -list -keystore "$ANDROID_KEYSTORE_PATH" -storepass "$ANDROID_KEYSTORE_PASSWORD" -alias "$ANDROID_KEY_ALIAS" >/dev/null
+          if [ "$GENERATED" = true ]; then
+            git config user.name 'github-actions[bot]'
+            git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+            git add .github/android-signing/keystore.p12.enc
+            git commit -m 'Persist Android signing keystore securely' || true
+            git push origin HEAD:main
           fi
       - name: Build Superadmin frontend
         working-directory: frontend
@@ -94,8 +143,8 @@ PY
           APK=app/build/outputs/apk/release/app-superadmin-release.apk
           test -s "$APK"
           "$ANDROID_HOME/build-tools/36.0.0/apksigner" verify --verbose "$APK"
-          mkdir -p ../../dist-superadmin
-          cp "$APK" "../../dist-superadmin/RizviDiagnosticSuperadmin-${GITHUB_RUN_NUMBER}-${GITHUB_SHA}.apk"
+          mkdir -p dist-superadmin
+          cp "$APK" "dist-superadmin/RizviDiagnosticSuperadmin-${GITHUB_RUN_NUMBER}-${GITHUB_SHA}.apk"
       - name: Upload Superadmin APK
         uses: actions/upload-artifact@v4
         with:
@@ -106,18 +155,18 @@ PY
         uses: softprops/action-gh-release@v2
         with:
           tag_name: android-superadmin-latest
-          name: Rizvi Diagnostic Center Superadmin (latest build)
+          name: Android Superadmin App (latest build)
           body: |
             Dedicated Superadmin Android application.
             Package: com.rizvi.diagnosticcenter.superadmin
-            Version code: ${{ github.run_number }}.
             Login route: /adminlogin
+            Version code: ${{ github.run_number }}.
             Built from commit ${{ github.sha }}.
           files: dist-superadmin/*.apk
           prerelease: true
           make_latest: false
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      - name: Remove signing key
+      - name: Remove signing keystore
         if: always()
         run: rm -f "$ANDROID_KEYSTORE_PATH"
