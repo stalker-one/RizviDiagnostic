@@ -16,6 +16,9 @@ concurrency:
   group: android-build
   cancel-in-progress: false
 
+env:
+  VITE_API_BASE_URL: https://stalker-one-rizvidiagnostic.vercel.app/api
+
 jobs:
   build-android:
     runs-on: ubuntu-latest
@@ -30,58 +33,42 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-
       - name: Set up Node
         uses: actions/setup-node@v4
         with:
           node-version: 22
           cache: npm
           cache-dependency-path: frontend/package-lock.json
-
       - name: Install frontend dependencies
         working-directory: frontend
         run: |
           set -euo pipefail
           npm install --package-lock-only --ignore-scripts
           npm ci --ignore-scripts
-
       - name: Build frontend for production API
         working-directory: frontend
-        env:
-          VITE_API_BASE_URL: https://stalker-one-rizvidiagnostic.vercel.app/api
         run: npm run build
-
       - name: Sync Capacitor Android project
         working-directory: frontend
         run: npx cap sync android
-
       - name: Set up JDK 21
         uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: 21
           cache: gradle
-
       - name: Prepare Android SDK
         run: |
           set -euo pipefail
           SDKMANAGER=''
-          for candidate in \
-            "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" \
-            "$ANDROID_HOME/cmdline-tools/16.0/bin/sdkmanager" \
-            "$ANDROID_HOME/cmdline-tools/bin/sdkmanager" \
-            "$ANDROID_HOME/tools/bin/sdkmanager"; do
+          for candidate in "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "$ANDROID_HOME/cmdline-tools/16.0/bin/sdkmanager" "$ANDROID_HOME/cmdline-tools/bin/sdkmanager" "$ANDROID_HOME/tools/bin/sdkmanager"; do
             if [ -x "$candidate" ]; then SDKMANAGER="$candidate"; break; fi
           done
-          if [ -z "$SDKMANAGER" ]; then
-            SDKMANAGER="$(find "$ANDROID_HOME/cmdline-tools" -type f -path '*/bin/sdkmanager' -print -quit 2>/dev/null || true)"
-          fi
-          test -n "$SDKMANAGER" && test -x "$SDKMANAGER" || { echo "Android sdkmanager was not found under $ANDROID_HOME"; exit 1; }
+          if [ -z "$SDKMANAGER" ]; then SDKMANAGER="$(find "$ANDROID_HOME/cmdline-tools" -type f -path '*/bin/sdkmanager' -print -quit 2>/dev/null || true)"; fi
+          test -n "$SDKMANAGER" && test -x "$SDKMANAGER" || { echo 'Android sdkmanager not found'; exit 1; }
           yes | "$SDKMANAGER" --licenses >/dev/null 2>&1 || true
-          "$SDKMANAGER" "platform-tools" "platforms;android-36" "build-tools;36.0.0"
+          "$SDKMANAGER" platform-tools 'platforms;android-36' 'build-tools;36.0.0'
           test -x "$ANDROID_HOME/build-tools/36.0.0/apksigner"
-          test -x "$ANDROID_HOME/build-tools/36.0.0/aapt"
-
       - name: Validate signing configuration
         env:
           ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
@@ -89,10 +76,9 @@ jobs:
           ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
         run: |
           set -euo pipefail
-          test -n "$ANDROID_KEYSTORE_PASSWORD" || { echo 'Missing ANDROID_KEYSTORE_PASSWORD secret'; exit 1; }
-          test -n "$ANDROID_KEY_ALIAS" || { echo 'Missing ANDROID_KEY_ALIAS secret'; exit 1; }
-          test -n "$ANDROID_KEY_PASSWORD" || { echo 'Missing ANDROID_KEY_PASSWORD secret'; exit 1; }
-
+          test -n "$ANDROID_KEYSTORE_PASSWORD" || { echo 'Missing ANDROID_KEYSTORE_PASSWORD'; exit 1; }
+          test -n "$ANDROID_KEY_ALIAS" || { echo 'Missing ANDROID_KEY_ALIAS'; exit 1; }
+          test -n "$ANDROID_KEY_PASSWORD" || { echo 'Missing ANDROID_KEY_PASSWORD'; exit 1; }
       - name: Restore or create persistent Android signing keystore
         env:
           ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
@@ -103,12 +89,10 @@ jobs:
           set -euo pipefail
           mkdir -p .github/android-signing
           rm -f "$ANDROID_KEYSTORE_PATH"
-
           if [ -s .github/android-signing/keystore.p12.enc ]; then
-            openssl enc -d -aes-256-cbc -pbkdf2 -pass env:ANDROID_KEYSTORE_PASSWORD -in .github/android-signing/keystore.p12.enc -out "$ANDROID_KEYSTORE_PATH" 2>/tmp/keystore-decrypt.err || true
+            openssl enc -d -aes-256-cbc -pbkdf2 -pass env:ANDROID_KEYSTORE_PASSWORD -in .github/android-signing/keystore.p12.enc -out "$ANDROID_KEYSTORE_PATH" 2>/tmp/keystore.err || true
             if ! keytool -list -keystore "$ANDROID_KEYSTORE_PATH" -storepass "$ANDROID_KEYSTORE_PASSWORD" -alias "$ANDROID_KEY_ALIAS" >/dev/null 2>&1; then rm -f "$ANDROID_KEYSTORE_PATH"; fi
           fi
-
           if [ ! -s "$ANDROID_KEYSTORE_PATH" ] && [ -n "${ANDROID_KEYSTORE_BASE64:-}" ]; then
             NORMALIZED_B64="$(printf '%s' "$ANDROID_KEYSTORE_BASE64" | tr -d '[:space:]')"
             NORMALIZED_B64="${NORMALIZED_B64#\"}"; NORMALIZED_B64="${NORMALIZED_B64%\"}"
@@ -117,7 +101,6 @@ jobs:
             printf '%s' "$NORMALIZED_B64" | tr '_-' '/+' | base64 --decode > "$ANDROID_KEYSTORE_PATH" 2>/tmp/base64.err || rm -f "$ANDROID_KEYSTORE_PATH"
             if [ -s "$ANDROID_KEYSTORE_PATH" ] && ! keytool -list -keystore "$ANDROID_KEYSTORE_PATH" -storepass "$ANDROID_KEYSTORE_PASSWORD" -alias "$ANDROID_KEY_ALIAS" >/dev/null 2>&1; then rm -f "$ANDROID_KEYSTORE_PATH"; fi
           fi
-
           if [ ! -s "$ANDROID_KEYSTORE_PATH" ]; then
             keytool -genkeypair -v -storetype PKCS12 -keystore "$ANDROID_KEYSTORE_PATH" -storepass "$ANDROID_KEYSTORE_PASSWORD" -keypass "$ANDROID_KEY_PASSWORD" -alias "$ANDROID_KEY_ALIAS" -keyalg RSA -keysize 4096 -validity 10000 -dname 'CN=Rizvi Diagnostic Center, OU=Mobile, O=Rizvi Diagnostic Center, L=Unknown, ST=Unknown, C=PK'
             chmod 600 "$ANDROID_KEYSTORE_PATH"
@@ -129,7 +112,6 @@ jobs:
             git push origin HEAD:main || true
           fi
           keytool -list -keystore "$ANDROID_KEYSTORE_PATH" -storepass "$ANDROID_KEYSTORE_PASSWORD" -alias "$ANDROID_KEY_ALIAS" >/dev/null
-
       - name: Build signed release APK
         working-directory: frontend/android
         env:
@@ -141,7 +123,6 @@ jobs:
           set -euo pipefail
           chmod +x gradlew
           ./gradlew clean assembleRegularRelease --stacktrace
-
       - name: Verify Android APK signature and metadata
         working-directory: frontend/android
         run: |
@@ -150,36 +131,44 @@ jobs:
           test -s "$APK"
           "$ANDROID_HOME/build-tools/36.0.0/apksigner" verify --verbose "$APK"
           "$ANDROID_HOME/build-tools/36.0.0/aapt" dump badging "$APK" | grep -E 'package:|versionCode|versionName'
-
       - name: Prepare release APK
         run: |
           set -euo pipefail
           mkdir -p dist-android
-          cp frontend/android/app/build/outputs/apk/regular/release/app-regular-release.apk "dist-android/RizviDiagnosticCenter-latest.apk"
-
+          cp frontend/android/app/build/outputs/apk/regular/release/app-regular-release.apk dist-android/RizviDiagnosticCenter-latest.apk
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
         with:
           name: RizviDiagnosticCenter-android
           path: dist-android/RizviDiagnosticCenter-latest.apk
           retention-days: 90
-
       - name: Publish android-latest release
         uses: softprops/action-gh-release@v2
         with:
           tag_name: android-latest
           name: Android App (latest build)
           body: |
-            Automatically rebuilt from commit ${{ github.sha }}.
-            Release-signed APK for sideloading.
+            # What's new
+            - Updated Android application to version 1.0.${{ github.run_number }}.
+            - Improved mandatory realtime update detection and update modal.
+            - Update modal now shows current version, new version/build, and these release changes.
+            - Improved Simple Print and Thermal Print layouts for Android.
+            - Thermal receipts use the correct narrow receipt format instead of A4.
+            - Fixed Android printing to use the live Vercel application URL instead of localhost.
+            - Includes current application bug fixes and performance improvements.
+
+            # Build information
             Package: com.rizvi.diagnosticcenter
             Version code: ${{ github.run_number }}
             Version name: 1.0.${{ github.run_number }}
+            Commit: ${{ github.sha }}
+            Release-signed APK for sideloading.
           files: dist-android/RizviDiagnosticCenter-latest.apk
           make_latest: false
           overwrite_files: true
           fail_on_unmatched_files: true
-
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       - name: Remove signing keystore
         if: always()
         run: rm -f "$ANDROID_KEYSTORE_PATH"
