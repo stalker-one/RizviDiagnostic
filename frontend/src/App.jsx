@@ -41,19 +41,25 @@ function SuperadminGuard() {
 
 function AndroidUpdateModal({ update, checking, onUpdate, busy, error, onRetry }) {
   if (!checking && !update && !error) return null;
-  return <div style={{position:'fixed',inset:0,zIndex:999999,display:'flex',alignItems:'center',justifyContent:'center',background:'rgba(0,0,0,.78)',padding:20}}>
-    <div style={{width:'100%',maxWidth:430,borderRadius:18,background:'#fff',padding:24,boxShadow:'0 20px 60px rgba(0,0,0,.35)'}}>
-      {checking ? <><h2 style={{margin:'0 0 8px',fontSize:22,fontWeight:700}}>Checking for updates…</h2><p style={{margin:0,color:'#555'}}>Checking the official Rizvi Diagnostic Center release.</p></> : update ? <>
+  const appName = IS_SUPERADMIN_APP ? 'Rizvi Diagnostic Center Superadmin' : 'Rizvi Diagnostic Center';
+  return <div style={{position:'fixed',inset:0,zIndex:999999,display:'flex',alignItems:'center',justifyContent:'center',background:'rgba(0,0,0,.78)',padding:16}}>
+    <div style={{width:'100%',maxWidth:460,maxHeight:'92vh',overflowY:'auto',borderRadius:18,background:'#fff',padding:22,boxShadow:'0 20px 60px rgba(0,0,0,.35)'}}>
+      {checking ? <><h2 style={{margin:'0 0 8px',fontSize:22,fontWeight:700}}>Checking for updates…</h2><p style={{margin:0,color:'#555'}}>Checking the official {appName} release.</p></> : update ? <>
         <h2 style={{margin:'0 0 8px',fontSize:22,fontWeight:700}}>Update required</h2>
-        <p style={{margin:'0 0 8px',color:'#555'}}>A newer version of {IS_SUPERADMIN_APP ? 'Rizvi Diagnostic Center Superadmin' : 'Rizvi Diagnostic Center'} is available.</p>
-        <p style={{margin:'0 0 16px',fontWeight:600}}>Version {update.versionName} (build {update.versionCode})</p>
-        {update.releaseNotes && <div style={{margin:'0 0 16px',padding:12,borderRadius:10,background:'#f3f4f6',fontSize:14,whiteSpace:'pre-wrap',maxHeight:150,overflowY:'auto'}}>{update.releaseNotes}</div>}
-        {busy && <p style={{margin:'0 0 12px',color:'#555'}}>Downloading update…</p>}
-        {error && <p style={{margin:'0 0 12px',color:'#b91c1c',fontSize:14}}>{error}</p>}
-        <button type="button" onClick={onUpdate} disabled={busy} style={{width:'100%',border:0,borderRadius:10,padding:'12px 16px',background:'#111827',color:'#fff',fontWeight:700}}>{busy?'Updating…':'Update now'}</button>
+        <p style={{margin:'0 0 14px',color:'#555'}}>A newer version of {appName} is available.</p>
+        <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:10,marginBottom:16}}>
+          <div style={{padding:12,borderRadius:10,background:'#f3f4f6'}}><div style={{fontSize:12,color:'#666'}}>Current version</div><div style={{fontWeight:700,fontSize:16}}>{update.installedVersionName || 'Unknown'}</div><div style={{fontSize:12,color:'#666'}}>Build {update.installedVersionCode ?? '—'}</div></div>
+          <div style={{padding:12,borderRadius:10,background:'#eef6ff'}}><div style={{fontSize:12,color:'#666'}}>New version</div><div style={{fontWeight:700,fontSize:16}}>{update.versionName}</div><div style={{fontSize:12,color:'#666'}}>Build {update.versionCode}</div></div>
+        </div>
+        <div style={{marginBottom:10,fontWeight:700}}>What’s new</div>
+        <div style={{margin:'0 0 16px',padding:12,borderRadius:10,background:'#f3f4f6',fontSize:14,whiteSpace:'pre-wrap',maxHeight:210,overflowY:'auto'}}>{update.releaseNotes || 'Latest Android application update with bug fixes, performance improvements, printing improvements, and realtime update support.'}</div>
+        <div style={{margin:'0 0 16px',fontSize:12,color:'#666',wordBreak:'break-word'}}>Release: {update.releaseName || 'Latest Android release'}{update.commit ? `\nCommit: ${update.commit}` : ''}</div>
+        {busy && <p style={{margin:'0 0 12px',color:'#555'}}>Downloading and verifying update…</p>}
+        {error && <p style={{margin:'0 0 12px',color:'#b91c1c',fontSize:14,wordBreak:'break-word'}}>{error}</p>}
+        <button type="button" onClick={onUpdate} disabled={busy} style={{width:'100%',border:0,borderRadius:10,padding:'13px 16px',background:'#111827',color:'#fff',fontWeight:700}}>{busy?'Updating…':'Update now'}</button>
       </> : <>
         <h2 style={{margin:'0 0 8px',fontSize:22,fontWeight:700}}>Update check failed</h2>
-        <p style={{margin:'0 0 16px',color:'#555'}}>The application could not verify the latest Android release. It will not silently skip the update check.</p>
+        <p style={{margin:'0 0 16px',color:'#555'}}>The application could not verify the latest Android release.</p>
         <p style={{margin:'0 0 16px',color:'#b91c1c',fontSize:13,wordBreak:'break-word'}}>{error}</p>
         <button type="button" onClick={onRetry} style={{width:'100%',border:0,borderRadius:10,padding:'12px 16px',background:'#111827',color:'#fff',fontWeight:700}}>Check again</button>
       </>}
@@ -99,10 +105,8 @@ export default function App() {
         const result=await AndroidUpdate.checkForUpdate();
         if(cancelled)return;
         if(result?.available&&result?.url){
-          setAndroidUpdate({versionCode:Number(result.versionCode),versionName:result.versionName||`1.0.${Math.max(0,Number(result.versionCode)-1)}`,url:result.url,packageName:result.packageName,releaseName:result.releaseName,releaseNotes:result.releaseNotes||''});
-        }else{
-          setAndroidUpdate(null);
-        }
+          setAndroidUpdate({versionCode:Number(result.versionCode),versionName:result.versionName||`1.0.${Math.max(0,Number(result.versionCode)-1)}`,url:result.url,packageName:result.packageName,releaseName:result.releaseName,releaseNotes:result.releaseNotes||'',commit:result.commit||'',installedVersionCode:Number(result.installedVersionCode),installedVersionName:result.installedVersionName||''});
+        }else setAndroidUpdate(null);
       }catch(error){
         if(!cancelled)setAndroidUpdateError(error?.message||String(error)||'Unable to check the Android release.');
       }finally{
@@ -127,21 +131,7 @@ export default function App() {
   };
 
   const protectedRoutes=<>
-    <Route path="/dashboard" element={<ProtectedRoute><Dashboard/></ProtectedRoute>}/>
-    <Route path="/patients" element={<ProtectedRoute><Patients/></ProtectedRoute>}/>
-    <Route path="/patients/:id" element={<ProtectedRoute><PatientDetail/></ProtectedRoute>}/>
-    <Route path="/invoices/create" element={<ProtectedRoute><CreateInvoice/></ProtectedRoute>}/>
-    <Route path="/invoices" element={<ProtectedRoute><Invoices/></ProtectedRoute>}/>
-    <Route path="/invoices/:id/print" element={<ProtectedRoute><InvoicePrint/></ProtectedRoute>}/>
-    <Route path="/radiology-reports" element={<ProtectedRoute><RadiologyReports/></ProtectedRoute>}/>
-    <Route path="/analytics" element={<ProtectedRoute><Analytics/></ProtectedRoute>}/>
-    <Route path="/referrals" element={<ProtectedRoute><Referrals/></ProtectedRoute>}/>
-    <Route path="/doctors" element={<ProtectedRoute><Doctors/></ProtectedRoute>}/>
-    <Route path="/procedures" element={<ProtectedRoute><Procedures/></ProtectedRoute>}/>
-    <Route path="/users" element={<ProtectedRoute adminOnly><Users/></ProtectedRoute>}/>
-    <Route path="/settings" element={<ProtectedRoute adminOnly><Settings/></ProtectedRoute>}/>
-    <Route path="/site-control" element={<ProtectedRoute superadminOnly><SiteControl/></ProtectedRoute>}/>
-    <Route path="/profile" element={<ProtectedRoute><Profile/></ProtectedRoute>}/>
+    <Route path="/dashboard" element={<ProtectedRoute><Dashboard/></ProtectedRoute>}/><Route path="/patients" element={<ProtectedRoute><Patients/></ProtectedRoute>}/><Route path="/patients/:id" element={<ProtectedRoute><PatientDetail/></ProtectedRoute>}/><Route path="/invoices/create" element={<ProtectedRoute><CreateInvoice/></ProtectedRoute>}/><Route path="/invoices" element={<ProtectedRoute><Invoices/></ProtectedRoute>}/><Route path="/invoices/:id/print" element={<ProtectedRoute><InvoicePrint/></ProtectedRoute>}/><Route path="/radiology-reports" element={<ProtectedRoute><RadiologyReports/></ProtectedRoute>}/><Route path="/analytics" element={<ProtectedRoute><Analytics/></ProtectedRoute>}/><Route path="/referrals" element={<ProtectedRoute><Referrals/></ProtectedRoute>}/><Route path="/doctors" element={<ProtectedRoute><Doctors/></ProtectedRoute>}/><Route path="/procedures" element={<ProtectedRoute><Procedures/></ProtectedRoute>}/><Route path="/users" element={<ProtectedRoute adminOnly><Users/></ProtectedRoute>}/><Route path="/settings" element={<ProtectedRoute adminOnly><Settings/></ProtectedRoute>}/><Route path="/site-control" element={<ProtectedRoute superadminOnly><SiteControl/></ProtectedRoute>}/><Route path="/profile" element={<ProtectedRoute><Profile/></ProtectedRoute>}/>
   </>;
   const routes=IS_SUPERADMIN_APP?<Routes><Route path="/adminlogin" element={<AdminLogin/>}/>{protectedRoutes}<Route path="*" element={<Navigate to="/dashboard" replace/>}/></Routes>:<Routes><Route path="/" element={<Home/>}/><Route path="/login" element={<Login/>}/><Route path="/adminlogin" element={<AdminLogin/>}/>{protectedRoutes}<Route path="*" element={<Navigate to="/" replace/>}/></Routes>;
   return <><SiteLockGate/>{IS_SUPERADMIN_APP&&<SuperadminGuard/>}<div key={refreshKey} className="contents">{routes}</div><AndroidUpdateModal update={androidUpdate} checking={androidUpdateChecking} busy={androidUpdateBusy} error={androidUpdateError} onUpdate={installAndroidUpdate} onRetry={()=>retryCheckRef.current?.()}/></>;
