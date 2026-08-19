@@ -4,7 +4,6 @@ import { Capacitor, registerPlugin } from '@capacitor/core';
 import ProtectedRoute from './components/ProtectedRoute.jsx';
 import SiteLockGate from './components/SiteLockGate.jsx';
 import api from './api/axios';
-
 import Login from './pages/Login.jsx';
 import AdminLogin from './pages/AdminLogin.jsx';
 import Home from './pages/Home.jsx';
@@ -42,166 +41,100 @@ function SuperadminGuard() {
 
 function AndroidUpdateModal({ update, checking, onUpdate, busy, error }) {
   if (!checking && !update) return null;
-  return (
-    <div style={{ position: 'fixed', inset: 0, zIndex: 999999, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,.68)', padding: 20 }}>
-      <div style={{ width: '100%', maxWidth: 430, borderRadius: 18, background: '#fff', padding: 24, boxShadow: '0 20px 60px rgba(0,0,0,.35)' }}>
-        {checking ? (
-          <>
-            <h2 style={{ margin: '0 0 8px', fontSize: 22, fontWeight: 700 }}>Checking for updates…</h2>
-            <p style={{ margin: 0, color: '#555' }}>Please wait while we check whether this application is up to date.</p>
-          </>
-        ) : (
-          <>
-            <h2 style={{ margin: '0 0 8px', fontSize: 22, fontWeight: 700 }}>Update required</h2>
-            <p style={{ margin: '0 0 8px', color: '#555' }}>A newer version of {IS_SUPERADMIN_APP ? 'Rizvi Diagnostic Center Superadmin' : 'Rizvi Diagnostic Center'} is available.</p>
-            <p style={{ margin: '0 0 16px', fontWeight: 600 }}>Version {update.versionName} (build {update.versionCode})</p>
-            <p style={{ margin: '0 0 16px', color: '#555', fontSize: 14 }}>You must update this application before continuing. Your login and application data will remain in the app.</p>
-            {busy && <p style={{ margin: '0 0 12px', color: '#555' }}>Downloading update…</p>}
-            {error && <p style={{ margin: '0 0 12px', color: '#b91c1c', fontSize: 14 }}>{error}</p>}
-            <button type="button" onClick={onUpdate} disabled={busy} style={{ width: '100%', border: 0, borderRadius: 10, padding: '12px 16px', background: '#111827', color: '#fff', fontWeight: 700 }}>{busy ? 'Updating…' : 'Update now'}</button>
-          </>
-        )}
-      </div>
+  return <div style={{position:'fixed',inset:0,zIndex:999999,display:'flex',alignItems:'center',justifyContent:'center',background:'rgba(0,0,0,.68)',padding:20}}>
+    <div style={{width:'100%',maxWidth:430,borderRadius:18,background:'#fff',padding:24,boxShadow:'0 20px 60px rgba(0,0,0,.35)'}}>
+      {checking ? <><h2 style={{margin:'0 0 8px',fontSize:22,fontWeight:700}}>Checking for updates…</h2><p style={{margin:0,color:'#555'}}>Checking the official Rizvi Diagnostic Center release.</p></> : <>
+        <h2 style={{margin:'0 0 8px',fontSize:22,fontWeight:700}}>Update required</h2>
+        <p style={{margin:'0 0 8px',color:'#555'}}>A newer version of {IS_SUPERADMIN_APP ? 'Rizvi Diagnostic Center Superadmin' : 'Rizvi Diagnostic Center'} is available.</p>
+        <p style={{margin:'0 0 16px',fontWeight:600}}>Version {update.versionName} (build {update.versionCode})</p>
+        <p style={{margin:'0 0 16px',color:'#555',fontSize:14}}>Please update before continuing. Your login and application data remain on this device.</p>
+        {busy && <p style={{margin:'0 0 12px',color:'#555'}}>Downloading update…</p>}
+        {error && <p style={{margin:'0 0 12px',color:'#b91c1c',fontSize:14}}>{error}</p>}
+        <button type="button" onClick={onUpdate} disabled={busy} style={{width:'100%',border:0,borderRadius:10,padding:'12px 16px',background:'#111827',color:'#fff',fontWeight:700}}>{busy?'Updating…':'Update now'}</button>
+      </>}
     </div>
-  );
-}
-
-function parseRemoteVersion(release, apkAsset) {
-  const body = String(release?.body || '');
-  const bodyCode = Number(body.match(/Version code:\s*(\d+)/i)?.[1] || 0);
-  const assetCode = Number(String(apkAsset?.name || '').match(/-(\d+)-[0-9a-f]{7,40}\.apk$/i)?.[1] || 0);
-  const tagCode = Number(String(release?.tag_name || '').match(/(?:v|build-)(\d+)/i)?.[1] || 0);
-  return Math.max(bodyCode, assetCode, tagCode);
+  </div>;
 }
 
 export default function App() {
-  const [refreshKey, setRefreshKey] = useState(0);
-  const [androidUpdate, setAndroidUpdate] = useState(null);
-  const [androidUpdateBusy, setAndroidUpdateBusy] = useState(false);
-  const [androidUpdateError, setAndroidUpdateError] = useState('');
-  const [androidUpdateChecking, setAndroidUpdateChecking] = useState(false);
-  const lastVersion = useRef(null);
-  const checkingAndroidUpdate = useRef(false);
+  const [refreshKey,setRefreshKey]=useState(0);
+  const [androidUpdate,setAndroidUpdate]=useState(null);
+  const [androidUpdateBusy,setAndroidUpdateBusy]=useState(false);
+  const [androidUpdateError,setAndroidUpdateError]=useState('');
+  const [androidUpdateChecking,setAndroidUpdateChecking]=useState(false);
+  const lastVersion=useRef(null);
+  const checkingAndroidUpdate=useRef(false);
 
-  useEffect(() => {
-    let stopped = false;
-    const checkVersion = async () => {
-      if (stopped) return;
-      try {
-        const response = await api.get('/sync/version', { params: { _: Date.now() }, headers: { 'Cache-Control': 'no-cache' } });
-        const version = Number(response.data?.version || 0);
-        if (lastVersion.current === null) lastVersion.current = version;
-        else if (version !== lastVersion.current) { lastVersion.current = version; setRefreshKey((value) => value + 1); }
-      } catch { /* retry */ }
+  useEffect(()=>{
+    let stopped=false;
+    const checkVersion=async()=>{
+      if(stopped)return;
+      try{
+        const response=await api.get('/sync/version',{params:{_:Date.now()},headers:{'Cache-Control':'no-cache'} });
+        const version=Number(response.data?.version||0);
+        if(lastVersion.current===null)lastVersion.current=version;
+        else if(version!==lastVersion.current){lastVersion.current=version;setRefreshKey(v=>v+1);}
+      }catch{}
     };
-    checkVersion();
-    const timer = window.setInterval(checkVersion, REALTIME_INTERVAL_MS);
-    return () => { stopped = true; window.clearInterval(timer); };
-  }, []);
+    checkVersion(); const timer=window.setInterval(checkVersion,REALTIME_INTERVAL_MS);
+    return()=>{stopped=true;window.clearInterval(timer);};
+  },[]);
 
-  useEffect(() => {
-    if (!Capacitor.isNativePlatform() || Capacitor.getPlatform() !== 'android') return undefined;
-    let cancelled = false;
-    setAndroidUpdateChecking(true);
-
-    const checkAndroidUpdate = async () => {
-      if (cancelled || checkingAndroidUpdate.current) return;
-      checkingAndroidUpdate.current = true;
-      try {
-        const installed = await AndroidUpdate.getVersion();
-        const installedCode = Number(installed?.versionCode || 0);
-        const tag = IS_SUPERADMIN_APP ? 'android-superadmin-latest' : 'android-latest';
-        const response = await fetch(`https://api.github.com/repos/stalker-one/RizviDiagnostic/releases/tags/${encodeURIComponent(tag)}?_=${Date.now()}`, {
-          cache: 'no-store',
-          headers: { Accept: 'application/vnd.github+json', 'Cache-Control': 'no-cache' }
-        });
-        if (!response.ok) throw new Error(`HTTP ${response.status}`);
-        const release = await response.json();
-        if (cancelled || release?.draft) return;
-        const apkAsset = Array.isArray(release.assets) ? release.assets.find((asset) => /\.apk$/i.test(asset?.name || '')) : null;
-        if (!apkAsset?.browser_download_url) return;
-        const remoteVersionCode = parseRemoteVersion(release, apkAsset);
-        if (!remoteVersionCode || remoteVersionCode <= installedCode) {
-          if (!cancelled) setAndroidUpdate(null);
-          return;
+  useEffect(()=>{
+    if(!Capacitor.isNativePlatform()||Capacitor.getPlatform()!=='android')return undefined;
+    let cancelled=false;
+    const checkAndroidUpdate=async()=>{
+      if(cancelled||checkingAndroidUpdate.current)return;
+      checkingAndroidUpdate.current=true;
+      setAndroidUpdateChecking(true);
+      try{
+        const result=await AndroidUpdate.checkForUpdate();
+        if(cancelled)return;
+        if(result?.available&&result?.url){
+          setAndroidUpdate({versionCode:Number(result.versionCode),versionName:result.versionName||`1.0.${Math.max(0,Number(result.versionCode)-1)}`,url:result.url,packageName:result.packageName,releaseName:result.releaseName});
+        }else{
+          setAndroidUpdate(null);
         }
-        const bodyVersionName = release.body?.match(/Version name:\s*([^\n\r]+)/i)?.[1]?.trim();
-        if (!cancelled) {
-          setAndroidUpdate({
-            versionCode: remoteVersionCode,
-            versionName: bodyVersionName || `1.0.${Math.max(0, remoteVersionCode - 1)}`,
-            url: apkAsset.browser_download_url,
-            packageName: IS_SUPERADMIN_APP ? 'com.rizvi.diagnosticcenter.superadmin' : 'com.rizvi.diagnosticcenter',
-            releaseName: release.name || tag
-          });
-        }
-      } catch (error) {
-        console.warn('Android update check failed:', error);
-        // Do not lock the user out when GitHub is temporarily unreachable.
-      } finally {
-        checkingAndroidUpdate.current = false;
-        if (!cancelled) setAndroidUpdateChecking(false);
+      }catch(error){
+        console.warn('Android update check failed:',error);
+        // Network/GitHub failure must not prevent the application from opening.
+      }finally{
+        checkingAndroidUpdate.current=false;
+        if(!cancelled)setAndroidUpdateChecking(false);
       }
     };
-
     checkAndroidUpdate();
-    const onResume = () => { if (document.visibilityState === 'visible') checkAndroidUpdate(); };
-    document.addEventListener('visibilitychange', onResume);
-    window.addEventListener('focus', onResume);
-    const timer = window.setInterval(checkAndroidUpdate, ANDROID_UPDATE_INTERVAL_MS);
-    return () => {
-      cancelled = true;
-      window.clearInterval(timer);
-      document.removeEventListener('visibilitychange', onResume);
-      window.removeEventListener('focus', onResume);
-    };
-  }, []);
+    const onResume=()=>{if(document.visibilityState==='visible')checkAndroidUpdate();};
+    document.addEventListener('visibilitychange',onResume);window.addEventListener('focus',onResume);
+    const timer=window.setInterval(checkAndroidUpdate,ANDROID_UPDATE_INTERVAL_MS);
+    return()=>{cancelled=true;window.clearInterval(timer);document.removeEventListener('visibilitychange',onResume);window.removeEventListener('focus',onResume);};
+  },[]);
 
-  const installAndroidUpdate = async () => {
-    if (!androidUpdate?.url || androidUpdateBusy) return;
-    setAndroidUpdateBusy(true);
-    setAndroidUpdateError('');
-    try {
-      await AndroidUpdate.installApk({ url: androidUpdate.url });
-    } catch (error) {
-      setAndroidUpdateError(error?.message || 'Unable to start the Android update. Please allow this app to install updates and try again.');
-    } finally {
-      setAndroidUpdateBusy(false);
-    }
+  const installAndroidUpdate=async()=>{
+    if(!androidUpdate?.url||androidUpdateBusy)return;
+    setAndroidUpdateBusy(true);setAndroidUpdateError('');
+    try{await AndroidUpdate.installApk({url:androidUpdate.url});}
+    catch(error){setAndroidUpdateError(error?.message||'Unable to start the Android update. Please allow this app to install updates and try again.');}
+    finally{setAndroidUpdateBusy(false);}
   };
 
-  const protectedRoutes = (
-    <>
-      <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
-      <Route path="/patients" element={<ProtectedRoute><Patients /></ProtectedRoute>} />
-      <Route path="/patients/:id" element={<ProtectedRoute><PatientDetail /></ProtectedRoute>} />
-      <Route path="/invoices/create" element={<ProtectedRoute><CreateInvoice /></ProtectedRoute>} />
-      <Route path="/invoices" element={<ProtectedRoute><Invoices /></ProtectedRoute>} />
-      <Route path="/invoices/:id/print" element={<ProtectedRoute><InvoicePrint /></ProtectedRoute>} />
-      <Route path="/radiology-reports" element={<ProtectedRoute><RadiologyReports /></ProtectedRoute>} />
-      <Route path="/analytics" element={<ProtectedRoute><Analytics /></ProtectedRoute>} />
-      <Route path="/referrals" element={<ProtectedRoute><Referrals /></ProtectedRoute>} />
-      <Route path="/doctors" element={<ProtectedRoute><Doctors /></ProtectedRoute>} />
-      <Route path="/procedures" element={<ProtectedRoute><Procedures /></ProtectedRoute>} />
-      <Route path="/users" element={<ProtectedRoute adminOnly><Users /></ProtectedRoute>} />
-      <Route path="/settings" element={<ProtectedRoute adminOnly><Settings /></ProtectedRoute>} />
-      <Route path="/site-control" element={<ProtectedRoute superadminOnly><SiteControl /></ProtectedRoute>} />
-      <Route path="/profile" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
-    </>
-  );
-
-  const routes = IS_SUPERADMIN_APP ? (
-    <Routes><Route path="/adminlogin" element={<AdminLogin />} />{protectedRoutes}<Route path="*" element={<Navigate to="/dashboard" replace />} /></Routes>
-  ) : (
-    <Routes><Route path="/" element={<Home />} /><Route path="/login" element={<Login />} /><Route path="/adminlogin" element={<AdminLogin />} />{protectedRoutes}<Route path="*" element={<Navigate to="/" replace />} /></Routes>
-  );
-
-  return (
-    <>
-      <SiteLockGate />
-      {IS_SUPERADMIN_APP && <SuperadminGuard />}
-      <div key={refreshKey} className="contents">{routes}</div>
-      <AndroidUpdateModal update={androidUpdate} checking={androidUpdateChecking} busy={androidUpdateBusy} error={androidUpdateError} onUpdate={installAndroidUpdate} />
-    </>
-  );
+  const protectedRoutes=<>
+    <Route path="/dashboard" element={<ProtectedRoute><Dashboard/></ProtectedRoute>}/>
+    <Route path="/patients" element={<ProtectedRoute><Patients/></ProtectedRoute>}/>
+    <Route path="/patients/:id" element={<ProtectedRoute><PatientDetail/></ProtectedRoute>}/>
+    <Route path="/invoices/create" element={<ProtectedRoute><CreateInvoice/></ProtectedRoute>}/>
+    <Route path="/invoices" element={<ProtectedRoute><Invoices/></ProtectedRoute>}/>
+    <Route path="/invoices/:id/print" element={<ProtectedRoute><InvoicePrint/></ProtectedRoute>}/>
+    <Route path="/radiology-reports" element={<ProtectedRoute><RadiologyReports/></ProtectedRoute>}/>
+    <Route path="/analytics" element={<ProtectedRoute><Analytics/></ProtectedRoute>}/>
+    <Route path="/referrals" element={<ProtectedRoute><Referrals/></ProtectedRoute>}/>
+    <Route path="/doctors" element={<ProtectedRoute><Doctors/></ProtectedRoute>}/>
+    <Route path="/procedures" element={<ProtectedRoute><Procedures/></ProtectedRoute>}/>
+    <Route path="/users" element={<ProtectedRoute adminOnly><Users/></ProtectedRoute>}/>
+    <Route path="/settings" element={<ProtectedRoute adminOnly><Settings/></ProtectedRoute>}/>
+    <Route path="/site-control" element={<ProtectedRoute superadminOnly><SiteControl/></ProtectedRoute>}/>
+    <Route path="/profile" element={<ProtectedRoute><Profile/></ProtectedRoute>}/>
+  </>;
+  const routes=IS_SUPERADMIN_APP?<Routes><Route path="/adminlogin" element={<AdminLogin/>}/>{protectedRoutes}<Route path="*" element={<Navigate to="/dashboard" replace/>}/></Routes>:<Routes><Route path="/" element={<Home/>}/><Route path="/login" element={<Login/>}/><Route path="/adminlogin" element={<AdminLogin/>}/>{protectedRoutes}<Route path="*" element={<Navigate to="/" replace/>}/></Routes>;
+  return <><SiteLockGate/>{IS_SUPERADMIN_APP&&<SuperadminGuard/>}<div key={refreshKey} className="contents">{routes}</div><AndroidUpdateModal update={androidUpdate} checking={androidUpdateChecking} busy={androidUpdateBusy} error={androidUpdateError} onUpdate={installAndroidUpdate}/></>;
 }
