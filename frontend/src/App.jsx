@@ -69,6 +69,7 @@ export default function App() {
   const [androidUpdateChecking,setAndroidUpdateChecking]=useState(false);
   const checkingAndroidUpdate=useRef(false);
   const retryCheckRef=useRef(null);
+  const lastVersionRef=useRef(null);
 
   useEffect(()=>{
     let stopped=false;
@@ -77,11 +78,10 @@ export default function App() {
       try{
         const response=await api.get('/sync/version',{params:{_:Date.now()},headers:{'Cache-Control':'no-cache'} });
         const version=Number(response.data?.version||0);
-        if(!stopped)setRefreshKey(v=>lastVersionRef.current===null?v:(version!==lastVersionRef.current?v:v));
+        if(lastVersionRef.current!==null&&version!==lastVersionRef.current)setRefreshKey(v=>v+1);
         lastVersionRef.current=version;
       }catch{}
     };
-    const lastVersionRef={current:null};
     checkVersion(); const timer=window.setInterval(checkVersion,REALTIME_INTERVAL_MS);
     return()=>{stopped=true;window.clearInterval(timer);};
   },[]);
@@ -127,7 +127,21 @@ export default function App() {
   };
 
   const protectedRoutes=<>
-    <Route path="/dashboard" element={<ProtectedRoute><Dashboard/></ProtectedRoute>}/><Route path="/patients" element={<ProtectedRoute><Patients/></ProtectedRoute>}/><Route path="/patients/:id" element={<ProtectedRoute><PatientDetail/></ProtectedRoute>}/><Route path="/invoices/create" element={<ProtectedRoute><CreateInvoice/></ProtectedRoute>}/><Route path="/invoices" element={<ProtectedRoute><Invoices/></ProtectedRoute>}/><Route path="/invoices/:id/print" element={<ProtectedRoute><InvoicePrint/></ProtectedRoute>}/><Route path="/radiology-reports" element={<ProtectedRoute><RadiologyReports/></ProtectedRoute>}/><Route path="/analytics" element={<ProtectedRoute><Analytics/></ProtectedRoute>}/><Route path="/referrals" element={<ProtectedRoute><Referrals/></ProtectedRoute>}/><Route path="/doctors" element={<ProtectedRoute><Doctors/></ProtectedRoute>}/><Route path="/procedures" element={<ProtectedRoute><Procedures/></ProtectedRoute>}/><Route path="/users" element={<ProtectedRoute adminOnly><Users/></ProtectedRoute>}/><Route path="/settings" element={<ProtectedRoute adminOnly><Settings/></ProtectedRoute>}/><Route path="/site-control" element={<ProtectedRoute superadminOnly><SiteControl/></ProtectedRoute>}/><Route path="/profile" element={<ProtectedRoute><Profile/></ProtectedRoute>/>
+    <Route path="/dashboard" element={<ProtectedRoute><Dashboard/></ProtectedRoute>}/>
+    <Route path="/patients" element={<ProtectedRoute><Patients/></ProtectedRoute>}/>
+    <Route path="/patients/:id" element={<ProtectedRoute><PatientDetail/></ProtectedRoute>}/>
+    <Route path="/invoices/create" element={<ProtectedRoute><CreateInvoice/></ProtectedRoute>}/>
+    <Route path="/invoices" element={<ProtectedRoute><Invoices/></ProtectedRoute>}/>
+    <Route path="/invoices/:id/print" element={<ProtectedRoute><InvoicePrint/></ProtectedRoute>}/>
+    <Route path="/radiology-reports" element={<ProtectedRoute><RadiologyReports/></ProtectedRoute>}/>
+    <Route path="/analytics" element={<ProtectedRoute><Analytics/></ProtectedRoute>}/>
+    <Route path="/referrals" element={<ProtectedRoute><Referrals/></ProtectedRoute>}/>
+    <Route path="/doctors" element={<ProtectedRoute><Doctors/></ProtectedRoute>}/>
+    <Route path="/procedures" element={<ProtectedRoute><Procedures/></ProtectedRoute>}/>
+    <Route path="/users" element={<ProtectedRoute adminOnly><Users/></ProtectedRoute>}/>
+    <Route path="/settings" element={<ProtectedRoute adminOnly><Settings/></ProtectedRoute>}/>
+    <Route path="/site-control" element={<ProtectedRoute superadminOnly><SiteControl/></ProtectedRoute>}/>
+    <Route path="/profile" element={<ProtectedRoute><Profile/></ProtectedRoute>}/>
   </>;
   const routes=IS_SUPERADMIN_APP?<Routes><Route path="/adminlogin" element={<AdminLogin/>}/>{protectedRoutes}<Route path="*" element={<Navigate to="/dashboard" replace/>}/></Routes>:<Routes><Route path="/" element={<Home/>}/><Route path="/login" element={<Login/>}/><Route path="/adminlogin" element={<AdminLogin/>}/>{protectedRoutes}<Route path="*" element={<Navigate to="/" replace/>}/></Routes>;
   return <><SiteLockGate/>{IS_SUPERADMIN_APP&&<SuperadminGuard/>}<div key={refreshKey} className="contents">{routes}</div><AndroidUpdateModal update={androidUpdate} checking={androidUpdateChecking} busy={androidUpdateBusy} error={androidUpdateError} onUpdate={installAndroidUpdate} onRetry={()=>retryCheckRef.current?.()}/></>;
