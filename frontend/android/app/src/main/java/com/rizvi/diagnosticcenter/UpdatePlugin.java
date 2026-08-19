@@ -24,6 +24,7 @@ import java.net.HttpURLConnection;
 import java.net.URL;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
+import java.time.Instant;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.regex.Matcher;
@@ -52,7 +53,7 @@ public class UpdatePlugin extends Plugin {
                 HttpURLConnection c = (HttpURLConnection) apiUrl.openConnection();
                 c.setConnectTimeout(15000); c.setReadTimeout(30000); c.setUseCaches(false);
                 c.setRequestProperty("Accept", "application/vnd.github+json");
-                c.setRequestProperty("User-Agent", "RizviDiagnosticCenter-Android-Updater/3");
+                c.setRequestProperty("User-Agent", "RizviDiagnosticCenter-Android-Updater/4");
                 c.connect();
                 int status = c.getResponseCode();
                 if (status != 200) throw new IllegalStateException("GitHub release check returned HTTP " + status);
@@ -76,9 +77,9 @@ public class UpdatePlugin extends Plugin {
 
                 String body = release.optString("body", "");
                 long remoteCode = extractNumber(body, "Version code\\s*:\\s*(\\d+)");
+                if (remoteCode <= 0) remoteCode = extractNumber(body, "Version\\s*(?:Code|Build)\\s*[:=]\\s*(\\d+)");
                 if (remoteCode <= 0) remoteCode = extractNumber(apk.optString("name", ""), "(?:-|_)(\\d+)(?:-|_)[0-9a-f]{7,40}\\.apk$");
                 if (remoteCode <= 0) remoteCode = extractNumber(apk.optString("name", ""), "(?:-|_)(\\d+)\\.apk$");
-                if (remoteCode <= 0) remoteCode = extractNumber(body, "Version\\s*(?:Code|Build)\\s*[:=]\\s*(\\d+)");
                 if (remoteCode <= 0) throw new IllegalStateException("Latest Android release has no readable version code.");
                 if (remoteCode <= installedCode) { call.resolve(result); return; }
 
@@ -88,13 +89,11 @@ public class UpdatePlugin extends Plugin {
                 result.put("versionName", versionName.isEmpty() ? "1.0." + remoteCode : versionName);
                 result.put("url", apk.optString("browser_download_url", ""));
                 call.resolve(result);
-            } catch (Exception e) {
-                call.reject("Android update check failed: " + e.getMessage(), e);
-            }
+            } catch (Exception e) { call.reject("Android update check failed: " + e.getMessage(), e); }
         });
     }
 
-    private JSONObject findBestApk(JSONArray assets, String expectedName) throws Exception {
+    private JSONObject findBestApk(JSONArray assets, String expectedName) {
         if (assets == null) return null;
         JSONObject fallback = null;
         long newest = Long.MIN_VALUE;
@@ -104,11 +103,9 @@ public class UpdatePlugin extends Plugin {
             String name = asset.optString("name", "");
             if (expectedName.equals(name)) return asset;
             if (!name.toLowerCase().endsWith(".apk")) continue;
-            String updated = asset.optString("updated_at", "");
             long timestamp = 0;
-            if (!updated.isEmpty()) {
-                try { timestamp = java.time.Instant.parse(updated).toEpochMilli(); } catch (Exception ignored) { }
-            }
+            String updated = asset.optString("updated_at", "");
+            if (!updated.isEmpty()) { try { timestamp = Instant.parse(updated).toEpochMilli(); } catch (Exception ignored) {} }
             if (fallback == null || timestamp > newest) { fallback = asset; newest = timestamp; }
         }
         return fallback;
@@ -121,7 +118,7 @@ public class UpdatePlugin extends Plugin {
         String url = call.getString("url", ""); if (url == null || url.trim().isEmpty()) { call.reject("Update download URL is missing."); return; }
         if (!url.startsWith("https://")) { call.reject("Only secure HTTPS update URLs are allowed."); return; }
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O && !getContext().getPackageManager().canRequestPackageInstalls()) { try { getActivity().startActivity(new Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES, Uri.parse("package:" + getContext().getPackageName()))); call.reject("Please allow this app to install updates, then tap Update Now again."); } catch (Exception e) { call.reject("Android installation permission is required: " + e.getMessage(), e); } return; }
-        call.setKeepAlive(true); executor.execute(() -> { File apk = new File(getContext().getCacheDir(), "rizvi-diagnostic-update.apk"); try { if (apk.exists() && !apk.delete()) throw new IllegalStateException("Unable to clear the previous update file."); HttpURLConnection c = (HttpURLConnection) new URL(url).openConnection(); c.setConnectTimeout(15000); c.setReadTimeout(120000); c.setInstanceFollowRedirects(true); c.setRequestProperty("User-Agent", "RizviDiagnosticCenter-Android-Updater/3"); c.connect(); if (c.getResponseCode() < 200 || c.getResponseCode() >= 300) throw new IllegalStateException("Update server returned HTTP " + c.getResponseCode()); try (InputStream input = c.getInputStream(); FileOutputStream output = new FileOutputStream(apk)) { byte[] buffer = new byte[8192]; int n; while ((n = input.read(buffer)) != -1) output.write(buffer, 0, n); } finally { c.disconnect(); } if (!apk.isFile() || apk.length() < 10000) throw new IllegalStateException("Downloaded update APK is incomplete."); verifyDownloadedApk(apk); getActivity().runOnUiThread(() -> { try { Uri uri = FileProvider.getUriForFile(getContext(), getContext().getPackageName() + ".fileprovider", apk); Intent intent = new Intent(Intent.ACTION_VIEW); intent.setDataAndType(uri, "application/vnd.android.package-archive"); intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION | Intent.FLAG_ACTIVITY_NEW_TASK); getActivity().startActivity(intent); call.resolve(); } catch (Exception e) { call.reject("Unable to start Android update installer: " + e.getMessage(), e); } finally { call.setKeepAlive(false); } }); } catch (Exception e) { getActivity().runOnUiThread(() -> { call.reject("Update verification/download failed: " + e.getMessage(), e); call.setKeepAlive(false); }); } });
+        call.setKeepAlive(true); executor.execute(() -> { File apk = new File(getContext().getCacheDir(), "rizvi-diagnostic-update.apk"); try { if (apk.exists() && !apk.delete()) throw new IllegalStateException("Unable to clear the previous update file."); HttpURLConnection c = (HttpURLConnection) new URL(url).openConnection(); c.setConnectTimeout(15000); c.setReadTimeout(120000); c.setInstanceFollowRedirects(true); c.setRequestProperty("User-Agent", "RizviDiagnosticCenter-Android-Updater/4"); c.connect(); if (c.getResponseCode() < 200 || c.getResponseCode() >= 300) throw new IllegalStateException("Update server returned HTTP " + c.getResponseCode()); try (InputStream input = c.getInputStream(); FileOutputStream output = new FileOutputStream(apk)) { byte[] buffer = new byte[8192]; int n; while ((n = input.read(buffer)) != -1) output.write(buffer, 0, n); } finally { c.disconnect(); } if (!apk.isFile() || apk.length() < 10000) throw new IllegalStateException("Downloaded update APK is incomplete."); verifyDownloadedApk(apk); getActivity().runOnUiThread(() -> { try { Uri uri = FileProvider.getUriForFile(getContext(), getContext().getPackageName() + ".fileprovider", apk); Intent intent = new Intent(Intent.ACTION_VIEW); intent.setDataAndType(uri, "application/vnd.android.package-archive"); intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION | Intent.FLAG_ACTIVITY_NEW_TASK); getActivity().startActivity(intent); call.resolve(); } catch (Exception e) { call.reject("Unable to start Android update installer: " + e.getMessage(), e); } finally { call.setKeepAlive(false); } }); } catch (Exception e) { getActivity().runOnUiThread(() -> { call.reject("Update verification/download failed: " + e.getMessage(), e); call.setKeepAlive(false); }); } });
     }
 
     private void verifyDownloadedApk(File apk) throws Exception { PackageManager pm = getContext().getPackageManager(); PackageInfo info = Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU ? pm.getPackageArchiveInfo(apk.getAbsolutePath(), PackageManager.PackageInfoFlags.of(PackageManager.GET_SIGNING_CERTIFICATES)) : pm.getPackageArchiveInfo(apk.getAbsolutePath(), PackageManager.GET_SIGNATURES); if (info == null) throw new SecurityException("Downloaded file is not a valid Android APK."); if (!getContext().getPackageName().equals(info.packageName)) throw new SecurityException("Update APK belongs to a different application."); if (!MessageDigest.isEqual(getInstalledCertificate(), getDownloadedCertificate(info))) throw new SecurityException("Update APK signing certificate does not match this application."); }
