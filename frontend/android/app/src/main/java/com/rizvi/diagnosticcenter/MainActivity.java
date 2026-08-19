@@ -8,5 +8,6 @@ public class MainActivity extends BridgeActivity {
         super.onCreate(savedInstanceState);
         registerPlugin(PrintPlugin.class);
         registerPlugin(UpdatePlugin.class);
+        registerPlugin(ExportPlugin.class);
     }
 }
