@@ -155,13 +155,13 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p dist-android
-          cp frontend/android/app/build/outputs/apk/regular/release/app-regular-release.apk "dist-android/RizviDiagnosticCenter-${{ github.run_number }}-${{ github.sha }}.apk"
+          cp frontend/android/app/build/outputs/apk/regular/release/app-regular-release.apk "dist-android/RizviDiagnosticCenter-latest.apk"
 
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
         with:
           name: RizviDiagnosticCenter-android
-          path: dist-android/*.apk
+          path: dist-android/RizviDiagnosticCenter-latest.apk
           retention-days: 90
 
       - name: Publish android-latest release
@@ -175,8 +175,10 @@ jobs:
             Package: com.rizvi.diagnosticcenter
             Version code: ${{ github.run_number }}
             Version name: 1.0.${{ github.run_number }}
-          files: dist-android/*.apk
+          files: dist-android/RizviDiagnosticCenter-latest.apk
           make_latest: false
+          overwrite_files: true
+          fail_on_unmatched_files: true
 
       - name: Remove signing keystore
         if: always()
