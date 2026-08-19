@@ -5,29 +5,82 @@ import PrintThermalInvoice from '../components/PrintThermalInvoice.jsx';
 import PrintSimpleInvoice from '../components/PrintSimpleInvoice.jsx';
 import Button from '../components/Button.jsx';
 import PageLoader from '../components/PageLoader.jsx';
-import { ArrowLeft, Printer } from 'lucide-react';
+import { ArrowLeft, Printer, RefreshCw } from 'lucide-react';
 import api from '../api/axios';
 
 export default function InvoicePrint() {
   const { id } = useParams();
   const [invoice, setInvoice] = useState(null);
-  const [settings, setSettings] = useState(null);
+  const [settings, setSettings] = useState({});
   const [format, setFormat] = useState('simple'); // 'simple' | 'thermal'
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
 
   useEffect(() => {
-    Promise.all([api.get(`/invoices/${id}`), api.get('/settings')])
-      .then(([i, s]) => {
-        setInvoice(i.data);
-        setSettings(s.data);
-        if (s.data?.printFormat === 'thermal') setFormat('thermal');
-        if (s.data?.printFormat === 'simple') setFormat('simple');
-      })
-      .finally(() => setLoading(false));
+    let cancelled = false;
+
+    async function loadInvoice() {
+      setLoading(true);
+      setError('');
+
+      // Load the invoice independently from settings. Previously Promise.all()
+      // meant a settings/API failure could make an otherwise valid invoice
+      // appear as "Invoice not found". The invoice itself is the required
+      // resource; settings are optional print preferences.
+      try {
+        const response = await api.get(`/invoices/${encodeURIComponent(id)}`);
+        if (!cancelled) setInvoice(response.data);
+      } catch (err) {
+        if (!cancelled) {
+          const status = err.response?.status;
+          setError(
+            status === 404
+              ? 'This invoice could not be found. It may not have finished syncing to the live database yet.'
+              : status === 401
+                ? 'Your session has expired. Please log in again to view this invoice.'
+                : 'Unable to load this invoice. Please try again.'
+          );
+        }
+      }
+
+      // Settings must never prevent an invoice from opening/printing.
+      try {
+        const response = await api.get('/settings');
+        if (!cancelled && response.data) {
+          setSettings(response.data);
+          if (response.data.printFormat === 'thermal') setFormat('thermal');
+          if (response.data.printFormat === 'simple') setFormat('simple');
+        }
+      } catch (err) {
+        // Use the safe simple/A4 defaults when settings are temporarily
+        // unavailable. Do not replace a successfully loaded invoice with an
+        // error state just because settings failed.
+        console.warn('[invoice-print] Settings unavailable; using defaults.', err);
+      }
+
+      if (!cancelled) setLoading(false);
+    }
+
+    loadInvoice();
+    return () => { cancelled = true; };
   }, [id]);
 
   if (loading) return <Layout title="Invoice"><PageLoader message="Loading invoice..." /></Layout>;
-  if (!invoice) return <Layout title="Invoice"><div className="text-slate-400">Invoice not found.</div></Layout>;
+
+  if (error || !invoice) {
+    return (
+      <Layout title="Invoice">
+        <div className="bg-white rounded-xl border border-slate-100 shadow-sm p-6 max-w-2xl">
+          <h2 className="text-lg font-semibold text-slate-800 mb-2">Unable to open invoice</h2>
+          <p className="text-sm text-slate-500 mb-5">{error || 'Invoice not found.'}</p>
+          <div className="flex gap-2">
+            <Button as={Link} to="/invoices" variant="secondary" icon={ArrowLeft} size="sm">Back to Invoices</Button>
+            <Button variant="outline" icon={RefreshCw} size="sm" onClick={() => window.location.reload()}>Retry</Button>
+          </div>
+        </div>
+      </Layout>
+    );
+  }
 
   return (
     <Layout title={`Invoice ${invoice.invoiceNumber}`}>
