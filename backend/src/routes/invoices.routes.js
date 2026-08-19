@@ -1,6 +1,7 @@
 const express = require('express');
 const { readTable, writeTable, generateId, nextInvoiceNumber, applyDateRange, applyStaffEntryLimit, staffLimitInfo, paginate } = require('../db');
 const { authenticate, requireRole } = require('../middleware/auth');
+const { getFreshTable } = require('../mongo-table');
 
 const router = express.Router();
 router.use(authenticate);
@@ -12,16 +13,12 @@ function computeTotals(items, discount) {
   return { subTotal, discountAmount, total };
 }
 
-// Invoice listing with filters + pagination. When `patientId` is given
-// (e.g. a patient's own invoice history) every matching invoice is returned
-// regardless of date, unpaginated. Otherwise the list defaults to today's
-// clinic-day for everyone. Staff are hard-locked to today only — there is
-// no way for the staff role to request yesterday, last3, or all-time;
-// admins get the full set of presets plus a custom from/to range.
-router.get('/', (req, res) => {
+// Invoice listing with filters + pagination. Refresh from Atlas on every read
+// so a Vercel serverless instance never serves a stale in-memory invoice list.
+router.get('/', async (req, res) => {
   const { patientId, page, pageSize } = req.query;
   let { range, from, to } = req.query;
-  let invoices = readTable('invoices');
+  let invoices = await getFreshTable('invoices', readTable('invoices'));
 
   if (patientId) {
     invoices = invoices.filter((i) => i.patientId === patientId);
@@ -40,8 +37,6 @@ router.get('/', (req, res) => {
   invoices = applyDateRange(invoices, { range, from, to });
   invoices = invoices.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
 
-  // Admin-configured "how much of today's data can staff see" limit — never
-  // applied to admin/superadmin accounts.
   let staffLimit = null;
   if (isStaff) {
     const settings = readTable('settings');
@@ -54,8 +49,11 @@ router.get('/', (req, res) => {
   res.json({ ...result, range, staffLimit });
 });
 
-router.get('/:id', (req, res) => {
-  const invoices = readTable('invoices');
+// Always read this invoice from Atlas first. This is important on Vercel:
+// multiple serverless instances have separate in-memory caches, so the
+// instance serving the print page may not be the instance that created it.
+router.get('/:id', async (req, res) => {
+  const invoices = await getFreshTable('invoices', readTable('invoices'));
   const invoice = invoices.find((i) => i.id === req.params.id);
   if (!invoice) return res.status(404).json({ message: 'Invoice not found.' });
 
@@ -67,7 +65,7 @@ router.get('/:id', (req, res) => {
 router.post('/', (req, res) => {
   const {
     patientId,
-    items, // [{ procedureId, description, rate, quantity, performedBy, completionDateTime }]
+    items,
     discount,
     referralId,
     paymentMode,
