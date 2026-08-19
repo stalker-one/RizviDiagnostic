@@ -20,12 +20,15 @@ public class PrintPlugin extends Plugin {
     public void print(PluginCall call) {
         final String html = call.getString("html", "");
         final String jobName = call.getString("name", "Rizvi Diagnostic Invoice");
-        final String requestedType = call.getString("type", "");
+        final String requestedType = call.getString("type", "simple-a4");
         if (getActivity() == null) { call.reject("Print service is not available."); return; }
         if (html == null || html.trim().isEmpty()) { call.reject("No printable HTML was provided."); return; }
 
-        final boolean thermal = isThermal(requestedType, jobName, html);
-        final boolean narrow58 = is58mm(requestedType, jobName, html);
+        // The web page now sends the selected format explicitly. Do not guess
+        // from the HTML text because clinic names, invoice descriptions, or
+        // CSS can accidentally contain words such as "receipt" or "thermal".
+        final boolean thermal = requestedType.toLowerCase().contains("thermal") || requestedType.toLowerCase().contains("58mm") || requestedType.toLowerCase().contains("80mm");
+        final boolean narrow58 = requestedType.toLowerCase().contains("58mm");
         final String preparedHtml = preparePrintHtml(html, thermal, narrow58);
 
         getActivity().runOnUiThread(() -> {
@@ -69,16 +72,6 @@ public class PrintPlugin extends Plugin {
         });
     }
 
-    private boolean isThermal(String type, String jobName, String html) {
-        String value = ((type == null ? "" : type) + " " + (jobName == null ? "" : jobName) + " " + (html == null ? "" : html)).toLowerCase();
-        return value.contains("thermal") || value.contains("receipt") || value.contains("80mm") || value.contains("58mm");
-    }
-
-    private boolean is58mm(String type, String jobName, String html) {
-        String value = ((type == null ? "" : type) + " " + (jobName == null ? "" : jobName) + " " + (html == null ? "" : html)).toLowerCase();
-        return value.contains("58mm") || value.contains("58 mm");
-    }
-
     private String preparePrintHtml(String html, boolean thermal, boolean narrow58) {
         String css;
         if (thermal) {
@@ -88,28 +81,28 @@ public class PrintPlugin extends Plugin {
                     "html,body{width:" + width + "!important;min-width:" + width + "!important;max-width:" + width + "!important;margin:0!important;padding:0!important;}" +
                     "body{font-family:Arial,Helvetica,sans-serif!important;font-size:11px!important;line-height:1.22!important;color:#000!important;background:#fff!important;overflow:visible!important;}" +
                     "*{box-sizing:border-box!important;}" +
-                    "main,.print-container,.invoice,.receipt,.thermal,.thermal-print,.receipt-print{width:100%!important;max-width:100%!important;margin:0!important;padding:0!important;}" +
-                    "table{width:100%!important;max-width:100%!important;border-collapse:collapse!important;table-layout:fixed!important;}" +
+                    "#printable-area{width:" + width + "!important;max-width:" + width + "!important;min-width:0!important;margin:0!important;padding:0!important;overflow:visible!important;border:0!important;box-shadow:none!important;}" +
+                    "#printable-area>div{width:" + width + "!important;max-width:" + width + "!important;min-width:0!important;margin:0!important;box-shadow:none!important;border:0!important;overflow:visible!important;}" +
+                    "table{width:100%!important;max-width:100%!important;min-width:0!important;border-collapse:collapse!important;table-layout:fixed!important;}" +
                     "th,td{padding:2px 1px!important;vertical-align:top!important;overflow-wrap:anywhere!important;word-break:break-word!important;}" +
                     "img{display:block!important;max-width:100%!important;height:auto!important;margin-left:auto!important;margin-right:auto!important;}" +
                     "h1,h2,h3,h4,p{margin-top:0!important;margin-bottom:4px!important;}" +
                     ".no-print{display:none!important;}" +
-                    "@media print{html,body{margin:0!important;padding:0!important;}*{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;}}" +
                     "</style>";
         } else {
             css = "<style id=\"android-simple-print\">" +
-                    "@page{size:A4;margin:10mm;}" +
-                    "html,body{width:100%!important;max-width:190mm!important;margin:0 auto!important;padding:0!important;}" +
+                    "@page{size:A4;margin:10mm!important;}" +
+                    "html,body{width:190mm!important;max-width:190mm!important;margin:0!important;padding:0!important;}" +
                     "body{font-family:Arial,Helvetica,sans-serif!important;font-size:12px!important;line-height:1.35!important;color:#000!important;background:#fff!important;overflow:visible!important;}" +
                     "*{box-sizing:border-box!important;}" +
-                    ".print-container,.invoice,.simple-print{width:100%!important;max-width:190mm!important;margin:0 auto!important;}" +
-                    "table{width:100%!important;max-width:100%!important;border-collapse:collapse!important;table-layout:auto!important;}" +
-                    "th,td{padding:5px 4px!important;vertical-align:top!important;overflow-wrap:anywhere!important;}" +
+                    "#printable-area{width:190mm!important;max-width:190mm!important;min-width:0!important;margin:0!important;padding:0!important;overflow:visible!important;border:0!important;box-shadow:none!important;}" +
+                    "#printable-area>div{width:190mm!important;max-width:190mm!important;min-width:0!important;margin:0!important;padding:0!important;overflow:visible!important;border:0!important;box-shadow:none!important;}" +
+                    "table{width:100%!important;max-width:100%!important;min-width:0!important;border-collapse:collapse!important;table-layout:fixed!important;}" +
+                    "th,td{padding:5px 4px!important;vertical-align:top!important;overflow-wrap:anywhere!important;word-break:break-word!important;}" +
                     "img{max-width:100%!important;height:auto!important;}" +
                     "h1,h2,h3,h4{page-break-after:avoid!important;}" +
                     "tr{page-break-inside:avoid!important;}" +
                     ".no-print{display:none!important;}" +
-                    "@media print{html,body{margin:0!important;padding:0!important;}}" +
                     "</style>";
         }
         String lower = html.toLowerCase();
