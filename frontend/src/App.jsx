@@ -33,32 +33,34 @@ function SuperadminGuard() {
   const location = useLocation();
   const navigate = useNavigate();
   const token = localStorage.getItem('rdc_token');
-  const publicRoutes = ['/adminlogin'];
-
   useEffect(() => {
     if (!IS_SUPERADMIN_APP) return;
-    if (!token && !publicRoutes.includes(location.pathname)) {
-      navigate('/adminlogin', { replace: true });
-    }
+    if (!token && location.pathname !== '/adminlogin') navigate('/adminlogin', { replace: true });
   }, [location.pathname, navigate, token]);
-
   return null;
 }
 
-function AndroidUpdateModal({ update, onLater, onUpdate, busy, error }) {
-  if (!update) return null;
+function AndroidUpdateModal({ update, checking, onUpdate, busy, error }) {
+  if (!checking && !update) return null;
   return (
-    <div style={{ position: 'fixed', inset: 0, zIndex: 99999, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,.55)', padding: 20 }}>
-      <div style={{ width: '100%', maxWidth: 420, borderRadius: 18, background: '#fff', padding: 24, boxShadow: '0 20px 60px rgba(0,0,0,.3)' }}>
-        <h2 style={{ margin: '0 0 8px', fontSize: 22, fontWeight: 700 }}>New update available</h2>
-        <p style={{ margin: '0 0 8px', color: '#555' }}>A newer version of {IS_SUPERADMIN_APP ? 'Rizvi Diagnostic Center Superadmin' : 'Rizvi Diagnostic Center'} is available.</p>
-        <p style={{ margin: '0 0 16px', fontWeight: 600 }}>Version {update.versionName} (build {update.versionCode})</p>
-        {busy && <p style={{ margin: '0 0 12px', color: '#555' }}>Downloading update…</p>}
-        {error && <p style={{ margin: '0 0 12px', color: '#b91c1c', fontSize: 14 }}>{error}</p>}
-        <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
-          <button type="button" onClick={onLater} disabled={busy} style={{ border: '1px solid #ddd', borderRadius: 10, padding: '10px 16px', background: '#fff' }}>Later</button>
-          <button type="button" onClick={onUpdate} disabled={busy} style={{ border: 0, borderRadius: 10, padding: '10px 16px', background: '#111827', color: '#fff', fontWeight: 600 }}>{busy ? 'Updating…' : 'Update now'}</button>
-        </div>
+    <div style={{ position: 'fixed', inset: 0, zIndex: 999999, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,.68)', padding: 20 }}>
+      <div style={{ width: '100%', maxWidth: 430, borderRadius: 18, background: '#fff', padding: 24, boxShadow: '0 20px 60px rgba(0,0,0,.35)' }}>
+        {checking ? (
+          <>
+            <h2 style={{ margin: '0 0 8px', fontSize: 22, fontWeight: 700 }}>Checking for updates…</h2>
+            <p style={{ margin: 0, color: '#555' }}>Please wait while we check whether this application is up to date.</p>
+          </>
+        ) : (
+          <>
+            <h2 style={{ margin: '0 0 8px', fontSize: 22, fontWeight: 700 }}>Update required</h2>
+            <p style={{ margin: '0 0 8px', color: '#555' }}>A newer version of {IS_SUPERADMIN_APP ? 'Rizvi Diagnostic Center Superadmin' : 'Rizvi Diagnostic Center'} is available.</p>
+            <p style={{ margin: '0 0 16px', fontWeight: 600 }}>Version {update.versionName} (build {update.versionCode})</p>
+            <p style={{ margin: '0 0 16px', color: '#555', fontSize: 14 }}>You must update this application before continuing. Your login and application data will remain in the app.</p>
+            {busy && <p style={{ margin: '0 0 12px', color: '#555' }}>Downloading update…</p>}
+            {error && <p style={{ margin: '0 0 12px', color: '#b91c1c', fontSize: 14 }}>{error}</p>}
+            <button type="button" onClick={onUpdate} disabled={busy} style={{ width: '100%', border: 0, borderRadius: 10, padding: '12px 16px', background: '#111827', color: '#fff', fontWeight: 700 }}>{busy ? 'Updating…' : 'Update now'}</button>
+          </>
+        )}
       </div>
     </div>
   );
@@ -77,6 +79,7 @@ export default function App() {
   const [androidUpdate, setAndroidUpdate] = useState(null);
   const [androidUpdateBusy, setAndroidUpdateBusy] = useState(false);
   const [androidUpdateError, setAndroidUpdateError] = useState('');
+  const [androidUpdateChecking, setAndroidUpdateChecking] = useState(false);
   const lastVersion = useRef(null);
   const checkingAndroidUpdate = useRef(false);
 
@@ -99,6 +102,7 @@ export default function App() {
   useEffect(() => {
     if (!Capacitor.isNativePlatform() || Capacitor.getPlatform() !== 'android') return undefined;
     let cancelled = false;
+    setAndroidUpdateChecking(true);
 
     const checkAndroidUpdate = async () => {
       if (cancelled || checkingAndroidUpdate.current) return;
@@ -114,42 +118,36 @@ export default function App() {
         if (!response.ok) throw new Error(`HTTP ${response.status}`);
         const release = await response.json();
         if (cancelled || release?.draft) return;
-
-        const expectedPackage = IS_SUPERADMIN_APP ? 'com.rizvi.diagnosticcenter.superadmin' : 'com.rizvi.diagnosticcenter';
-        const apkAsset = Array.isArray(release.assets)
-          ? release.assets.find((asset) => /\.apk$/i.test(asset?.name || ''))
-          : null;
+        const apkAsset = Array.isArray(release.assets) ? release.assets.find((asset) => /\.apk$/i.test(asset?.name || '')) : null;
         if (!apkAsset?.browser_download_url) return;
-
         const remoteVersionCode = parseRemoteVersion(release, apkAsset);
-        if (!remoteVersionCode || remoteVersionCode <= installedCode) return;
-
+        if (!remoteVersionCode || remoteVersionCode <= installedCode) {
+          if (!cancelled) setAndroidUpdate(null);
+          return;
+        }
         const bodyVersionName = release.body?.match(/Version name:\s*([^\n\r]+)/i)?.[1]?.trim();
-        const assetName = String(apkAsset.name || '');
-        const versionName = bodyVersionName || `1.0.${Math.max(0, remoteVersionCode - 1)}`;
-        setAndroidUpdate({
-          versionCode: remoteVersionCode,
-          versionName,
-          url: apkAsset.browser_download_url,
-          packageName: expectedPackage,
-          releaseName: release.name || tag
-        });
+        if (!cancelled) {
+          setAndroidUpdate({
+            versionCode: remoteVersionCode,
+            versionName: bodyVersionName || `1.0.${Math.max(0, remoteVersionCode - 1)}`,
+            url: apkAsset.browser_download_url,
+            packageName: IS_SUPERADMIN_APP ? 'com.rizvi.diagnosticcenter.superadmin' : 'com.rizvi.diagnosticcenter',
+            releaseName: release.name || tag
+          });
+        }
       } catch (error) {
         console.warn('Android update check failed:', error);
+        // Do not lock the user out when GitHub is temporarily unreachable.
       } finally {
         checkingAndroidUpdate.current = false;
+        if (!cancelled) setAndroidUpdateChecking(false);
       }
     };
 
-    // Check immediately every time the application starts.
     checkAndroidUpdate();
-
-    // Check again whenever the Android app returns to the foreground.
     const onResume = () => { if (document.visibilityState === 'visible') checkAndroidUpdate(); };
     document.addEventListener('visibilitychange', onResume);
     window.addEventListener('focus', onResume);
-
-    // Realtime update detection while the app remains open.
     const timer = window.setInterval(checkAndroidUpdate, ANDROID_UPDATE_INTERVAL_MS);
     return () => {
       cancelled = true;
@@ -193,19 +191,9 @@ export default function App() {
   );
 
   const routes = IS_SUPERADMIN_APP ? (
-    <Routes>
-      <Route path="/adminlogin" element={<AdminLogin />} />
-      {protectedRoutes}
-      <Route path="*" element={<Navigate to="/dashboard" replace />} />
-    </Routes>
+    <Routes><Route path="/adminlogin" element={<AdminLogin />} />{protectedRoutes}<Route path="*" element={<Navigate to="/dashboard" replace />} /></Routes>
   ) : (
-    <Routes>
-      <Route path="/" element={<Home />} />
-      <Route path="/login" element={<Login />} />
-      <Route path="/adminlogin" element={<AdminLogin />} />
-      {protectedRoutes}
-      <Route path="*" element={<Navigate to="/" replace />} />
-    </Routes>
+    <Routes><Route path="/" element={<Home />} /><Route path="/login" element={<Login />} /><Route path="/adminlogin" element={<AdminLogin />} />{protectedRoutes}<Route path="*" element={<Navigate to="/" replace />} /></Routes>
   );
 
   return (
@@ -213,13 +201,7 @@ export default function App() {
       <SiteLockGate />
       {IS_SUPERADMIN_APP && <SuperadminGuard />}
       <div key={refreshKey} className="contents">{routes}</div>
-      <AndroidUpdateModal
-        update={androidUpdate}
-        busy={androidUpdateBusy}
-        error={androidUpdateError}
-        onLater={() => { setAndroidUpdate(null); setAndroidUpdateError(''); }}
-        onUpdate={installAndroidUpdate}
-      />
+      <AndroidUpdateModal update={androidUpdate} checking={androidUpdateChecking} busy={androidUpdateBusy} error={androidUpdateError} onUpdate={installAndroidUpdate} />
     </>
   );
 }
