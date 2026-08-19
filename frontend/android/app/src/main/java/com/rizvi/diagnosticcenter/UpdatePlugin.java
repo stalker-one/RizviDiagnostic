@@ -2,6 +2,8 @@ package com.rizvi.diagnosticcenter;
 
 import android.content.Intent;
 import android.content.pm.PackageInfo;
+import android.content.pm.PackageManager;
+import android.content.pm.Signature;
 import android.net.Uri;
 import android.os.Build;
 import android.provider.Settings;
@@ -11,13 +13,14 @@ import androidx.core.content.FileProvider;
 import com.getcapacitor.Plugin;
 import com.getcapacitor.PluginCall;
 import com.getcapacitor.annotation.CapacitorPlugin;
-import com.getcapacitor.PluginMethod;
+import com.getcapacitor.annotation.PluginMethod;
 
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.InputStream;
 import java.net.HttpURLConnection;
 import java.net.URL;
+import java.security.MessageDigest;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
@@ -72,13 +75,16 @@ public class UpdatePlugin extends Plugin {
         executor.execute(() -> {
             File apk = new File(getContext().getCacheDir(), "rizvi-diagnostic-update.apk");
             try {
-                if (apk.exists()) apk.delete();
+                if (apk.exists() && !apk.delete()) {
+                    throw new IllegalStateException("Unable to clear the previous update file.");
+                }
 
                 HttpURLConnection connection = (HttpURLConnection) new URL(url).openConnection();
                 connection.setConnectTimeout(15000);
                 connection.setReadTimeout(120000);
                 connection.setInstanceFollowRedirects(true);
                 connection.setRequestProperty("User-Agent", "RizviDiagnosticCenter-Android-Updater");
+                connection.setRequestProperty("Accept", "application/vnd.android.package-archive,application/octet-stream");
                 connection.connect();
 
                 if (connection.getResponseCode() < 200 || connection.getResponseCode() >= 300) {
@@ -99,6 +105,8 @@ public class UpdatePlugin extends Plugin {
                 if (!apk.isFile() || apk.length() < 10000) {
                     throw new IllegalStateException("Downloaded update APK is incomplete.");
                 }
+
+                verifyDownloadedApk(apk);
 
                 getActivity().runOnUiThread(() -> {
                     try {
@@ -121,11 +129,69 @@ public class UpdatePlugin extends Plugin {
                 });
             } catch (Exception e) {
                 getActivity().runOnUiThread(() -> {
-                    call.reject("Update download failed: " + e.getMessage(), e);
+                    call.reject("Update verification/download failed: " + e.getMessage(), e);
                     call.setKeepAlive(false);
                 });
             }
         });
+    }
+
+    private void verifyDownloadedApk(File apk) throws Exception {
+        PackageManager pm = getContext().getPackageManager();
+        PackageInfo archiveInfo;
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            archiveInfo = pm.getPackageArchiveInfo(apk.getAbsolutePath(),
+                    PackageManager.PackageInfoFlags.of(PackageManager.GET_SIGNING_CERTIFICATES));
+        } else {
+            archiveInfo = pm.getPackageArchiveInfo(apk.getAbsolutePath(), PackageManager.GET_SIGNATURES);
+        }
+
+        if (archiveInfo == null) {
+            throw new SecurityException("Downloaded file is not a valid Android APK.");
+        }
+        if (!getContext().getPackageName().equals(archiveInfo.packageName)) {
+            throw new SecurityException("Update APK belongs to a different application.");
+        }
+
+        byte[] installedCert = getInstalledCertificate();
+        byte[] downloadedCert = getDownloadedCertificate(archiveInfo);
+        if (!MessageDigest.isEqual(installedCert, downloadedCert)) {
+            throw new SecurityException("Update APK signing certificate does not match this application.");
+        }
+    }
+
+    private byte[] getInstalledCertificate() throws Exception {
+        PackageManager pm = getContext().getPackageManager();
+        PackageInfo info;
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+            info = pm.getPackageInfo(getContext().getPackageName(), PackageManager.GET_SIGNING_CERTIFICATES);
+            if (info.signingInfo == null || info.signingInfo.getApkContentsSigners().length == 0) {
+                throw new SecurityException("Installed application has no signing certificate.");
+            }
+            return certificateDigest(info.signingInfo.getApkContentsSigners()[0]);
+        }
+        info = pm.getPackageInfo(getContext().getPackageName(), PackageManager.GET_SIGNATURES);
+        if (info.signatures == null || info.signatures.length == 0) {
+            throw new SecurityException("Installed application has no signing certificate.");
+        }
+        return certificateDigest(info.signatures[0]);
+    }
+
+    private byte[] getDownloadedCertificate(PackageInfo info) throws Exception {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+            if (info.signingInfo == null || info.signingInfo.getApkContentsSigners().length == 0) {
+                throw new SecurityException("Downloaded APK has no signing certificate.");
+            }
+            return certificateDigest(info.signingInfo.getApkContentsSigners()[0]);
+        }
+        if (info.signatures == null || info.signatures.length == 0) {
+            throw new SecurityException("Downloaded APK has no signing certificate.");
+        }
+        return certificateDigest(info.signatures[0]);
+    }
+
+    private byte[] certificateDigest(Signature signature) throws Exception {
+        return MessageDigest.getInstance("SHA-256").digest(signature.toByteArray());
     }
 
     @Override
