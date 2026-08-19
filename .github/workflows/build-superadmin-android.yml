@@ -12,10 +12,6 @@ on:
 permissions:
   contents: write
 
-concurrency:
-  group: android-superadmin-build
-  cancel-in-progress: false
-
 env:
   ANDROID_KEYSTORE_PATH: ${{ github.workspace }}/android-release.keystore
   ANDROID_HOME: /usr/local/lib/android/sdk
@@ -148,8 +144,9 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: RizviDiagnosticSuperadmin-android
-          path: dist-superadmin/*.apk
+          path: frontend/android/dist-superadmin/*.apk
           retention-days: 90
+          if-no-files-found: error
 
       - name: Publish Superadmin latest release
         uses: softprops/action-gh-release@v2
@@ -162,10 +159,11 @@ jobs:
             Login route: /adminlogin
             Version code: ${{ github.run_number }}.
             Built from commit ${{ github.sha }}.
-          files: dist-superadmin/*.apk
+          files: frontend/android/dist-superadmin/*.apk
           prerelease: true
           make_latest: false
           fail_on_unmatched_files: true
+          overwrite_files: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
