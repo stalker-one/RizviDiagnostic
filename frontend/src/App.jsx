@@ -24,7 +24,7 @@ import Profile from './pages/Profile.jsx';
 import SiteControl from './pages/SiteControl.jsx';
 
 const REALTIME_INTERVAL_MS = 1500;
-const ANDROID_UPDATE_INTERVAL_MS = 15000;
+const ANDROID_UPDATE_INTERVAL_MS = 5 * 60 * 1000;
 const AndroidUpdate = registerPlugin('AndroidUpdate');
 const IS_SUPERADMIN_APP = import.meta.env.VITE_SUPERADMIN_APP === 'true';
 
@@ -97,7 +97,6 @@ export default function App() {
         }
       }catch(error){
         console.warn('Android update check failed:',error);
-        // Network/GitHub failure must not prevent the application from opening.
       }finally{
         checkingAndroidUpdate.current=false;
         if(!cancelled)setAndroidUpdateChecking(false);
@@ -128,7 +127,7 @@ export default function App() {
     <Route path="/radiology-reports" element={<ProtectedRoute><RadiologyReports/></ProtectedRoute>}/>
     <Route path="/analytics" element={<ProtectedRoute><Analytics/></ProtectedRoute>}/>
     <Route path="/referrals" element={<ProtectedRoute><Referrals/></ProtectedRoute>}/>
-    <Route path="/doctors" element={<ProtectedRoute><Doctors/></ProtectedRoute>}/>
+    <Route path="/doctors" element={<ProtectedRoute><Doctors/></Route>}/>
     <Route path="/procedures" element={<ProtectedRoute><Procedures/></ProtectedRoute>}/>
     <Route path="/users" element={<ProtectedRoute adminOnly><Users/></ProtectedRoute>}/>
     <Route path="/settings" element={<ProtectedRoute adminOnly><Settings/></ProtectedRoute>}/>
