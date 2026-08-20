@@ -76,11 +76,11 @@ public class PrintPlugin extends Plugin {
             String width = narrow58 ? "58mm" : "80mm";
             css = "<style id=\"android-thermal-print\">" +
                     "@page{size:" + width + " auto;margin:0!important;}" +
-                    "html,body{width:" + width + "!important;min-width:" + width + "!important;max-width:" + width + "!important;margin:0!important;padding:0!important;}" +
-                    "body{font-family:Arial,Helvetica,sans-serif!important;font-size:11px!important;line-height:1.22!important;color:#000!important;background:#fff!important;overflow:visible!important;}" +
-                    "*{box-sizing:border-box!important;}" +
-                    "#printable-area{width:" + width + "!important;max-width:" + width + "!important;min-width:0!important;margin:0!important;padding:0!important;overflow:visible!important;border:0!important;box-shadow:none!important;}" +
-                    "#printable-area>div{width:" + width + "!important;max-width:" + width + "!important;min-width:0!important;margin:0!important;box-shadow:none!important;border:0!important;overflow:visible!important;}" +
+                    "html{width:100%!important;margin:0!important;padding:0!important;}" +
+                    "body{width:100%!important;min-width:0!important;max-width:none!important;margin:0!important;padding:0!important;display:flex!important;flex-direction:column!important;align-items:center!important;font-family:Arial,Helvetica,sans-serif!important;color:#000!important;background:#fff!important;overflow:visible!important;}" +
+                    "body>*{box-sizing:border-box!important;}" +
+                    "#printable-area{width:" + width + "!important;min-width:0!important;max-width:" + width + "!important;margin-left:auto!important;margin-right:auto!important;margin-top:0!important;margin-bottom:0!important;padding:0!important;align-self:center!important;justify-self:center!important;overflow:visible!important;border:0!important;box-shadow:none!important;}" +
+                    "#printable-area>div{width:100%!important;min-width:0!important;max-width:100%!important;margin-left:0!important;margin-right:0!important;box-sizing:border-box!important;box-shadow:none!important;border:0!important;overflow:visible!important;}" +
                     "table{width:100%!important;max-width:100%!important;min-width:0!important;border-collapse:collapse!important;table-layout:fixed!important;}" +
                     "th,td{padding:2px 1px!important;vertical-align:top!important;overflow-wrap:anywhere!important;word-break:break-word!important;}" +
                     "img{display:block!important;max-width:100%!important;height:auto!important;margin-left:auto!important;margin-right:auto!important;}" +
@@ -88,10 +88,6 @@ public class PrintPlugin extends Plugin {
                     ".no-print{display:none!important;}" +
                     "</style>";
         } else {
-            // Simple print must retain the same invoice geometry as the web
-            // invoice. Only remove screen-only decoration and set the A4 page;
-            // do not impose a competing width, font size, table layout, or
-            // padding that changes the invoice's own print CSS.
             css = "<style id=\"android-simple-print\">" +
                     "@page{size:A4;margin:10mm!important;}" +
                     "html,body{margin:0!important;padding:0!important;background:#fff!important;overflow:visible!important;}" +
