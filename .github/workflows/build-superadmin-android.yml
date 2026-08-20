@@ -100,8 +100,10 @@ jobs:
           ./gradlew clean assembleSuperadminRelease --stacktrace
           APK="app/build/outputs/apk/superadmin/release/app-superadmin-release.apk"
           test -s "$APK"
+          # Modern Android Gradle Plugin APKs use APK Signature Scheme v2/v3.
+          # Do not force legacy JAR/v1 verification with --min-sdk-version; the absence of
+          # META-INF/MANIFEST.MF is normal for a valid v2/v3 signed APK.
           "$ANDROID_HOME/build-tools/36.0.0/apksigner" verify --verbose "$APK"
-          "$ANDROID_HOME/build-tools/36.0.0/apksigner" verify --verbose --min-sdk-version 23 "$APK"
           "$ANDROID_HOME/build-tools/36.0.0/aapt" dump badging "$APK" | grep -E 'package:|versionCode|versionName'
           mkdir -p dist-superadmin
           cp "$APK" "dist-superadmin/RizviDiagnosticSuperadmin-latest.apk"
