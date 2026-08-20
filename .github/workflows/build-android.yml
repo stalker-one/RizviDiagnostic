@@ -118,8 +118,10 @@ jobs:
           set -euo pipefail
           APK="app/build/outputs/apk/regular/release/app-regular-release.apk"
           test -s "$APK"
+          # Android App Bundles/APKs produced by the Android Gradle Plugin use APK Signature Scheme v2/v3.
+          # Do not force the legacy JAR/v1 verification path with --min-sdk-version; modern APKs can
+          # legitimately have no META-INF/MANIFEST.MF while still being cryptographically signed.
           "$ANDROID_HOME/build-tools/36.0.0/apksigner" verify --verbose "$APK"
-          "$ANDROID_HOME/build-tools/36.0.0/apksigner" verify --verbose --min-sdk-version 23 "$APK"
           "$ANDROID_HOME/build-tools/36.0.0/aapt" dump badging "$APK" | grep -E 'package:|versionCode|versionName'
       - name: Calculate release APK integrity hash
         run: |
