@@ -79,7 +79,7 @@ jobs:
           test -n "$ANDROID_KEYSTORE_PASSWORD" || { echo 'Missing ANDROID_KEYSTORE_PASSWORD'; exit 1; }
           test -n "$ANDROID_KEY_ALIAS" || { echo 'Missing ANDROID_KEY_ALIAS'; exit 1; }
           test -n "$ANDROID_KEY_PASSWORD" || { echo 'Missing ANDROID_KEY_PASSWORD'; exit 1; }
-      - name: Restore or create persistent Android signing keystore
+      - name: Restore existing Android signing keystore
         env:
           ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
           ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
@@ -91,7 +91,6 @@ jobs:
           rm -f "$ANDROID_KEYSTORE_PATH"
           if [ -s .github/android-signing/keystore.p12.enc ]; then
             openssl enc -d -aes-256-cbc -pbkdf2 -pass env:ANDROID_KEYSTORE_PASSWORD -in .github/android-signing/keystore.p12.enc -out "$ANDROID_KEYSTORE_PATH" 2>/tmp/keystore.err || true
-            if ! keytool -list -keystore "$ANDROID_KEYSTORE_PATH" -storepass "$ANDROID_KEYSTORE_PASSWORD" -alias "$ANDROID_KEY_ALIAS" >/dev/null 2>&1; then rm -f "$ANDROID_KEYSTORE_PATH"; fi
           fi
           if [ ! -s "$ANDROID_KEYSTORE_PATH" ] && [ -n "${ANDROID_KEYSTORE_BASE64:-}" ]; then
             NORMALIZED_B64="$(printf '%s' "$ANDROID_KEYSTORE_BASE64" | tr -d '[:space:]')"
@@ -99,19 +98,10 @@ jobs:
             NORMALIZED_B64="${NORMALIZED_B64#\'}"; NORMALIZED_B64="${NORMALIZED_B64%\'}"
             if printf '%s' "$NORMALIZED_B64" | grep -qi '^data:'; then NORMALIZED_B64="${NORMALIZED_B64#*,}"; fi
             printf '%s' "$NORMALIZED_B64" | tr '_-' '/+' | base64 --decode > "$ANDROID_KEYSTORE_PATH" 2>/tmp/base64.err || rm -f "$ANDROID_KEYSTORE_PATH"
-            if [ -s "$ANDROID_KEYSTORE_PATH" ] && ! keytool -list -keystore "$ANDROID_KEYSTORE_PATH" -storepass "$ANDROID_KEYSTORE_PASSWORD" -alias "$ANDROID_KEY_ALIAS" >/dev/null 2>&1; then rm -f "$ANDROID_KEYSTORE_PATH"; fi
           fi
-          if [ ! -s "$ANDROID_KEYSTORE_PATH" ]; then
-            keytool -genkeypair -v -storetype PKCS12 -keystore "$ANDROID_KEYSTORE_PATH" -storepass "$ANDROID_KEYSTORE_PASSWORD" -keypass "$ANDROID_KEY_PASSWORD" -alias "$ANDROID_KEY_ALIAS" -keyalg RSA -keysize 4096 -validity 10000 -dname 'CN=Rizvi Diagnostic Center, OU=Mobile, O=Rizvi Diagnostic Center, L=Unknown, ST=Unknown, C=PK'
-            chmod 600 "$ANDROID_KEYSTORE_PATH"
-            openssl enc -aes-256-cbc -pbkdf2 -pass env:ANDROID_KEYSTORE_PASSWORD -in "$ANDROID_KEYSTORE_PATH" -out .github/android-signing/keystore.p12.enc
-            git config user.name 'github-actions[bot]'
-            git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-            git add .github/android-signing/keystore.p12.enc
-            git commit -m 'Persist Android signing keystore securely' || true
-            git push origin HEAD:main || true
-          fi
+          test -s "$ANDROID_KEYSTORE_PATH" || { echo 'Existing Android signing keystore could not be restored. Refusing to generate a new signing key because that would break installed-app updates.'; cat /tmp/keystore.err 2>/dev/null || true; cat /tmp/base64.err 2>/dev/null || true; exit 1; }
           keytool -list -keystore "$ANDROID_KEYSTORE_PATH" -storepass "$ANDROID_KEYSTORE_PASSWORD" -alias "$ANDROID_KEY_ALIAS" >/dev/null
+          chmod 600 "$ANDROID_KEYSTORE_PATH"
       - name: Build signed release APK
         working-directory: frontend/android
         env:
@@ -131,6 +121,13 @@ jobs:
           test -s "$APK"
           "$ANDROID_HOME/build-tools/36.0.0/apksigner" verify --verbose "$APK"
           "$ANDROID_HOME/build-tools/36.0.0/aapt" dump badging "$APK" | grep -E 'package:|versionCode|versionName'
+          "$ANDROID_HOME/build-tools/36.0.0/apksigner" verify --verbose --min-sdk-version 23 "$APK"
+      - name: Calculate release APK integrity hash
+        run: |
+          set -euo pipefail
+          APK="frontend/android/app/build/outputs/apk/regular/release/app-regular-release.apk"
+          APK_SHA256="$(sha256sum "$APK" | awk '{print $1}')"
+          echo "APK_SHA256=$APK_SHA256" >> "$GITHUB_ENV"
       - name: Prepare release APK
         run: |
           set -euo pipefail
@@ -164,6 +161,7 @@ jobs:
             Version code: ${{ github.run_number }}
             Version name: 1.0.${{ github.run_number }}
             Commit: ${{ github.sha }}
+            APK SHA-256: ${{ env.APK_SHA256 }}
             Release-signed APK for sideloading.
           files: dist-android/RizviDiagnosticCenter-latest.apk
           make_latest: false
