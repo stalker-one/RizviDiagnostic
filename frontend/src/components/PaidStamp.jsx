@@ -6,21 +6,23 @@ const POSITIONS = {
   'bottom-left': { bottom: '0%', left: '0%' }, 'bottom-center': { bottom: '0%', left: '50%' }, 'bottom-right': { bottom: '0%', right: '0%' },
 };
 
-export default function PaidStamp({ settings = {}, compact = false }) {
-  const text = settings.stampText || 'PAID';
+export default function PaidStamp({ settings = {}, compact = false, variant = 'simple' }) {
+  const prefix = variant === 'thermal' ? 'thermalStamp' : 'stamp';
+  const get = (name, fallback) => settings[`${prefix}${name}`] ?? fallback;
+  const text = get('Text', 'PAID');
   const clinic = settings.clinicName || 'Rizvi Diagnostic Center';
-  const color = settings.stampColor || '#c0392b';
-  const position = settings.stampPosition || 'center';
-  const style = settings.stampStyle || 'classic';
-  const rotation = Number.isFinite(Number(settings.stampRotation)) ? Number(settings.stampRotation) : -18;
-  const opacity = Math.min(1, Math.max(0.15, Number(settings.stampOpacity ?? 0.82)));
-  const scale = Math.min(2, Math.max(0.5, Number(settings.stampScale ?? 1)));
-  const offsetX = Number(settings.stampOffsetX || 0);
-  const offsetY = Number(settings.stampOffsetY || 0);
-  const borderWidth = Math.min(8, Math.max(1, Number(settings.stampBorderWidth ?? 3)));
-  const showClinic = settings.stampShowClinicName !== false;
-  const showDate = settings.stampShowDateTime !== false;
-  const fontSize = Math.min(72, Math.max(8, Number(settings.stampFontSize || (compact ? 14 : 26))));
+  const color = get('Color', '#c0392b');
+  const position = get('Position', 'center');
+  const style = get('Style', 'classic');
+  const rotation = Number.isFinite(Number(get('Rotation', -18))) ? Number(get('Rotation', -18)) : -18;
+  const opacity = Math.min(1, Math.max(0.15, Number(get('Opacity', 0.82))));
+  const scale = Math.min(2, Math.max(0.5, Number(get('Scale', 1))));
+  const offsetX = Number(get('OffsetX', 0)) || 0;
+  const offsetY = Number(get('OffsetY', 0)) || 0;
+  const borderWidth = Math.min(8, Math.max(1, Number(get('BorderWidth', 3))));
+  const showClinic = get('ShowClinicName', true) !== false;
+  const showDate = get('ShowDateTime', true) !== false;
+  const fontSize = Math.min(72, Math.max(8, Number(get('FontSize', compact ? 14 : 26))));
   const stampedAt = new Date().toLocaleString('en-US', { timeZone: 'Asia/Karachi', dateStyle: 'medium', timeStyle: 'short' });
   const positionStyle = POSITIONS[position] || POSITIONS.center;
   let translate = '';
