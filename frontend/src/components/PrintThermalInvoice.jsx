@@ -13,7 +13,7 @@ export default function PrintThermalInvoice({invoice,settings}){
  const marginTop=numberSetting(settings?.thermalMarginTop,0,0,30),marginBottom=numberSetting(settings?.thermalMarginBottom,0,0,30);
  const paddingTop=numberSetting(settings?.thermalPaddingTop,6,0,30),paddingRight=numberSetting(settings?.thermalPaddingRight,8,0,30),paddingBottom=numberSetting(settings?.thermalPaddingBottom,6,0,30),paddingLeft=numberSetting(settings?.thermalPaddingLeft,8,0,30);
  const sectionSpacing=numberSetting(settings?.thermalSectionSpacing,5,0,30),tableSpacing=numberSetting(settings?.thermalTableSpacing,8,0,30),cellPadding=numberSetting(settings?.thermalCellPadding,3,0,15),lineHeight=numberSetting(settings?.thermalLineHeight,1.5,1,2.5);
- const showStamp=settings?.stampEnabled!==false&&invoice.status==='paid';
+ const showStamp=settings?.thermalStampEnabled!==false&&invoice.status==='paid';
  const stampAfterBookedBy=settings?.thermalStampPosition==='after-booked-by';
  const contentStyle={width:`${paperWidth}mm`,fontSize:`${fontSize}px`,margin:`${marginTop}px auto ${marginBottom}px`,padding:`${paddingTop}px ${paddingRight}px ${paddingBottom}px ${paddingLeft}px`,fontFamily:'Arial, Helvetica, sans-serif',lineHeight:String(lineHeight),backgroundColor:'#fff',color:'#000',minHeight:'100mm',position:'relative',boxSizing:'border-box'};
  const bookedBy=<div style={{textAlign:'center',fontSize:`${Math.max(8,fontSize-1)}px`,color:'#888',marginTop:`${sectionSpacing}px`}}>Booked by: {invoice.createdByName||'-'}</div>;
