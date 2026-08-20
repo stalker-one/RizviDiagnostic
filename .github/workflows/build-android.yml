@@ -149,13 +149,15 @@ jobs:
           name: Android App (latest build)
           body: |
             # What's new
-            - Updated Android application to version 1.0.${{ github.run_number }}.
-            - Improved mandatory realtime update detection and update modal.
-            - Update modal now shows current version, new version/build, and these release changes.
-            - Improved Simple Print and Thermal Print layouts for Android.
-            - Thermal receipts use the correct narrow receipt format instead of A4.
-            - Fixed Android printing to use the live Vercel application URL instead of localhost.
-            - Includes current application bug fixes and performance improvements.
+            - Updated the Rizvi Diagnostic Center Android application.
+            - Added a modern update screen with current and new version/build information.
+            - Added a clean What's New section showing the user-facing changes without technical build details.
+            - Separated Simple/A4 Paid Stamp settings from Thermal Paid Stamp settings.
+            - Added independent Thermal Paid Stamp enable, position, design, color, rotation, size and offset controls.
+            - Improved Thermal receipt positioning and print layout.
+            - Improved Simple and Thermal invoice printing on Android.
+            - Fixed application session resume so an authenticated staff user returns to Dashboard.
+            - Includes bug fixes and performance improvements.
 
             # Build information
             Package: com.rizvi.diagnosticcenter
