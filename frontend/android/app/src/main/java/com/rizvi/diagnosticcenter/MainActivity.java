@@ -1,6 +1,5 @@
 package com.rizvi.diagnosticcenter;
 
-import android.content.pm.ActivityInfo;
 import android.graphics.Color;
 import android.net.Uri;
 import android.os.Bundle;
@@ -104,7 +103,7 @@ public class MainActivity extends BridgeActivity {
     }
 
     @Override
-    protected void onDestroy() {
+    public void onDestroy() {
         if (startupVideo != null) {
             try {
                 startupVideo.stopPlayback();
