@@ -1,35 +1,17 @@
 import axios from 'axios';
 
-// Web builds (desktop app / Vercel) use a relative '/api' path since the
-// frontend and backend are served from the same origin. The mobile app
-// (Capacitor) has no "same origin" — it's packaged assets running in a
-// native shell — so it needs an absolute URL to your live backend instead.
-// Set via VITE_API_BASE_URL at build time (see capacitor.config.json /
-// the mobile build step); falls back to '/api' for every other build.
 const api = axios.create({
   baseURL: import.meta.env.VITE_API_BASE_URL || '/api',
 });
 
 api.interceptors.request.use((config) => {
   const token = localStorage.getItem('rdc_token');
-  if (token) {
-    config.headers.Authorization = `Bearer ${token}`;
-  }
+  if (token) config.headers.Authorization = `Bearer ${token}`;
   return config;
 });
 
-// Every create/update/delete call made through this axios instance, from
-// any page in the app, is recognized here by its method + URL and broadcast
-// as an 'rdc:data-added' event carrying a proper "<Resource> <action>
-// successfully" message. The global toast (Toast.jsx) listens for this and
-// pops a confirmation — no need to wire up a toast call in every single
-// form/handler by hand.
-//
-// Matched as { label, resource-only pattern (no id) } — used for POST
-// (create); the same pattern with a trailing /:id also covers PUT/PATCH
-// (update) and DELETE (delete) for that resource.
 const RESOURCES = [
-  { test: (url) => /^\/procedures\/import\/?$/.test(url), label: 'Procedures', idBased: false },
+  { test: (url) => /^\/procedures\/import\/?$/.test(url), label: 'Procedures' },
   { test: (url) => /^\/patients(\/[^/]+)?\/?$/.test(url), label: 'Patient' },
   { test: (url) => /^\/invoices(\/[^/]+)?\/?$/.test(url), label: 'Invoice' },
   { test: (url) => /^\/doctors(\/[^/]+)?\/?$/.test(url), label: 'Doctor' },
@@ -38,10 +20,8 @@ const RESOURCES = [
   { test: (url) => /^\/users(\/[^/]+)?\/?$/.test(url), label: 'User' },
 ];
 
-// Endpoints that already show their own inline success message (e.g.
-// Settings.jsx, SiteControl.jsx) are excluded so the user doesn't see two
-// confirmations for the same action.
 const EXCLUDED = [/^\/settings\/?$/, /^\/site\//];
+const ACTION_BY_METHOD = { post: 'added', put: 'updated', patch: 'updated', delete: 'deleted' };
 
 function resourceLabelFor(url) {
   const clean = (url || '').split('?')[0];
@@ -50,41 +30,41 @@ function resourceLabelFor(url) {
   return match ? match.label : null;
 }
 
-const ACTION_BY_METHOD = {
-  post: 'added',
-  put: 'updated',
-  patch: 'updated',
-  delete: 'deleted',
-};
-
 api.interceptors.response.use(
   (res) => {
     const method = (res.config?.method || '').toLowerCase();
     const action = ACTION_BY_METHOD[method];
-    if (action && (res.status === 200 || res.status === 201 || res.status === 204)) {
+    if (action && [200, 201, 204].includes(res.status)) {
       const label = resourceLabelFor(res.config.url);
       if (label) {
-        window.dispatchEvent(
-          new CustomEvent('rdc:data-added', {
-            detail: { message: `${label} ${action} successfully`, resource: label, action },
-          })
-        );
+        window.dispatchEvent(new CustomEvent('rdc:data-added', {
+          detail: { message: `${label} ${action} successfully`, resource: label, action },
+        }));
       }
     }
+
+    // After a successful NEW patient registration, immediately open the
+    // invoice form for that patient. PUT/PATCH patient edits are deliberately
+    // excluded. The invoice page reads patientId from the query string.
+    const cleanUrl = (res.config?.url || '').split('?')[0];
+    if (method === 'post' && /^\/patients\/?$/.test(cleanUrl) && [200, 201].includes(res.status)) {
+      const patientId = res.data?.id || res.data?.patient?.id || res.data?._id || res.data?.patient?._id;
+      if (patientId && window.location.pathname !== '/invoices/create') {
+        window.setTimeout(() => {
+          window.location.assign(`/invoices/create?patientId=${encodeURIComponent(patientId)}`);
+        }, 0);
+      }
+    }
+
     return res;
   },
   (err) => {
     if (err.response?.status === 401) {
       localStorage.removeItem('rdc_token');
       localStorage.removeItem('rdc_user');
-      if (!window.location.pathname.includes('/login')) {
-        window.location.href = '/login';
-      }
+      if (!window.location.pathname.includes('/login')) window.location.href = '/login';
     }
     if (err.response?.status === 423) {
-      // Superadmin has deactivated the site. Broadcast so the app-wide
-      // SiteLockGate can show the blocking modal, no matter which page or
-      // API call triggered it.
       window.dispatchEvent(new CustomEvent('rdc:site-locked', { detail: err.response.data }));
     }
     return Promise.reject(err);
