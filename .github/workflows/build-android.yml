@@ -18,6 +18,7 @@ concurrency:
 
 env:
   VITE_API_BASE_URL: https://stalker-one-rizvidiagnostic.vercel.app/api
+  STARTUP_VIDEO_URL: https://res.cloudinary.com/v0h2hc0b/video/upload/Create_3D_animation_video_202608210408.mp4
 
 jobs:
   build-android:
@@ -32,6 +33,16 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+      - name: Download startup animation
+        run: |
+          set -euo pipefail
+          mkdir -p frontend/android/app/src/main/res/raw
+          curl --fail --location --retry 5 --retry-delay 3 --connect-timeout 30 --max-time 600 \
+            -o frontend/android/app/src/main/res/raw/startup_animation.mp4 \
+            "$STARTUP_VIDEO_URL"
+          test -s frontend/android/app/src/main/res/raw/startup_animation.mp4
+          file frontend/android/app/src/main/res/raw/startup_animation.mp4
+          sha256sum frontend/android/app/src/main/res/raw/startup_animation.mp4
       - name: Set up Node
         uses: actions/setup-node@v4
         with:
@@ -118,9 +129,6 @@ jobs:
           set -euo pipefail
           APK="app/build/outputs/apk/regular/release/app-regular-release.apk"
           test -s "$APK"
-          # Android App Bundles/APKs produced by the Android Gradle Plugin use APK Signature Scheme v2/v3.
-          # Do not force the legacy JAR/v1 verification path with --min-sdk-version; modern APKs can
-          # legitimately have no META-INF/MANIFEST.MF while still being cryptographically signed.
           "$ANDROID_HOME/build-tools/36.0.0/apksigner" verify --verbose "$APK"
           "$ANDROID_HOME/build-tools/36.0.0/aapt" dump badging "$APK" | grep -E 'package:|versionCode|versionName'
       - name: Calculate release APK integrity hash
@@ -147,14 +155,12 @@ jobs:
           name: Android App (latest build)
           body: |
             # What's new
-            - Updated the Rizvi Diagnostic Center Android application.
-            - Added a modern update screen with current and new version/build information.
-            - Added a clean What's New section showing the user-facing changes without technical build details.
+            - Added the Rizvi Diagnostic Center 3D startup animation.
+            - Startup animation plays fullscreen and automatically opens the application when finished.
+            - Improved authenticated session resume so logged-in staff return to Dashboard.
             - Separated Simple/A4 Paid Stamp settings from Thermal Paid Stamp settings.
-            - Added independent Thermal Paid Stamp enable, position, design, color, rotation, size and offset controls.
-            - Improved Thermal receipt positioning and print layout.
-            - Improved Simple and Thermal invoice printing on Android.
-            - Fixed application session resume so an authenticated staff user returns to Dashboard.
+            - Improved Thermal and Simple invoice printing.
+            - Added secure APK signature and integrity verification.
             - Includes bug fixes and performance improvements.
 
             # Build information
