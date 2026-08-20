@@ -8,7 +8,6 @@ const CREDIT = {
 };
 
 function findMount() {
-  if (window.location.pathname === '/settings') return null;
   const heading = Array.from(document.querySelectorAll('h2')).find((el) => /update required/i.test(el.textContent || ''));
   const old = document.getElementById('rdc-update-developer-credit');
   if (!heading) { old?.remove(); return null; }
@@ -16,12 +15,12 @@ function findMount() {
   if (!modal) { old?.remove(); return null; }
   const button = Array.from(modal.querySelectorAll('button')).find((el) => /update now|updating/i.test(el.textContent || ''));
   const footer = button?.parentElement;
-  if (!footer) { old?.remove(); return null; }
+  if (!footer || !footer.parentElement) { old?.remove(); return null; }
   let node = modal.querySelector('#rdc-update-developer-credit');
   if (!node) {
     node = document.createElement('div');
     node.id = 'rdc-update-developer-credit';
-    footer.parentElement?.insertBefore(node, footer);
+    footer.parentElement.insertBefore(node, footer);
   }
   return node;
 }
