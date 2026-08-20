@@ -4,6 +4,7 @@ import { BrowserRouter } from 'react-router-dom';
 import App from './App.jsx';
 import ThermalSettingsEnhancer from './components/ThermalSettingsEnhancer.jsx';
 import SimpleStampSettingsEnhancer from './components/SimpleStampSettingsEnhancer.jsx';
+import UpdateDeveloperCredit from './components/UpdateDeveloperCredit.jsx';
 import { AuthProvider } from './context/AuthContext.jsx';
 import { SettingsProvider } from './context/SettingsContext.jsx';
 import { ConfirmProvider } from './context/ConfirmContext.jsx';
@@ -19,6 +20,7 @@ ReactDOM.createRoot(document.getElementById('root')).render(
             <App />
             <ThermalSettingsEnhancer />
             <SimpleStampSettingsEnhancer />
+            <UpdateDeveloperCredit />
             <ToastContainer />
           </ConfirmProvider>
         </AuthProvider>
