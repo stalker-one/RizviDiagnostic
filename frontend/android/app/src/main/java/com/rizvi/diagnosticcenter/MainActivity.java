@@ -1,9 +1,9 @@
 package com.rizvi.diagnosticcenter;
 
+import android.content.res.AssetFileDescriptor;
 import android.graphics.Color;
 import android.graphics.Matrix;
 import android.media.MediaPlayer;
-import android.net.Uri;
 import android.os.Bundle;
 import android.view.Gravity;
 import android.view.Surface;
@@ -15,8 +15,11 @@ import android.widget.FrameLayout;
 
 import com.getcapacitor.BridgeActivity;
 
+import java.io.IOException;
+
 public class MainActivity extends BridgeActivity {
     private TextureView startupVideo;
+    private Surface startupSurface;
     private MediaPlayer startupPlayer;
     private FrameLayout startupRoot;
     private boolean startupShown;
@@ -49,26 +52,27 @@ public class MainActivity extends BridgeActivity {
             }
 
             startupVideo = new TextureView(this);
-            startupVideo.setOpaque(true);
+            startupVideo.setOpaque(false);
             startupVideo.setBackgroundColor(Color.BLACK);
             startupVideo.setFocusable(false);
             startupVideo.setFocusableInTouchMode(false);
             startupVideo.setSurfaceTextureListener(new TextureView.SurfaceTextureListener() {
                 @Override
-                public void onSurfaceTextureAvailable(android.graphics.SurfaceTexture surface, int width, int height) {
-                    startStartupPlayer(surface);
+                public void onSurfaceTextureAvailable(android.graphics.SurfaceTexture surfaceTexture, int width, int height) {
+                    startStartupPlayer(surfaceTexture);
                 }
                 @Override
-                public void onSurfaceTextureSizeChanged(android.graphics.SurfaceTexture surface, int width, int height) {
+                public void onSurfaceTextureSizeChanged(android.graphics.SurfaceTexture surfaceTexture, int width, int height) {
                     applyVideoTransform(width, height);
                 }
                 @Override
-                public boolean onSurfaceTextureDestroyed(android.graphics.SurfaceTexture surface) {
-                    if (startupPlayer != null) startupPlayer.setSurface(null);
+                public boolean onSurfaceTextureDestroyed(android.graphics.SurfaceTexture surfaceTexture) {
+                    releasePlayerOnly();
+                    startupSurface = null;
                     return true;
                 }
                 @Override
-                public void onSurfaceTextureUpdated(android.graphics.SurfaceTexture surface) { }
+                public void onSurfaceTextureUpdated(android.graphics.SurfaceTexture surfaceTexture) { }
             });
 
             FrameLayout.LayoutParams params = new FrameLayout.LayoutParams(
@@ -84,18 +88,29 @@ public class MainActivity extends BridgeActivity {
         }
     }
 
+    /** Open the packaged MP4 through AssetFileDescriptor for reliable Android playback. */
     private void startStartupPlayer(android.graphics.SurfaceTexture surfaceTexture) {
         if (startupFinished || startupPlayer != null || surfaceTexture == null) return;
         try {
-            Uri videoUri = Uri.parse("android.resource://" + getPackageName() + "/" + R.raw.startup_animation);
+            startupSurface = new Surface(surfaceTexture);
             startupPlayer = new MediaPlayer();
-            startupPlayer.setDataSource(this, videoUri);
-            startupPlayer.setSurface(new Surface(surfaceTexture));
+            startupPlayer.setAudioStreamType(android.media.AudioManager.STREAM_MUSIC);
             startupPlayer.setScreenOnWhilePlaying(true);
+            startupPlayer.setSurface(startupSurface);
+
+            AssetFileDescriptor afd = getResources().openRawResourceFd(R.raw.startup_animation);
+            if (afd == null) {
+                finishStartupAnimation();
+                return;
+            }
+            startupPlayer.setDataSource(afd.getFileDescriptor(), afd.getStartOffset(), afd.getLength());
+            afd.close();
+
             startupPlayer.setOnPreparedListener(player -> {
+                if (startupFinished) return;
                 videoWidth = player.getVideoWidth();
                 videoHeight = player.getVideoHeight();
-                if (startupVideo != null) applyVideoTransform(startupVideo.getWidth(), startupVideo.getHeight());
+                if (startupVideo != null) startupVideo.post(() -> applyVideoTransform(startupVideo.getWidth(), startupVideo.getHeight()));
                 player.setLooping(false);
                 player.setVolume(1f, 1f);
                 player.start();
@@ -106,12 +121,11 @@ public class MainActivity extends BridgeActivity {
                 return true;
             });
             startupPlayer.prepareAsync();
-        } catch (Exception ignored) {
+        } catch (IOException | RuntimeException ignored) {
             finishStartupAnimation();
         }
     }
 
-    /** Center-crop the startup video so it fills the complete mobile display. */
     private void applyVideoTransform(int viewWidth, int viewHeight) {
         if (startupVideo == null || videoWidth <= 0 || videoHeight <= 0 || viewWidth <= 0 || viewHeight <= 0) return;
         float scale = Math.max((float) viewWidth / videoWidth, (float) viewHeight / videoHeight);
@@ -129,19 +143,13 @@ public class MainActivity extends BridgeActivity {
     private void applyImmersiveFullscreen() {
         try {
             getWindow().getDecorView().setSystemUiVisibility(
-                    View.SYSTEM_UI_FLAG_FULLSCREEN
-                            | View.SYSTEM_UI_FLAG_HIDE_NAVIGATION
-                            | View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY
-                            | View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN
-                            | View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION
-                            | View.SYSTEM_UI_FLAG_LAYOUT_STABLE
-            );
+                    View.SYSTEM_UI_FLAG_FULLSCREEN | View.SYSTEM_UI_FLAG_HIDE_NAVIGATION |
+                    View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY | View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN |
+                    View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION | View.SYSTEM_UI_FLAG_LAYOUT_STABLE);
         } catch (Exception ignored) { }
     }
 
-    private void finishStartupAnimation() {
-        if (startupFinished) return;
-        startupFinished = true;
+    private void releasePlayerOnly() {
         try {
             if (startupPlayer != null) {
                 startupPlayer.setOnCompletionListener(null);
@@ -152,10 +160,20 @@ public class MainActivity extends BridgeActivity {
             }
         } catch (Exception ignored) { }
         startupPlayer = null;
+    }
+
+    private void finishStartupAnimation() {
+        if (startupFinished) return;
+        startupFinished = true;
+        releasePlayerOnly();
         try {
             if (startupRoot != null && startupVideo != null) startupRoot.removeView(startupVideo);
         } catch (Exception ignored) { }
         startupVideo = null;
+        if (startupSurface != null) {
+            try { startupSurface.release(); } catch (Exception ignored) { }
+            startupSurface = null;
+        }
         startupRoot = null;
         restoreWindowAfterStartup();
     }
@@ -171,10 +189,11 @@ public class MainActivity extends BridgeActivity {
 
     @Override
     public void onDestroy() {
-        try {
-            if (startupPlayer != null) startupPlayer.release();
-        } catch (Exception ignored) { }
-        startupPlayer = null;
+        releasePlayerOnly();
+        if (startupSurface != null) {
+            try { startupSurface.release(); } catch (Exception ignored) { }
+        }
+        startupSurface = null;
         startupVideo = null;
         startupRoot = null;
         super.onDestroy();
