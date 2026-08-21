@@ -15,9 +15,7 @@ import android.view.Window;
 import android.view.WindowManager;
 import android.graphics.PixelFormat;
 import android.widget.FrameLayout;
-
 import com.getcapacitor.BridgeActivity;
-
 import java.io.IOException;
 
 public class MainActivity extends BridgeActivity {
@@ -49,7 +47,7 @@ public class MainActivity extends BridgeActivity {
             window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
             applyImmersiveFullscreen();
 
-            View decor = getWindow().getDecorView();
+            View decor = window.getDecorView();
             if (!(decor instanceof ViewGroup)) {
                 finishStartupAnimation();
                 return;
@@ -131,6 +129,15 @@ public class MainActivity extends BridgeActivity {
                 applyVideoScale(startupVideo.getWidth(), startupVideo.getHeight());
                 player.setLooping(false);
                 player.setVolume(1f, 1f);
+                // Play the startup animation at 2x speed while preserving normal pitch/audio.
+                if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.M) {
+                    try {
+                        android.media.PlaybackParams params = player.getPlaybackParams();
+                        params.setSpeed(2.0f);
+                        params.setPitch(1.0f);
+                        player.setPlaybackParams(params);
+                    } catch (Exception ignored) { }
+                }
                 player.start();
             });
             startupPlayer.setOnCompletionListener(player -> finishStartupAnimation());
