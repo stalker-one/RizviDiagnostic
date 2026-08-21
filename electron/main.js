@@ -5,9 +5,17 @@ const https = require('https');
 const { spawn } = require('child_process');
 const { app, BrowserWindow, Menu, dialog } = require('electron');
 
+// In development backend is beside electron/. In the installed Windows app
+// electron-builder places extraFiles under resources/backend and resources/frontend.
+// The previous ../../backend path resolved outside the Electron resources folder,
+// so the installed app could start with a different/empty local database.
 const BACKEND_ROOT = app.isPackaged
-  ? path.join(__dirname, '..', '..', 'backend')
+  ? path.join(process.resourcesPath, 'backend')
   : path.join(__dirname, '..', 'backend');
+
+const FRONTEND_DIST = app.isPackaged
+  ? path.join(process.resourcesPath, 'frontend', 'dist')
+  : path.join(__dirname, '..', 'frontend', 'dist');
 
 const GITHUB_OWNER = 'stalker-one';
 const GITHUB_REPO = 'RizviDiagnostic';
@@ -29,10 +37,7 @@ function logToFile(line) {
 function showFatalError(title, err) {
   const message = err && err.stack ? err.stack : String(err);
   logToFile(`FATAL: ${title} — ${message}`);
-  dialog.showErrorBox(
-    title,
-    `${message}\n\nA full log has been saved to:\n${path.join(app.getPath('userData'), 'logs', 'main.log')}`
-  );
+  dialog.showErrorBox(title, `${message}\n\nA full log has been saved to:\n${path.join(app.getPath('userData'), 'logs', 'main.log')}`);
 }
 
 function parseVersion(version) {
@@ -54,10 +59,7 @@ function compareVersions(a, b) {
 function requestJson(url) {
   return new Promise((resolve, reject) => {
     const request = https.get(url, {
-      headers: {
-        Accept: 'application/vnd.github+json',
-        'User-Agent': 'Rizvi-Diagnostic-Center-Desktop',
-      },
+      headers: { Accept: 'application/vnd.github+json', 'User-Agent': 'Rizvi-Diagnostic-Center-Desktop' },
     }, (response) => {
       let body = '';
       response.setEncoding('utf8');
@@ -67,11 +69,7 @@ function requestJson(url) {
           reject(new Error(`GitHub release check returned HTTP ${response.statusCode}`));
           return;
         }
-        try {
-          resolve(JSON.parse(body));
-        } catch (error) {
-          reject(new Error(`Invalid GitHub release response: ${error.message}`));
-        }
+        try { resolve(JSON.parse(body)); } catch (error) { reject(new Error(`Invalid GitHub release response: ${error.message}`)); }
       });
     });
     request.setTimeout(20000, () => request.destroy(new Error('GitHub release check timed out')));
@@ -81,51 +79,29 @@ function requestJson(url) {
 
 function downloadFile(url, destination, redirectCount = 0) {
   return new Promise((resolve, reject) => {
-    if (redirectCount > 5) {
-      reject(new Error('Too many download redirects'));
-      return;
-    }
-
+    if (redirectCount > 5) return reject(new Error('Too many download redirects'));
     const output = fs.createWriteStream(destination);
-    const request = https.get(url, {
-      headers: { 'User-Agent': 'Rizvi-Diagnostic-Center-Desktop' },
-    }, (response) => {
+    const request = https.get(url, { headers: { 'User-Agent': 'Rizvi-Diagnostic-Center-Desktop' } }, (response) => {
       if ([301, 302, 303, 307, 308].includes(response.statusCode) && response.headers.location) {
-        output.close();
-        try { fs.unlinkSync(destination); } catch (_) {}
+        output.close(); try { fs.unlinkSync(destination); } catch (_) {}
         downloadFile(response.headers.location, destination, redirectCount + 1).then(resolve).catch(reject);
         return;
       }
-
       if (response.statusCode !== 200) {
-        output.close();
-        try { fs.unlinkSync(destination); } catch (_) {}
+        output.close(); try { fs.unlinkSync(destination); } catch (_) {}
         reject(new Error(`Installer download returned HTTP ${response.statusCode}`));
         return;
       }
-
       response.pipe(output);
-      output.on('finish', () => {
-        output.close(() => {
-          try {
-            if (fs.statSync(destination).size < 1024 * 100) {
-              reject(new Error('Downloaded installer is unexpectedly small'));
-            } else {
-              resolve(destination);
-            }
-          } catch (error) {
-            reject(error);
-          }
-        });
-      });
+      output.on('finish', () => output.close(() => {
+        try {
+          if (fs.statSync(destination).size < 100 * 1024) reject(new Error('Downloaded installer is unexpectedly small'));
+          else resolve(destination);
+        } catch (error) { reject(error); }
+      }));
     });
-
     request.setTimeout(10 * 60 * 1000, () => request.destroy(new Error('Installer download timed out')));
-    request.on('error', (error) => {
-      output.destroy();
-      try { fs.unlinkSync(destination); } catch (_) {}
-      reject(error);
-    });
+    request.on('error', (error) => { output.destroy(); try { fs.unlinkSync(destination); } catch (_) {} reject(error); });
   });
 }
 
@@ -136,110 +112,42 @@ function getWindowsInstallerAsset(release) {
 
 async function checkForLatestWindowsUpdate(showNoUpdate = false) {
   if (!app.isPackaged || updateInProgress) return;
-
   try {
     const currentVersion = app.getVersion();
-    logToFile(`[update] Checking GitHub Releases. Installed=${currentVersion}`);
     const release = await requestJson(GITHUB_RELEASES_API);
     const latestVersion = String(release.tag_name || '').replace(/^v/i, '');
-
     if (!latestVersion) throw new Error('Latest GitHub release has no version tag');
-
     if (compareVersions(latestVersion, currentVersion) <= 0) {
-      logToFile(`[update] No update. Installed=${currentVersion}, Latest=${latestVersion}`);
-      if (showNoUpdate && mainWindow) {
-        await dialog.showMessageBox(mainWindow, {
-          type: 'info',
-          title: 'Rizvi Diagnostic Center — Updates',
-          message: 'You are using the latest version.',
-          detail: `Installed version: v${currentVersion}\nLatest version: v${latestVersion}`,
-          buttons: ['OK'],
-        });
-      }
+      if (showNoUpdate && mainWindow) await dialog.showMessageBox(mainWindow, { type: 'info', title: 'Updates', message: 'You are using the latest version.', detail: `Installed: v${currentVersion}\nLatest: v${latestVersion}`, buttons: ['OK'] });
       return;
     }
-
     const asset = getWindowsInstallerAsset(release);
-    if (!asset || !asset.browser_download_url) {
-      throw new Error(`Release v${latestVersion} has no Windows .exe installer asset.`);
-    }
-
+    if (!asset || !asset.browser_download_url) throw new Error(`Release v${latestVersion} has no Windows .exe installer asset.`);
     const notes = String(release.body || '').trim();
-    logToFile(`[update] New release found: v${latestVersion}, asset=${asset.name}`);
-
     const result = await dialog.showMessageBox(mainWindow, {
-      type: 'info',
-      title: 'Update Available — Rizvi Diagnostic Center',
+      type: 'info', title: 'Update Available — Rizvi Diagnostic Center',
       message: `A new version v${latestVersion} is available.`,
-      detail: [
-        `Current version: v${currentVersion}`,
-        `Latest version: v${latestVersion}`,
-        '',
-        'Latest updates:',
-        notes ? notes.slice(0, 5000) : 'Bug fixes, improvements and performance updates.',
-        '',
-        'Click Update Now to download and install the latest Windows application.',
-      ].join('\n'),
-      buttons: ['Update Now', 'Later'],
-      defaultId: 0,
-      cancelId: 1,
+      detail: [`Current version: v${currentVersion}`, `Latest version: v${latestVersion}`, '', 'Latest updates:', notes ? notes.slice(0, 5000) : 'Bug fixes and improvements.'].join('\n'),
+      buttons: ['Update Now', 'Later'], defaultId: 0, cancelId: 1,
     });
-
     if (result.response !== 0) return;
-
     updateInProgress = true;
     const tempDir = path.join(app.getPath('temp'), 'RizviDiagnosticCenter-update');
-    if (!fs.existsSync(tempDir)) fs.mkdirSync(tempDir, { recursive: true });
+    fs.mkdirSync(tempDir, { recursive: true });
     const installerPath = path.join(tempDir, asset.name.replace(/[^a-zA-Z0-9._-]/g, '_'));
-
-    logToFile(`[update] Downloading ${asset.browser_download_url} to ${installerPath}`);
-    await dialog.showMessageBox(mainWindow, {
-      type: 'info',
-      title: 'Downloading Update',
-      message: `Downloading Rizvi Diagnostic Center v${latestVersion}...`,
-      detail: 'The application will restart after the installer is ready.',
-      buttons: ['OK'],
-    });
-
     await downloadFile(asset.browser_download_url, installerPath);
-    logToFile(`[update] Installer downloaded: ${installerPath}`);
-
     const installResult = await dialog.showMessageBox(mainWindow, {
-      type: 'info',
-      title: 'Update Ready',
-      message: `Rizvi Diagnostic Center v${latestVersion} is ready to install.`,
-      detail: 'The application will close and the new version will be installed. Your data is not deleted.',
-      buttons: ['Install and Restart', 'Cancel'],
-      defaultId: 0,
-      cancelId: 1,
+      type: 'info', title: 'Update Ready', message: `v${latestVersion} is ready to install.`,
+      detail: 'The application will close and the new version will be installed. Your database is kept in your Windows user profile.',
+      buttons: ['Install and Restart', 'Cancel'], defaultId: 0, cancelId: 1,
     });
-
-    if (installResult.response !== 0) {
-      updateInProgress = false;
-      return;
-    }
-
-    // NSIS supports /S for silent installation. The current process is closed
-    // before launching it so Windows can replace the installed application.
-    spawn(installerPath, ['/S'], {
-      detached: true,
-      stdio: 'ignore',
-      windowsHide: true,
-    }).unref();
-
+    if (installResult.response !== 0) { updateInProgress = false; return; }
+    spawn(installerPath, ['/S'], { detached: true, stdio: 'ignore', windowsHide: true }).unref();
     app.quit();
   } catch (error) {
     updateInProgress = false;
     logToFile(`[update] Error: ${error && error.stack ? error.stack : error}`);
-    if (showNoUpdate && mainWindow) {
-      await dialog.showMessageBox(mainWindow, {
-        type: 'warning',
-        title: 'Update Check Failed',
-        message: 'Could not check for the latest Windows update.',
-        detail: `${error.message}\n\nYou can try again later. Your current application remains unchanged.`,
-        buttons: ['OK'],
-      });
-    }
+    if (showNoUpdate && mainWindow) await dialog.showMessageBox(mainWindow, { type: 'warning', title: 'Update Check Failed', message: 'Could not check for the latest Windows update.', detail: error.message, buttons: ['OK'] });
   }
 }
 
@@ -254,14 +162,24 @@ if (!gotLock) {
   app.quit();
 } else {
   app.on('second-instance', () => {
-    if (mainWindow) {
-      if (mainWindow.isMinimized()) mainWindow.restore();
-      mainWindow.focus();
-    }
+    if (mainWindow) { if (mainWindow.isMinimized()) mainWindow.restore(); mainWindow.focus(); }
   });
 
   async function startBackend() {
-    require('dotenv').config({ path: path.join(BACKEND_ROOT, '.env') });
+    const envPath = path.join(BACKEND_ROOT, '.env');
+    if (fs.existsSync(envPath)) require('dotenv').config({ path: envPath, override: false });
+
+    // Keep writable runtime data outside Program Files. MongoDB remains the
+    // shared cloud database when MONGODB_URI is configured; local JSON files
+    // are a durable offline cache and must survive application updates.
+    const dataDir = path.join(app.getPath('userData'), 'data');
+    fs.mkdirSync(dataDir, { recursive: true });
+    process.env.RIZVI_DATA_DIR = dataDir;
+
+    logToFile(`Backend root: ${BACKEND_ROOT}`);
+    logToFile(`Backend data directory: ${dataDir}`);
+    logToFile(`MongoDB configured: ${Boolean(process.env.MONGODB_URI || process.env.MONGODB_URI_2 || process.env.MONGODB_URI_3)}`);
+
     const { start } = require(path.join(BACKEND_ROOT, 'src', 'server.js'));
     await start();
   }
@@ -269,16 +187,11 @@ if (!gotLock) {
   function createWindow() {
     const port = process.env.PORT || 5000;
     mainWindow = new BrowserWindow({
-      width: 1360,
-      height: 860,
-      minWidth: 1024,
-      minHeight: 640,
+      width: 1360, height: 860, minWidth: 1024, minHeight: 640,
       title: process.env.CLINIC_NAME || 'Rizvi Diagnostic Center',
       icon: path.join(__dirname, 'build', 'Rizvi-Logo-favicon.png'),
-      webPreferences: { contextIsolation: true, nodeIntegration: false },
-      show: false,
+      webPreferences: { contextIsolation: true, nodeIntegration: false }, show: false,
     });
-
     Menu.setApplicationMenu(null);
     mainWindow.once('ready-to-show', () => mainWindow.show());
     mainWindow.webContents.on('did-fail-load', (event, errorCode, errorDescription) => {
@@ -295,25 +208,10 @@ if (!gotLock) {
       await startBackend();
       logToFile('Backend started — opening window...');
       createWindow();
-      logToFile('Window opened successfully.');
       setupAutoUpdate();
-    } catch (err) {
-      showFatalError('Rizvi Diagnostic Center failed to start', err);
-      app.quit();
-    }
-
-    app.on('activate', () => {
-      if (BrowserWindow.getAllWindows().length === 0) createWindow();
-    });
+    } catch (err) { showFatalError('Rizvi Diagnostic Center could not start', err); app.quit(); }
   });
 
-  app.on('before-quit', () => {
-    if (updateCheckTimer) clearInterval(updateCheckTimer);
-  });
-
-  app.on('window-all-closed', () => {
-    if (process.platform !== 'darwin') app.quit();
-  });
-
-  process.on('uncaughtException', (err) => showFatalError('Unexpected error', err));
+  app.on('window-all-closed', () => { if (process.platform !== 'darwin') app.quit(); });
+  app.on('before-quit', () => { if (updateCheckTimer) clearInterval(updateCheckTimer); });
 }
