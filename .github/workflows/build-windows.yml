@@ -33,6 +33,29 @@ jobs:
           node-version: 22
           cache: npm
           cache-dependency-path: electron/package-lock.json
+      - name: Validate Windows application version is new
+        shell: pwsh
+        run: |
+          $package = Get-Content electron/package.json -Raw | ConvertFrom-Json
+          $current = [version]$package.version
+          if ($current -lt [version]'0.0.1') { throw "Invalid Windows application version: $($package.version)" }
+          try {
+            $release = Invoke-RestMethod -Uri "https://api.github.com/repos/stalker-one/RizviDiagnostic/releases/tags/$env:WINDOWS_RELEASE_TAG" -Headers @{ 'User-Agent'='Rizvi-Diagnostic-Center-Build'; 'Accept'='application/vnd.github+json' } -TimeoutSec 20
+            $asset = @($release.assets) | Where-Object { $_.name -ieq 'windows-version.json' } | Select-Object -First 1
+            if ($asset) {
+              $manifest = Invoke-RestMethod -Uri $asset.browser_download_url -Headers @{ 'User-Agent'='Rizvi-Diagnostic-Center-Build' } -TimeoutSec 20
+              if ($manifest.version) {
+                $latest = [version]$manifest.version
+                if ($current -le $latest) { throw "Windows version must increase for every Windows application update. Current source version v$current is not newer than published v$latest." }
+                Write-Host "Version check passed: published v$latest -> source v$current"
+              }
+            } else {
+              Write-Host 'No existing Windows version manifest found; allowing initial Windows release build.'
+            }
+          } catch {
+            if ($_.Exception.Message -like 'Windows version must increase*') { throw }
+            Write-Warning "Could not read the existing Windows manifest. Continuing only because the release may not have a readable manifest: $($_.Exception.Message)"
+          }
       - name: Install backend dependencies
         working-directory: backend
         run: npm install --omit=dev
@@ -104,7 +127,7 @@ jobs:
           Set-Content -Path dist-installer\windows-version.json -Value $manifest -Encoding UTF8
           Write-Host "Windows build version: v$version"
           Write-Host "Installer: $($exe.FullName) ($($exe.Length) bytes)"
-          Write-Host 'Updater metadata and version manifest verified.'
+          Write-Host 'Windows version manifest created.'
           Get-FileHash $exe -Algorithm SHA256
       - name: Prepare release files
         shell: pwsh
@@ -125,11 +148,9 @@ jobs:
 
             This single Windows release always contains the latest Windows build.
 
-            The user-facing application version changes normally (for example v1.1.3 → v1.1.4) for meaningful Windows application updates, while the GitHub release remains the single Windows release channel.
+            The user-facing Windows application version increases for every application update (for example v1.1.4 → v1.1.5). The GitHub release tag remains v1.1.0 as the stable Windows channel.
 
-            The release assets are replaced on each successful Windows build. Older Windows installers are not retained here.
-
-            The application checks `windows-version.json` and shows an **Update Required** modal when a newer application version is available.
+            Older Windows installer assets are replaced after every successful build.
           files: electron/release-files/*
           fail_on_unmatched_files: true
           make_latest: true
