@@ -22,7 +22,7 @@
     "publish": {"provider": "github", "owner": "stalker-one", "repo": "RizviDiagnostic"},
     "win": {
       "target": "nsis",
-      "icon": "build/icon.ico",
+      "icon": "build/icon.png",
       "publisherName": "Mian Bilal"
     },
     "nsis": {
