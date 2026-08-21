@@ -3,8 +3,11 @@ name: Repair Android release metadata
 on:
   workflow_dispatch:
   workflow_run:
-    workflows: [Build Android App, Build Superadmin Android App]
-    types: [completed]
+    workflows:
+      - Build Android App
+      - Build Superadmin Android App
+    types:
+      - completed
 
 permissions:
   contents: write
@@ -12,7 +15,7 @@ permissions:
 
 jobs:
   repair:
-    if: ${{ github.event_name == 'workflow_dispatch' || (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success') }}
+    if: ${{ github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success' }}
     runs-on: ubuntu-latest
     steps:
       - name: Repair release metadata
@@ -23,42 +26,47 @@ jobs:
           TRIGGER_NAME: ${{ github.event.workflow_run.name }}
           TRIGGER_ID: ${{ github.event.workflow_run.id }}
           TRIGGER_SHA: ${{ github.event.workflow_run.head_sha }}
+        shell: bash
         run: |
           set -euo pipefail
 
           repair() {
-            tag="$1"; app="$2"; asset="$3"; workflow="$4"
+            local tag="$1"
+            local app="$2"
+            local asset="$3"
+            local workflow="$4"
+            local id sha run code version release release_id dir apk hash size change body
 
             if [ "$EVENT_NAME" = "workflow_run" ]; then
               id="$TRIGGER_ID"
               sha="$TRIGGER_SHA"
             else
-              data="$(gh api "repos/$REPO/actions/workflows/$workflow/runs?branch=main&status=success&per_page=1")"
-              id="$(jq -r '.workflow_runs[0].id // empty' <<<"$data")"
-              [ -n "$id" ] || { echo "No successful run for $workflow"; return; }
-              sha="$(jq -r '.workflow_runs[0].head_sha' <<<"$data")"
+              run_data="$(gh api "repos/$REPO/actions/workflows/$workflow/runs?branch=main&status=success&per_page=1")"
+              id="$(jq -r '.workflow_runs[0].id // empty' <<< "$run_data")"
+              [ -n "$id" ] || { echo "No successful run found for $workflow"; return 0; }
+              sha="$(jq -r '.workflow_runs[0].head_sha' <<< "$run_data")"
             fi
 
             run="$(gh api "repos/$REPO/actions/runs/$id")"
-            code="$(jq -r '.run_number' <<<"$run")"
+            code="$(jq -r '.run_number' <<< "$run")"
             version="1.0.$code"
 
             release="$(gh api "repos/$REPO/releases/tags/$tag" 2>/dev/null || true)"
-            [ -n "$release" ] || { echo "Release $tag is not available yet"; return; }
-            release_id="$(jq -r '.id' <<<"$release")"
+            [ -n "$release" ] || { echo "Release $tag is not available yet"; return 0; }
+            release_id="$(jq -r '.id' <<< "$release")"
 
             dir="$(mktemp -d)"
             gh release download "$tag" --repo "$REPO" --pattern "$asset" --dir "$dir" --clobber
             apk="$dir/$asset"
-            test -s "$apk"
+            test -s "$apk" || { echo "APK asset is missing: $asset"; exit 1; }
+
             hash="$(sha256sum "$apk" | awk '{print tolower($1)}')"
             size="$(stat -c '%s' "$apk")"
-            test "${#hash}" -eq 64
+            test "${#hash}" -eq 64 || { echo "Invalid SHA-256"; exit 1; }
 
-            change="$(gh api "repos/$REPO/commits/$sha" --jq '.commit.message' | head -n1 | tr '\r\n' ' ' | sed 's/[[:space:]][[:space:]]*/ /g' | cut -c1-300)"
+            change="$(gh api "repos/$REPO/commits/$sha" --jq '.commit.message' | head -n 1 | tr '\r\n' ' ' | sed 's/[[:space:]][[:space:]]*/ /g' | cut -c1-300)"
             [ -n "$change" ] || change="Latest bug fixes and improvements."
 
-            # Keep release body machine-readable and user-facing What's New clean.
             body="## What's New
 
 - $change
@@ -70,9 +78,10 @@ Version name: $version
 APK SHA-256: $hash
 APK size: $size"
 
-            gh api "repos/$REPO/releases/$release_id" -X PATCH \
-              -f "name=$app $version" \
-              -f "body=$body" >/dev/null
+            gh api "repos/$REPO/releases/$release_id" \
+              --method PATCH \
+              --field "name=$app $version" \
+              --field "body=$body" >/dev/null
 
             rm -rf "$dir"
             echo "OK: $tag $version build $code SHA-256 $hash"
@@ -80,11 +89,17 @@ APK size: $size"
 
           if [ "$EVENT_NAME" = "workflow_run" ]; then
             case "$TRIGGER_NAME" in
-              "Build Android App") repair android-latest "Rizvi Diagnostic Center" RizviDiagnosticCenter-latest.apk build-android.yml ;;
-              "Build Superadmin Android App") repair android-superadmin-latest "Rizvi Diagnostic Center Superadmin" RizviDiagnosticSuperadmin-latest.apk build-superadmin-android.yml ;;
-              *) echo "Ignoring $TRIGGER_NAME" ;;
+              "Build Android App")
+                repair "android-latest" "Rizvi Diagnostic Center" "RizviDiagnosticCenter-latest.apk" "build-android.yml"
+                ;;
+              "Build Superadmin Android App")
+                repair "android-superadmin-latest" "Rizvi Diagnostic Center Superadmin" "RizviDiagnosticSuperadmin-latest.apk" "build-superadmin-android.yml"
+                ;;
+              *)
+                echo "Ignoring workflow: $TRIGGER_NAME"
+                ;;
             esac
           else
-            repair android-latest "Rizvi Diagnostic Center" RizviDiagnosticCenter-latest.apk build-android.yml
-            repair android-superadmin-latest "Rizvi Diagnostic Center Superadmin" RizviDiagnosticSuperadmin-latest.apk build-superadmin-android.yml
+            repair "android-latest" "Rizvi Diagnostic Center" "RizviDiagnosticCenter-latest.apk" "build-android.yml"
+            repair "android-superadmin-latest" "Rizvi Diagnostic Center Superadmin" "RizviDiagnosticSuperadmin-latest.apk" "build-superadmin-android.yml"
           fi
