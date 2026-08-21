@@ -129,11 +129,11 @@ public class MainActivity extends BridgeActivity {
                 applyVideoScale(startupVideo.getWidth(), startupVideo.getHeight());
                 player.setLooping(false);
                 player.setVolume(1f, 1f);
-                // Play the startup animation at 2x speed while preserving normal pitch/audio.
+                // The selected file is already the 2x startup animation; do not speed it up again.
                 if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.M) {
                     try {
                         android.media.PlaybackParams params = player.getPlaybackParams();
-                        params.setSpeed(2.0f);
+                        params.setSpeed(1.0f);
                         params.setPitch(1.0f);
                         player.setPlaybackParams(params);
                     } catch (Exception ignored) { }
