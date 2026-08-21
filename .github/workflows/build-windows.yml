@@ -1,0 +1,103 @@
+name: Build Windows App
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'electron/**'
+      - 'frontend/**'
+      - 'backend/**'
+      - '.github/workflows/build-windows.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: windows-release
+  cancel-in-progress: false
+
+jobs:
+  build-windows:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: electron/package-lock.json
+
+      - name: Install backend dependencies
+        working-directory: backend
+        run: npm install --omit=dev
+
+      - name: Install frontend dependencies
+        working-directory: frontend
+        run: npm install
+
+      - name: Build frontend
+        working-directory: frontend
+        env:
+          VITE_API_BASE_URL: http://localhost:5000/api
+        run: npm run build
+
+      - name: Install Electron dependencies
+        working-directory: electron
+        run: npm install
+
+      - name: Build Windows installer
+        working-directory: electron
+        run: npm run dist -- --publish never
+
+      - name: Verify installer and updater metadata
+        shell: pwsh
+        working-directory: electron
+        run: |
+          $exe = Get-ChildItem -Path dist-installer -Filter *.exe -File | Select-Object -First 1
+          if (-not $exe) { throw 'Windows installer EXE was not produced.' }
+          if ($exe.Length -lt 100KB) { throw 'Windows installer is unexpectedly small.' }
+          $latest = Get-ChildItem -Path dist-installer -Filter latest.yml -File | Select-Object -First 1
+          if (-not $latest) { throw 'electron-builder did not produce latest.yml.' }
+          Write-Host "Installer: $($exe.FullName) ($($exe.Length) bytes)"
+          Write-Host "Updater metadata: $($latest.FullName)"
+          Get-FileHash $exe -Algorithm SHA256
+
+      - name: Prepare release files
+        shell: pwsh
+        working-directory: electron
+        run: |
+          New-Item -ItemType Directory -Force -Path release-files | Out-Null
+          Copy-Item dist-installer\*.exe release-files\ -Force
+          Copy-Item dist-installer\latest.yml release-files\ -Force
+          Get-ChildItem dist-installer -Filter *.blockmap -File | Copy-Item -Destination release-files -Force -ErrorAction SilentlyContinue
+
+      - name: Read application version
+        id: version
+        shell: pwsh
+        working-directory: electron
+        run: |
+          $package = Get-Content package.json -Raw | ConvertFrom-Json
+          "version=$($package.version)" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
+
+      - name: Publish GitHub release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v${{ steps.version.outputs.version }}
+          name: Rizvi Diagnostic Center v${{ steps.version.outputs.version }}
+          generate_release_notes: true
+          make_latest: true
+          files: electron/release-files/*
+          fail_on_unmatched_files: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Upload Windows build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: Rizvi-Diagnostic-Center-Windows-v${{ steps.version.outputs.version }}
+          path: electron/release-files/*
+          retention-days: 90
