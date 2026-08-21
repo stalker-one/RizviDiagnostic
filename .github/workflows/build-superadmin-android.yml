@@ -16,21 +16,23 @@ env:
   ANDROID_KEYSTORE_PATH: ${{ github.workspace }}/android-release.keystore
   ANDROID_HOME: /usr/local/lib/android/sdk
   ANDROID_SDK_ROOT: /usr/local/lib/android/sdk
-  STARTUP_VIDEO_URL: https://res.cloudinary.com/v0h2hc0b/video/upload/Create_3D_animation_video_202608210408.mp4
 
 jobs:
   build-superadmin:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Download and normalize startup animation for Android
+      - name: Use uploaded Superadmin startup video
         shell: bash
         run: |
           set -euo pipefail
+          SOURCE_VIDEO="frontend/android/app/src/main/res/Rizvi_Android_Startup_2x.mp4"
+          test -s "$SOURCE_VIDEO" || { echo "Missing required startup video: $SOURCE_VIDEO"; exit 1; }
           mkdir -p frontend/android/app/src/main/res/raw
-          curl --fail --location --retry 5 --retry-delay 3 --connect-timeout 30 --max-time 600 \
-            -o /tmp/startup-source.mp4 "$STARTUP_VIDEO_URL"
-          test -s /tmp/startup-source.mp4
+          cp "$SOURCE_VIDEO" /tmp/startup-source.mp4
+          echo 'Using repository startup video:'
+          ls -lh "$SOURCE_VIDEO"
+          sha256sum "$SOURCE_VIDEO"
           sudo apt-get update -qq
           sudo apt-get install -y --no-install-recommends ffmpeg
           echo 'Source video:'
@@ -43,7 +45,7 @@ jobs:
             -movflags +faststart -shortest \
             frontend/android/app/src/main/res/raw/startup_animation.mp4
           test -s frontend/android/app/src/main/res/raw/startup_animation.mp4
-          echo 'Android-compatible video:'
+          echo 'Android-compatible startup video:'
           ffprobe -v error -show_entries format=duration,size -show_entries stream=index,codec_name,codec_type,width,height,pix_fmt,r_frame_rate,profile -of default=noprint_wrappers=1 frontend/android/app/src/main/res/raw/startup_animation.mp4
           sha256sum frontend/android/app/src/main/res/raw/startup_animation.mp4
       - uses: actions/setup-node@v4
@@ -148,7 +150,7 @@ jobs:
           name: Android Superadmin App (latest build)
           body: |
             # What's new
-            - Added the Rizvi Diagnostic Center 3D startup animation.
+            - Uses the uploaded Rizvi_Android_Startup_2x.mp4 from the repository as the Superadmin startup video.
             - Startup video is normalized to Android-safe H.264/AAC/YUV420P before packaging.
             - Startup animation plays fullscreen and automatically opens the application when finished.
             - Improved authenticated session resume and application startup behavior.
