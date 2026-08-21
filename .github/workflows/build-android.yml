@@ -18,7 +18,7 @@ concurrency:
 
 env:
   VITE_API_BASE_URL: https://stalker-one-rizvidiagnostic.vercel.app/api
-  STARTUP_VIDEO_URL: https://res.cloudinary.com/v0h2hc0b/video/upload/Create_3D_animation_video_202608210408.mp4
+  STARTUP_VIDEO_URL: https://raw.githubusercontent.com/stalker-one/RizviDiagnostic/daa382b5d7b20c603566640e031b254d0fa1f0ca/frontend/android/app/src/main/res/Rizvi_Android_Startup_2x.mp4
 
 jobs:
   build-android:
