@@ -1,112 +1,29 @@
 // Electron main process for the Rizvi Diagnostic Center desktop app.
-//
-// What this does:
-//   1. Loads backend/.env (same config the backend normally uses) so PORT,
-//      JWT_SECRET, and the MongoDB Atlas connection all work exactly the
-//      same as running the server with plain Node.
-//   2. Starts the Express backend IN-PROCESS (no separate terminal/window,
-//      no "live site" needed — everything runs locally on this PC).
-//   3. Opens a native window pointed at http://localhost:<PORT>, which the
-//      backend now also serves the built frontend from (see
-//      backend/src/server.js), so the whole app — UI + API — is one process.
-//
-// Data storage: the backend always keeps a local JSON cache under
-// backend/src/data, so the app keeps working with zero internet. If
-// backend/.env has MONGODB_URI set (see atlas-credentials.env in the
-// project root / README), every write is also synced to MongoDB Atlas in
-// the background whenever this PC has internet access.
-//
-// Reliability notes (added after real-world "installs fine but won't open"
-// reports):
-//   - Only one copy of the app is ever allowed to run at once. Without this,
-//     double-clicking the shortcut while a previous copy is still running in
-//     the background (or double-clicking twice quickly on a slow PC) makes
-//     the second copy fail to bind the port with no visible error at all —
-//     it just silently never shows a window. Now the second launch simply
-//     focuses the existing window instead.
-//   - Every failure path shows a native error dialog with the real error
-//     message AND writes it to a log file, instead of the window just never
-//     appearing with no explanation.
-
 const path = require('path');
 const fs = require('fs');
+const https = require('https');
+const { spawn } = require('child_process');
 const { app, BrowserWindow, Menu, dialog } = require('electron');
-const { autoUpdater } = require('electron-updater');
 
-// Packaged layout (asar disabled) is:
-//   <install dir>/resources/app/main.js   <- this file, so __dirname here
-//                                             is <install dir>/resources/app
-//   <install dir>/backend/...             <- extraFiles, NOT under resources
-//   <install dir>/frontend/dist/...
-// So when packaged, BACKEND_ROOT must go up two levels (out of resources/app
-// entirely). In dev (`npm start` / `electron .` run directly from the
-// electron/ folder), main.js sits directly in electron/, which is a sibling
-// of backend/ — only one level up. app.isPackaged tells us which case we're
-// in; getting this wrong is exactly what caused the "Cannot find module
-// .../resources/backend/src/server.js" error (it was going up only one
-// level in the packaged build).
 const BACKEND_ROOT = app.isPackaged
   ? path.join(__dirname, '..', '..', 'backend')
   : path.join(__dirname, '..', 'backend');
 
-// ---- Auto-update ----
-// Checks GitHub Releases (stalker-one/RizviDiagnostic) for a newer version
-// than what's installed. Fully silent unless an update is actually found —
-// no popups, no interruptions, just a check + background download. Only
-// once the new version is fully downloaded does it ask the user to restart.
-// In dev mode this is a no-op (electron-updater requires a packaged,
-// installed app — there's nothing to "update" when running `npm start`).
-function setupAutoUpdate() {
-  if (!app.isPackaged) return;
-
-  autoUpdater.autoDownload = true;
-  autoUpdater.autoInstallOnAppQuit = true;
-
-  autoUpdater.on('checking-for-update', () => logToFile('[update] Checking for update...'));
-  autoUpdater.on('update-available', (info) =>
-    logToFile(`[update] Update available: v${info.version} — downloading...`)
-  );
-  autoUpdater.on('update-not-available', () => logToFile('[update] Already on the latest version.'));
-  autoUpdater.on('error', (err) => logToFile(`[update] Error: ${err && err.message}`));
-
-  autoUpdater.on('update-downloaded', async (info) => {
-    logToFile(`[update] v${info.version} downloaded — prompting to restart.`);
-    const { response } = await dialog.showMessageBox(mainWindow, {
-      type: 'info',
-      title: 'Update ready',
-      message: `Rizvi Diagnostic Center v${info.version} has been downloaded.`,
-      detail: 'Restart now to install it? Your data is not affected.',
-      buttons: ['Restart Now', 'Later'],
-      defaultId: 0,
-      cancelId: 1,
-    });
-    if (response === 0) autoUpdater.quitAndInstall();
-  });
-
-  // Check once on launch, then every 4 hours while the app stays open —
-  // covers the clinic PC that's left running all day.
-  autoUpdater.checkForUpdates().catch((err) => logToFile(`[update] Initial check failed: ${err.message}`));
-  setInterval(() => {
-    autoUpdater.checkForUpdates().catch((err) => logToFile(`[update] Periodic check failed: ${err.message}`));
-  }, 4 * 60 * 60 * 1000);
-}
+const GITHUB_OWNER = 'stalker-one';
+const GITHUB_REPO = 'RizviDiagnostic';
+const GITHUB_RELEASES_API = `https://api.github.com/repos/${GITHUB_OWNER}/${GITHUB_REPO}/releases/latest`;
+const UPDATE_CHECK_INTERVAL = 4 * 60 * 60 * 1000;
 
 let mainWindow = null;
+let updateCheckTimer = null;
+let updateInProgress = false;
 
-// ---- Diagnostics: every launch appends to a log file so a "won't open"
-// report can actually be debugged instead of guessed at. On Windows this
-// lands under %APPDATA%\Rizvi Diagnostic Center\logs\main.log.
 function logToFile(line) {
   try {
     const logDir = path.join(app.getPath('userData'), 'logs');
     if (!fs.existsSync(logDir)) fs.mkdirSync(logDir, { recursive: true });
-    fs.appendFileSync(
-      path.join(logDir, 'main.log'),
-      `[${new Date().toISOString()}] ${line}\n`
-    );
-  } catch (e) {
-    // Logging must never itself crash startup.
-  }
+    fs.appendFileSync(path.join(logDir, 'main.log'), `[${new Date().toISOString()}] ${line}\n`);
+  } catch (_) {}
 }
 
 function showFatalError(title, err) {
@@ -118,9 +35,220 @@ function showFatalError(title, err) {
   );
 }
 
-// Prevents a second instance from ever launching alongside a running one —
-// the #1 cause of "the app just doesn't open" (the second process fails to
-// bind the already-in-use port and quits with no visible message).
+function parseVersion(version) {
+  const clean = String(version || '').trim().replace(/^v/i, '').split('-')[0];
+  const parts = clean.split('.').map((part) => Number.parseInt(part, 10));
+  return [parts[0] || 0, parts[1] || 0, parts[2] || 0];
+}
+
+function compareVersions(a, b) {
+  const av = parseVersion(a);
+  const bv = parseVersion(b);
+  for (let i = 0; i < 3; i += 1) {
+    if (av[i] > bv[i]) return 1;
+    if (av[i] < bv[i]) return -1;
+  }
+  return 0;
+}
+
+function requestJson(url) {
+  return new Promise((resolve, reject) => {
+    const request = https.get(url, {
+      headers: {
+        Accept: 'application/vnd.github+json',
+        'User-Agent': 'Rizvi-Diagnostic-Center-Desktop',
+      },
+    }, (response) => {
+      let body = '';
+      response.setEncoding('utf8');
+      response.on('data', (chunk) => { body += chunk; });
+      response.on('end', () => {
+        if (response.statusCode < 200 || response.statusCode >= 300) {
+          reject(new Error(`GitHub release check returned HTTP ${response.statusCode}`));
+          return;
+        }
+        try {
+          resolve(JSON.parse(body));
+        } catch (error) {
+          reject(new Error(`Invalid GitHub release response: ${error.message}`));
+        }
+      });
+    });
+    request.setTimeout(20000, () => request.destroy(new Error('GitHub release check timed out')));
+    request.on('error', reject);
+  });
+}
+
+function downloadFile(url, destination, redirectCount = 0) {
+  return new Promise((resolve, reject) => {
+    if (redirectCount > 5) {
+      reject(new Error('Too many download redirects'));
+      return;
+    }
+
+    const output = fs.createWriteStream(destination);
+    const request = https.get(url, {
+      headers: { 'User-Agent': 'Rizvi-Diagnostic-Center-Desktop' },
+    }, (response) => {
+      if ([301, 302, 303, 307, 308].includes(response.statusCode) && response.headers.location) {
+        output.close();
+        try { fs.unlinkSync(destination); } catch (_) {}
+        downloadFile(response.headers.location, destination, redirectCount + 1).then(resolve).catch(reject);
+        return;
+      }
+
+      if (response.statusCode !== 200) {
+        output.close();
+        try { fs.unlinkSync(destination); } catch (_) {}
+        reject(new Error(`Installer download returned HTTP ${response.statusCode}`));
+        return;
+      }
+
+      response.pipe(output);
+      output.on('finish', () => {
+        output.close(() => {
+          try {
+            if (fs.statSync(destination).size < 1024 * 100) {
+              reject(new Error('Downloaded installer is unexpectedly small'));
+            } else {
+              resolve(destination);
+            }
+          } catch (error) {
+            reject(error);
+          }
+        });
+      });
+    });
+
+    request.setTimeout(10 * 60 * 1000, () => request.destroy(new Error('Installer download timed out')));
+    request.on('error', (error) => {
+      output.destroy();
+      try { fs.unlinkSync(destination); } catch (_) {}
+      reject(error);
+    });
+  });
+}
+
+function getWindowsInstallerAsset(release) {
+  const assets = Array.isArray(release.assets) ? release.assets : [];
+  return assets.find((asset) => /\.exe$/i.test(asset.name) && !/\.blockmap$/i.test(asset.name)) || null;
+}
+
+async function checkForLatestWindowsUpdate(showNoUpdate = false) {
+  if (!app.isPackaged || updateInProgress) return;
+
+  try {
+    const currentVersion = app.getVersion();
+    logToFile(`[update] Checking GitHub Releases. Installed=${currentVersion}`);
+    const release = await requestJson(GITHUB_RELEASES_API);
+    const latestVersion = String(release.tag_name || '').replace(/^v/i, '');
+
+    if (!latestVersion) throw new Error('Latest GitHub release has no version tag');
+
+    if (compareVersions(latestVersion, currentVersion) <= 0) {
+      logToFile(`[update] No update. Installed=${currentVersion}, Latest=${latestVersion}`);
+      if (showNoUpdate && mainWindow) {
+        await dialog.showMessageBox(mainWindow, {
+          type: 'info',
+          title: 'Rizvi Diagnostic Center — Updates',
+          message: 'You are using the latest version.',
+          detail: `Installed version: v${currentVersion}\nLatest version: v${latestVersion}`,
+          buttons: ['OK'],
+        });
+      }
+      return;
+    }
+
+    const asset = getWindowsInstallerAsset(release);
+    if (!asset || !asset.browser_download_url) {
+      throw new Error(`Release v${latestVersion} has no Windows .exe installer asset.`);
+    }
+
+    const notes = String(release.body || '').trim();
+    logToFile(`[update] New release found: v${latestVersion}, asset=${asset.name}`);
+
+    const result = await dialog.showMessageBox(mainWindow, {
+      type: 'info',
+      title: 'Update Available — Rizvi Diagnostic Center',
+      message: `A new version v${latestVersion} is available.`,
+      detail: [
+        `Current version: v${currentVersion}`,
+        `Latest version: v${latestVersion}`,
+        '',
+        'Latest updates:',
+        notes ? notes.slice(0, 5000) : 'Bug fixes, improvements and performance updates.',
+        '',
+        'Click Update Now to download and install the latest Windows application.',
+      ].join('\n'),
+      buttons: ['Update Now', 'Later'],
+      defaultId: 0,
+      cancelId: 1,
+    });
+
+    if (result.response !== 0) return;
+
+    updateInProgress = true;
+    const tempDir = path.join(app.getPath('temp'), 'RizviDiagnosticCenter-update');
+    if (!fs.existsSync(tempDir)) fs.mkdirSync(tempDir, { recursive: true });
+    const installerPath = path.join(tempDir, asset.name.replace(/[^a-zA-Z0-9._-]/g, '_'));
+
+    logToFile(`[update] Downloading ${asset.browser_download_url} to ${installerPath}`);
+    await dialog.showMessageBox(mainWindow, {
+      type: 'info',
+      title: 'Downloading Update',
+      message: `Downloading Rizvi Diagnostic Center v${latestVersion}...`,
+      detail: 'The application will restart after the installer is ready.',
+      buttons: ['OK'],
+    });
+
+    await downloadFile(asset.browser_download_url, installerPath);
+    logToFile(`[update] Installer downloaded: ${installerPath}`);
+
+    const installResult = await dialog.showMessageBox(mainWindow, {
+      type: 'info',
+      title: 'Update Ready',
+      message: `Rizvi Diagnostic Center v${latestVersion} is ready to install.`,
+      detail: 'The application will close and the new version will be installed. Your data is not deleted.',
+      buttons: ['Install and Restart', 'Cancel'],
+      defaultId: 0,
+      cancelId: 1,
+    });
+
+    if (installResult.response !== 0) {
+      updateInProgress = false;
+      return;
+    }
+
+    // NSIS supports /S for silent installation. The current process is closed
+    // before launching it so Windows can replace the installed application.
+    spawn(installerPath, ['/S'], {
+      detached: true,
+      stdio: 'ignore',
+      windowsHide: true,
+    }).unref();
+
+    app.quit();
+  } catch (error) {
+    updateInProgress = false;
+    logToFile(`[update] Error: ${error && error.stack ? error.stack : error}`);
+    if (showNoUpdate && mainWindow) {
+      await dialog.showMessageBox(mainWindow, {
+        type: 'warning',
+        title: 'Update Check Failed',
+        message: 'Could not check for the latest Windows update.',
+        detail: `${error.message}\n\nYou can try again later. Your current application remains unchanged.`,
+        buttons: ['OK'],
+      });
+    }
+  }
+}
+
+function setupAutoUpdate() {
+  if (!app.isPackaged) return;
+  checkForLatestWindowsUpdate(false);
+  updateCheckTimer = setInterval(() => checkForLatestWindowsUpdate(false), UPDATE_CHECK_INTERVAL);
+}
+
 const gotLock = app.requestSingleInstanceLock();
 if (!gotLock) {
   app.quit();
@@ -133,14 +261,7 @@ if (!gotLock) {
   });
 
   async function startBackend() {
-    // Load backend/.env explicitly — when packaged, __dirname changes but
-    // this path is always resolved relative to this file, so it keeps
-    // working.
     require('dotenv').config({ path: path.join(BACKEND_ROOT, '.env') });
-    // server.js exports start(), which resolves once Express is actually
-    // listening (after it has tried — and possibly given up on —
-    // connecting to MongoDB Atlas). We await it so the window is never
-    // opened too early.
     const { start } = require(path.join(BACKEND_ROOT, 'src', 'server.js'));
     await start();
   }
@@ -154,51 +275,29 @@ if (!gotLock) {
       minHeight: 640,
       title: process.env.CLINIC_NAME || 'Rizvi Diagnostic Center',
       icon: path.join(__dirname, 'build', 'Rizvi-Logo-favicon.png'),
-      webPreferences: {
-        contextIsolation: true,
-        nodeIntegration: false,
-      },
+      webPreferences: { contextIsolation: true, nodeIntegration: false },
       show: false,
     });
 
-    Menu.setApplicationMenu(null); // clean, app-like window — no File/Edit/View menu bar
-
+    Menu.setApplicationMenu(null);
     mainWindow.once('ready-to-show', () => mainWindow.show());
-
-    // If the page itself fails to load (e.g. the backend died right after
-    // starting, or the port got blocked by a firewall a split second
-    // later), show that too instead of a window that just stays blank.
-    mainWindow.webContents.on(
-      'did-fail-load',
-      (event, errorCode, errorDescription) => {
-        logToFile(`Page failed to load: ${errorCode} ${errorDescription}`);
-        showFatalError(
-          'Rizvi Diagnostic Center failed to load',
-          new Error(`${errorDescription} (${errorCode}) while loading http://localhost:${port}`)
-        );
-      }
-    );
-
-    mainWindow.loadURL(`http://localhost:${port}`);
-
-    mainWindow.on('closed', () => {
-      mainWindow = null;
+    mainWindow.webContents.on('did-fail-load', (event, errorCode, errorDescription) => {
+      logToFile(`Page failed to load: ${errorCode} ${errorDescription}`);
+      showFatalError('Rizvi Diagnostic Center failed to load', new Error(`${errorDescription} (${errorCode}) while loading http://localhost:${port}`));
     });
+    mainWindow.loadURL(`http://localhost:${port}`);
+    mainWindow.on('closed', () => { mainWindow = null; });
   }
 
   app.whenReady().then(async () => {
     try {
-      logToFile('App ready — starting backend...');
+      logToFile(`App ready — version ${app.getVersion()} — starting backend...`);
       await startBackend();
       logToFile('Backend started — opening window...');
       createWindow();
       logToFile('Window opened successfully.');
       setupAutoUpdate();
     } catch (err) {
-      // This is the fix for "installs successfully but never opens": before,
-      // any error here (port already in use, a missing file, etc.) was an
-      // unhandled rejection that Electron swallowed — no window, no dialog,
-      // nothing. Now the real reason is always shown.
       showFatalError('Rizvi Diagnostic Center failed to start', err);
       app.quit();
     }
@@ -208,13 +307,13 @@ if (!gotLock) {
     });
   });
 
+  app.on('before-quit', () => {
+    if (updateCheckTimer) clearInterval(updateCheckTimer);
+  });
+
   app.on('window-all-closed', () => {
     if (process.platform !== 'darwin') app.quit();
   });
 
-  // Belt-and-suspenders: catch anything that still slips through
-  // uncaught so it's logged and shown rather than a silent exit.
-  process.on('uncaughtException', (err) => {
-    showFatalError('Unexpected error', err);
-  });
+  process.on('uncaughtException', (err) => showFatalError('Unexpected error', err));
 }
