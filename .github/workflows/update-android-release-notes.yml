@@ -3,9 +3,7 @@ name: Repair Android release metadata
 on:
   workflow_dispatch:
   workflow_run:
-    workflows:
-      - Build Android App
-      - Build Superadmin Android App
+    workflows: [Build Android App, Build Superadmin Android App]
     types: [completed]
 
 permissions:
@@ -14,77 +12,79 @@ permissions:
 
 jobs:
   repair:
-    if: ${{ github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success' }}
+    if: ${{ github.event_name == 'workflow_dispatch' || (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success') }}
     runs-on: ubuntu-latest
     steps:
-      - name: Repair latest Android release metadata
+      - name: Repair release metadata
         env:
           GH_TOKEN: ${{ github.token }}
           REPO: ${{ github.repository }}
-        shell: bash
+          EVENT_NAME: ${{ github.event_name }}
+          TRIGGER_NAME: ${{ github.event.workflow_run.name }}
+          TRIGGER_ID: ${{ github.event.workflow_run.id }}
+          TRIGGER_SHA: ${{ github.event.workflow_run.head_sha }}
         run: |
           set -euo pipefail
 
-          repair_release() {
-            local tag="$1"
-            local app="$2"
-            local asset="$3"
-            local workflow_file="$4"
-            local run_id run_number run_sha release_json release_id
-            local tmp_dir apk_path apk_sha256 latest_change body
+          repair() {
+            tag="$1"; app="$2"; asset="$3"; workflow="$4"
 
-            if [ "$GITHUB_EVENT_NAME" = "workflow_run" ]; then
-              run_id="${{ github.event.workflow_run.id }}"
-              run_number="$(gh api "repos/$REPO/actions/runs/$run_id" --jq '.run_number')"
-              run_sha="${{ github.event.workflow_run.head_sha }}"
+            if [ "$EVENT_NAME" = "workflow_run" ]; then
+              id="$TRIGGER_ID"
+              sha="$TRIGGER_SHA"
             else
-              run_json="$(gh api "repos/$REPO/actions/workflows/$workflow_file/runs?status=success&branch=main&per_page=1")"
-              run_id="$(jq -r '.workflow_runs[0].id // empty' <<<"$run_json")"
-              [ -n "$run_id" ] || { echo "No successful $workflow_file run found"; return 0; }
-              run_number="$(jq -r '.workflow_runs[0].run_number' <<<"$run_json")"
-              run_sha="$(jq -r '.workflow_runs[0].head_sha' <<<"$run_json")"
+              data="$(gh api "repos/$REPO/actions/workflows/$workflow/runs?branch=main&status=success&per_page=1")"
+              id="$(jq -r '.workflow_runs[0].id // empty' <<<"$data")"
+              [ -n "$id" ] || { echo "No successful run for $workflow"; return; }
+              sha="$(jq -r '.workflow_runs[0].head_sha' <<<"$data")"
             fi
 
-            release_json="$(gh api "repos/$REPO/releases/tags/$tag" 2>/dev/null || true)"
-            [ -n "$release_json" ] || { echo "Release $tag does not exist yet; waiting for build release."; return 0; }
-            release_id="$(jq -r '.id' <<<"$release_json")"
+            run="$(gh api "repos/$REPO/actions/runs/$id")"
+            code="$(jq -r '.run_number' <<<"$run")"
+            version="1.0.$code"
 
-            tmp_dir="$(mktemp -d)"
-            trap 'rm -rf "$tmp_dir"' RETURN
-            gh release download "$tag" --repo "$REPO" --pattern "$asset" --dir "$tmp_dir" --clobber
-            apk_path="$tmp_dir/$asset"
-            test -s "$apk_path" || { echo "APK asset missing: $asset"; exit 1; }
-            apk_sha256="$(sha256sum "$apk_path" | awk '{print tolower($1)}')"
-            test "${#apk_sha256}" -eq 64
+            release="$(gh api "repos/$REPO/releases/tags/$tag" 2>/dev/null || true)"
+            [ -n "$release" ] || { echo "Release $tag is not available yet"; return; }
+            release_id="$(jq -r '.id' <<<"$release")"
 
-            latest_change="$(gh api "repos/$REPO/commits/$run_sha" --jq '.commit.message' | head -n1 | tr '\r\n' ' ' | sed 's/[[:space:]][[:space:]]*/ /g' | cut -c1-300)"
-            [ -n "$latest_change" ] || latest_change="Latest bug fixes and improvements."
+            dir="$(mktemp -d)"
+            gh release download "$tag" --repo "$REPO" --pattern "$asset" --dir "$dir" --clobber
+            apk="$dir/$asset"
+            test -s "$apk"
+            hash="$(sha256sum "$apk" | awk '{print tolower($1)}')"
+            size="$(stat -c '%s' "$apk")"
+            test "${#hash}" -eq 64
 
+            change="$(gh api "repos/$REPO/commits/$sha" --jq '.commit.message' | head -n1 | tr '\r\n' ' ' | sed 's/[[:space:]][[:space:]]*/ /g' | cut -c1-300)"
+            [ -n "$change" ] || change="Latest bug fixes and improvements."
+
+            # Keep release body machine-readable and user-facing What's New clean.
             body="## What's New
 
-- ${latest_change}
+- $change
 
 ## Build information
 
-Version code: ${run_number}
-Version name: 1.0.${run_number}
-APK SHA-256: ${apk_sha256}"
+Version code: $code
+Version name: $version
+APK SHA-256: $hash
+APK size: $size"
 
             gh api "repos/$REPO/releases/$release_id" -X PATCH \
-              -f "name=$app 1.0.${run_number}" \
+              -f "name=$app $version" \
               -f "body=$body" >/dev/null
 
-            echo "Repaired $tag: version 1.0.${run_number}, build ${run_number}, SHA-256 ${apk_sha256}"
+            rm -rf "$dir"
+            echo "OK: $tag $version build $code SHA-256 $hash"
           }
 
-          if [ "$GITHUB_EVENT_NAME" = "workflow_run" ]; then
-            case "${{ github.event.workflow_run.name }}" in
-              "Build Android App")
-                repair_release "android-latest" "Rizvi Diagnostic Center" "RizviDiagnosticCenter-latest.apk" "build-android.yml" ;;
-              "Build Superadmin Android App")
-                repair_release "android-superadmin-latest" "Rizvi Diagnostic Center Superadmin" "RizviDiagnosticSuperadmin-latest.apk" "build-superadmin-android.yml" ;;
+          if [ "$EVENT_NAME" = "workflow_run" ]; then
+            case "$TRIGGER_NAME" in
+              "Build Android App") repair android-latest "Rizvi Diagnostic Center" RizviDiagnosticCenter-latest.apk build-android.yml ;;
+              "Build Superadmin Android App") repair android-superadmin-latest "Rizvi Diagnostic Center Superadmin" RizviDiagnosticSuperadmin-latest.apk build-superadmin-android.yml ;;
+              *) echo "Ignoring $TRIGGER_NAME" ;;
             esac
           else
-            repair_release "android-latest" "Rizvi Diagnostic Center" "RizviDiagnosticCenter-latest.apk" "build-android.yml"
-            repair_release "android-superadmin-latest" "Rizvi Diagnostic Center Superadmin" "RizviDiagnosticSuperadmin-latest.apk" "build-superadmin-android.yml"
+            repair android-latest "Rizvi Diagnostic Center" RizviDiagnosticCenter-latest.apk build-android.yml
+            repair android-superadmin-latest "Rizvi Diagnostic Center Superadmin" RizviDiagnosticSuperadmin-latest.apk build-superadmin-android.yml
           fi
