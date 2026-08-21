@@ -15,6 +15,7 @@ const UPDATE_CHECK_INTERVAL = 60 * 1000;
 
 let mainWindow = null;
 let updateCheckTimer = null;
+let updateInitialCheckTimer = null;
 let updateInProgress = false;
 let updateCheckRunning = false;
 
@@ -24,16 +25,10 @@ function logToFile(line) {
 function showFatalError(title, err) { const message = err && err.stack ? err.stack : String(err); logToFile(`FATAL: ${title} — ${message}`); dialog.showErrorBox(title, `${message}\n\nA full log has been saved to:\n${path.join(app.getPath('userData'), 'logs', 'main.log')}`); }
 function parseVersion(version) { const clean = String(version || '').trim().replace(/^v/i, '').split('-')[0]; const parts = clean.split('.').map((part) => Number.parseInt(part, 10)); return [parts[0] || 0, parts[1] || 0, parts[2] || 0]; }
 function compareVersions(a, b) { const av = parseVersion(a); const bv = parseVersion(b); for (let i = 0; i < 3; i += 1) { if (av[i] > bv[i]) return 1; if (av[i] < bv[i]) return -1; } return 0; }
-function requestJson(url) { return new Promise((resolve, reject) => { const request = https.get(url, { headers: { Accept: 'application/vnd.github+json', 'User-Agent': 'Rizvi-Diagnostic-Center-Desktop' } }, (response) => { let body = ''; response.setEncoding('utf8'); response.on('data', (chunk) => { body += chunk; }); response.on('end', () => { if (response.statusCode < 200 || response.statusCode >= 300) { reject(new Error(`GitHub Windows release check returned HTTP ${response.statusCode}`)); return; } try { resolve(JSON.parse(body)); } catch (error) { reject(new Error(`Invalid GitHub release response: ${error.message}`)); } }); }); request.setTimeout(15000, () => request.destroy(new Error('GitHub release check timed out'))); request.on('error', reject); }); }
-function downloadFile(url, destination, redirectCount = 0) { return new Promise((resolve, reject) => { if (redirectCount > 5) return reject(new Error('Too many download redirects')); const output = fs.createWriteStream(destination); const request = https.get(url, { headers: { 'User-Agent': 'Rizvi-Diagnostic-Center-Desktop' } }, (response) => { if ([301,302,303,307,308].includes(response.statusCode) && response.headers.location) { output.close(); try { fs.unlinkSync(destination); } catch (_) {} downloadFile(response.headers.location, destination, redirectCount + 1).then(resolve).catch(reject); return; } if (response.statusCode !== 200) { output.close(); try { fs.unlinkSync(destination); } catch (_) {} reject(new Error(`Download returned HTTP ${response.statusCode}`)); return; } response.pipe(output); output.on('finish', () => output.close(() => { try { if (fs.statSync(destination).size < 100 * 1024) reject(new Error('Downloaded installer is unexpectedly small')); else resolve(destination); } catch (error) { reject(error); } })); }); request.setTimeout(10 * 60 * 1000, () => request.destroy(new Error('Installer download timed out'))); request.on('error', (error) => { output.destroy(); try { fs.unlinkSync(destination); } catch (_) {} reject(error); }); }); }
+function requestJson(url) { return new Promise((resolve, reject) => { const separator = url.includes('?') ? '&' : '?'; const requestUrl = `${url}${separator}_=${Date.now()}`; const request = https.get(requestUrl, { headers: { Accept: 'application/vnd.github+json', 'User-Agent': 'Rizvi-Diagnostic-Center-Desktop', 'Cache-Control': 'no-cache', Pragma: 'no-cache' } }, (response) => { let body = ''; response.setEncoding('utf8'); response.on('data', (chunk) => { body += chunk; }); response.on('end', () => { if (response.statusCode < 200 || response.statusCode >= 300) { reject(new Error(`GitHub Windows release check returned HTTP ${response.statusCode}`)); return; } try { resolve(JSON.parse(body)); } catch (error) { reject(new Error(`Invalid GitHub release response: ${error.message}`)); } }); }); request.setTimeout(15000, () => request.destroy(new Error('GitHub release check timed out'))); request.on('error', reject); }); }
+function downloadFile(url, destination, redirectCount = 0) { return new Promise((resolve, reject) => { if (redirectCount > 5) return reject(new Error('Too many download redirects')); const output = fs.createWriteStream(destination); const request = https.get(url, { headers: { 'User-Agent': 'Rizvi-Diagnostic-Center-Desktop', 'Cache-Control': 'no-cache' } }, (response) => { if ([301,302,303,307,308].includes(response.statusCode) && response.headers.location) { output.close(); try { fs.unlinkSync(destination); } catch (_) {} downloadFile(response.headers.location, destination, redirectCount + 1).then(resolve).catch(reject); return; } if (response.statusCode !== 200) { output.close(); try { fs.unlinkSync(destination); } catch (_) {} reject(new Error(`Download returned HTTP ${response.statusCode}`)); return; } response.pipe(output); output.on('finish', () => output.close(() => { try { if (fs.statSync(destination).size < 100 * 1024) reject(new Error('Downloaded installer is unexpectedly small')); else resolve(destination); } catch (error) { reject(error); } })); }); request.setTimeout(10 * 60 * 1000, () => request.destroy(new Error('Installer download timed out'))); request.on('error', (error) => { output.destroy(); try { fs.unlinkSync(destination); } catch (_) {} reject(error); }); }); }
 function getWindowsInstallerAsset(release, expectedVersion) {
   const assets = Array.isArray(release.assets) ? release.assets : [];
-  // Old releases accumulate multiple "Setup-X.Y.Z.exe" assets side by side
-  // (the GitHub release step never deletes stale installers, it only
-  // overwrites files that share the exact same name). Picking the first
-  // regex match here used to silently return whichever installer happened
-  // to be uploaded first — not the latest one — so "Update Now" could
-  // download an older build than what's already installed.
   if (expectedVersion) {
     const escaped = String(expectedVersion).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
     const exact = assets.find((asset) => new RegExp(`^Rizvi-Diagnostic-Center-Setup-${escaped}\\.exe$`, 'i').test(asset.name));
@@ -50,6 +45,7 @@ function getBuildVersionFromRelease(release) { const assets = Array.isArray(rele
 
 async function checkForLatestWindowsUpdate(showNoUpdate = false) {
   if (!app.isPackaged || updateInProgress || updateCheckRunning) return;
+  if (!mainWindow || mainWindow.isDestroyed()) return;
   updateCheckRunning = true;
   try {
     const currentVersion = app.getVersion();
@@ -64,9 +60,9 @@ async function checkForLatestWindowsUpdate(showNoUpdate = false) {
       return;
     }
     const asset = getWindowsInstallerAsset(release, latestVersion);
-    if (!asset?.browser_download_url) throw new Error('The Windows release has no installer asset.');
+    if (!asset?.browser_download_url) throw new Error(`Windows release v${latestVersion} has no matching installer asset.`);
     const notes = String(manifest?.notes || release.body || '').trim();
-    if (!mainWindow || mainWindow.isDestroyed()) return;
+    logToFile(`[update] Update available: ${currentVersion} -> ${latestVersion}; installer=${asset.name}`);
     const result = await dialog.showMessageBox(mainWindow, { type: 'warning', title: 'Update Required — Rizvi Diagnostic Center', message: `New Windows version v${latestVersion} is available.`, detail: [`Current version: v${currentVersion}`, `Latest version: v${latestVersion}`, '', 'Latest updates:', notes ? notes.slice(0, 5000) : 'Bug fixes and improvements.', '', 'Please update to the latest version.'].join('\n'), buttons: ['Update Now', 'Later'], defaultId: 0, cancelId: 1, noLink: true });
     if (result.response !== 0) return;
     updateInProgress = true;
@@ -84,9 +80,19 @@ async function checkForLatestWindowsUpdate(showNoUpdate = false) {
   } finally { updateCheckRunning = false; }
 }
 function setupAutoUpdate() {
-  if (!app.isPackaged) return;
-  // Run immediately after the window exists, then poll every minute for a newly published build.
-  checkForLatestWindowsUpdate(false);
+  if (!app.isPackaged || !mainWindow || mainWindow.isDestroyed()) return;
+  // Check as soon as the packaged window is actually visible, then retry once
+  // shortly afterwards and continue polling every minute. This avoids the old
+  // startup race where the check could finish before BrowserWindow was ready.
+  const runInitialCheck = () => {
+    if (!mainWindow || mainWindow.isDestroyed()) return;
+    checkForLatestWindowsUpdate(false);
+    if (updateInitialCheckTimer) clearTimeout(updateInitialCheckTimer);
+    updateInitialCheckTimer = setTimeout(() => checkForLatestWindowsUpdate(false), 5000);
+  };
+  if (mainWindow.isVisible()) runInitialCheck();
+  else mainWindow.once('ready-to-show', runInitialCheck);
+  if (updateCheckTimer) clearInterval(updateCheckTimer);
   updateCheckTimer = setInterval(() => checkForLatestWindowsUpdate(false), UPDATE_CHECK_INTERVAL);
 }
 
@@ -104,5 +110,5 @@ if (!gotLock) app.quit(); else {
     Menu.setApplicationMenu(null); mainWindow.once('ready-to-show', () => mainWindow.show()); mainWindow.webContents.on('did-fail-load', (event, errorCode, errorDescription) => { logToFile(`Page failed to load: ${errorCode} ${errorDescription}`); showFatalError('Rizvi Diagnostic Center failed to load', new Error(`${errorDescription} (${errorCode}) while loading http://localhost:${port}`)); }); mainWindow.loadURL(`http://localhost:${port}`); mainWindow.on('closed', () => { mainWindow = null; });
   }
   app.whenReady().then(async () => { try { logToFile(`App ready — version ${app.getVersion()} — starting backend...`); await startBackend(); logToFile('Backend started — opening window...'); createWindow(); setupAutoUpdate(); } catch (err) { showFatalError('Rizvi Diagnostic Center could not start', err); app.quit(); } });
-  app.on('window-all-closed', () => { if (process.platform !== 'darwin') app.quit(); }); app.on('before-quit', () => { if (updateCheckTimer) clearInterval(updateCheckTimer); });
+  app.on('window-all-closed', () => { if (process.platform !== 'darwin') app.quit(); }); app.on('before-quit', () => { if (updateCheckTimer) clearInterval(updateCheckTimer); if (updateInitialCheckTimer) clearTimeout(updateInitialCheckTimer); });
 }
