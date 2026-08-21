@@ -1,0 +1,37 @@
+name: Keep Android release notes latest-only
+
+on:
+  workflow_run:
+    workflows:
+      - Build Android App
+      - Build Superadmin Android App
+    types: [completed]
+
+permissions:
+  contents: write
+
+jobs:
+  latest-only:
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Update release notes
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          WORKFLOW_NAME: ${{ github.event.workflow_run.name }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ "$WORKFLOW_NAME" = "Build Superadmin Android App" ]; then
+            TAG="android-superadmin-latest"
+            APP="Rizvi Diagnostic Center Superadmin"
+          else
+            TAG="android-latest"
+            APP="Rizvi Diagnostic Center"
+          fi
+          RELEASE_JSON="$(gh api "repos/$REPO/releases/tags/$TAG")"
+          RELEASE_ID="$(printf '%s' "$RELEASE_JSON" | jq -r '.id')"
+          BODY="## What's New\n\n- Updated the $APP update experience: the Update Required modal now has a top-right Close button and shows only the latest release change instead of historical updates.\n\n## Build information\n\nVersion code: $(printf '%s' "$RELEASE_JSON" | jq -r '.tag_name')\n"
+          gh api "repos/$REPO/releases/$RELEASE_ID" -X PATCH -f body="$BODY" >/dev/null
+          echo "Updated $TAG release notes to latest-only format."
