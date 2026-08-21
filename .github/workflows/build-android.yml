@@ -18,7 +18,7 @@ concurrency:
 
 env:
   VITE_API_BASE_URL: https://stalker-one-rizvidiagnostic.vercel.app/api
-  STARTUP_VIDEO_URL: https://raw.githubusercontent.com/stalker-one/RizviDiagnostic/daa382b5d7b20c603566640e031b254d0fa1f0ca/frontend/android/app/src/main/res/Rizvi_Android_Startup_2x.mp4
+  STARTUP_VIDEO_URL: https://raw.githubusercontent.com/stalker-one/RizviDiagnostic/main/frontend/android/app/src/main/res/Rizvi_Android_Startup_2x.mp4
 
 jobs:
   build-android:
@@ -162,6 +162,8 @@ jobs:
       - name: Publish Staff update manifest without overwriting Superadmin
         run: |
           set -euo pipefail
+          git fetch origin main --depth=1
+          git reset --hard origin/main
           if [ ! -s update-manifest-android.json ]; then echo '{"staff":{},"superadmin":{}}' > update-manifest-android.json; fi
           tmp="$(mktemp)"
           jq --argjson code "${{ github.run_number }}" --arg version "1.0.${{ github.run_number }}" --arg hash "$APK_SHA256" --argjson size "$APK_SIZE" '.staff={tag:"android-latest",versionCode:$code,versionName:$version,apkUrl:"https://github.com/stalker-one/RizviDiagnostic/releases/download/android-latest/RizviDiagnosticCenter-latest.apk",sha256:$hash,sizeBytes:$size,releaseNotes:"Latest update from the current release."} | .updatedAt="${{ github.sha }}"' update-manifest-android.json > "$tmp"
@@ -169,7 +171,8 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add update-manifest-android.json
-          git diff --cached --quiet || git commit -m "Update Staff Android update manifest [skip ci]"
+          if git diff --cached --quiet; then exit 0; fi
+          git commit -m "Update Staff Android update manifest [skip ci]"
           git push origin HEAD:main
       - name: Remove signing keystore
         if: always()
