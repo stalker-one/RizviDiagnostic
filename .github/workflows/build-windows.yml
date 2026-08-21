@@ -33,29 +33,54 @@ jobs:
           node-version: 22
           cache: npm
           cache-dependency-path: electron/package-lock.json
-      - name: Validate Windows application version is new
+      - name: Prepare Windows application version
         shell: pwsh
         run: |
-          $package = Get-Content electron/package.json -Raw | ConvertFrom-Json
-          $current = [version]$package.version
-          if ($current -lt [version]'0.0.1') { throw "Invalid Windows application version: $($package.version)" }
+          $packagePath = 'electron/package.json'
+          $package = Get-Content $packagePath -Raw | ConvertFrom-Json
+          $sourceVersion = [version]$package.version
+          if ($sourceVersion -lt [version]'0.0.1') { throw "Invalid Windows application version: $($package.version)" }
+
+          $publishedVersion = $null
           try {
-            $release = Invoke-RestMethod -Uri "https://api.github.com/repos/stalker-one/RizviDiagnostic/releases/tags/$env:WINDOWS_RELEASE_TAG" -Headers @{ 'User-Agent'='Rizvi-Diagnostic-Center-Build'; 'Accept'='application/vnd.github+json' } -TimeoutSec 20
+            $release = Invoke-RestMethod -Uri "https://api.github.com/repos/stalker-one/RizviDiagnostic/releases/tags/$env:WINDOWS_RELEASE_TAG" -Headers @{ 'User-Agent'='Rizvi-Diagnostic-Center-Build'; 'Accept'='application/vnd.github+json'; 'Cache-Control'='no-cache' } -TimeoutSec 20
             $asset = @($release.assets) | Where-Object { $_.name -ieq 'windows-version.json' } | Select-Object -First 1
             if ($asset) {
-              $manifest = Invoke-RestMethod -Uri $asset.browser_download_url -Headers @{ 'User-Agent'='Rizvi-Diagnostic-Center-Build' } -TimeoutSec 20
-              if ($manifest.version) {
-                $latest = [version]$manifest.version
-                if ($current -le $latest) { throw "Windows version must increase for every Windows application update. Current source version v$current is not newer than published v$latest." }
-                Write-Host "Version check passed: published v$latest -> source v$current"
-              }
-            } else {
-              Write-Host 'No existing Windows version manifest found; allowing initial Windows release build.'
+              $manifestUrl = "$($asset.browser_download_url)?t=$([DateTimeOffset]::UtcNow.ToUnixTimeMilliseconds())"
+              $manifest = Invoke-RestMethod -Uri $manifestUrl -Headers @{ 'User-Agent'='Rizvi-Diagnostic-Center-Build'; 'Cache-Control'='no-cache' } -TimeoutSec 20
+              if ($manifest.version) { $publishedVersion = [version]$manifest.version }
             }
           } catch {
-            if ($_.Exception.Message -like 'Windows version must increase*') { throw }
-            Write-Warning "Could not read the existing Windows manifest. Continuing only because the release may not have a readable manifest: $($_.Exception.Message)"
+            Write-Warning "Could not read the existing Windows manifest. Continuing with source version: $($_.Exception.Message)"
           }
+
+          if ($publishedVersion -and $sourceVersion -le $publishedVersion) {
+            # A Windows build is an application update whenever electron/frontend/backend changes.
+            # Automatically advance the patch version in the build workspace so developers do not
+            # have to manually bump electron/package.json for every small fix.
+            $next = [version]::new($publishedVersion.Major, $publishedVersion.Minor, ($publishedVersion.Build + 1))
+            $package.version = $next.ToString()
+            $packageJson = $package | ConvertTo-Json -Depth 100
+            Set-Content -Path $packagePath -Value $packageJson -Encoding UTF8
+
+            if (Test-Path 'electron/package-lock.json') {
+              $lock = Get-Content 'electron/package-lock.json' -Raw | ConvertFrom-Json
+              $lock.version = $package.version
+              if ($lock.packages -and $lock.packages.'' ) { $lock.packages.''.version = $package.version }
+              Set-Content -Path 'electron/package-lock.json' -Value ($lock | ConvertTo-Json -Depth 100) -Encoding UTF8
+            }
+
+            $sourceVersion = $next
+            Write-Host "Published Windows version is v$publishedVersion; automatically advancing this build to v$sourceVersion."
+          } elseif ($publishedVersion) {
+            Write-Host "Version check passed: published v$publishedVersion -> source v$sourceVersion"
+          } else {
+            Write-Host "No existing Windows version manifest found; using source version v$sourceVersion."
+          }
+
+          "WINDOWS_APP_VERSION=$sourceVersion" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+          Write-Host "Windows build version: v$sourceVersion"
+
       - name: Install backend dependencies
         working-directory: backend
         run: npm install --omit=dev
@@ -144,11 +169,6 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           $ErrorActionPreference = 'Continue'
-          # artifactName embeds the version (Setup-${version}.exe), so
-          # overwrite_files below only replaces an asset with the exact same
-          # filename — it never removes older-versioned installers already
-          # on the release. Left alone they pile up release after release,
-          # and the desktop app's update picker could grab a stale one.
           $assets = gh release view v1.1.0 --repo stalker-one/RizviDiagnostic --json assets --jq '.assets[].name' 2>$null
           if ($LASTEXITCODE -eq 0 -and $assets) {
             foreach ($name in ($assets -split "`n")) {
@@ -171,7 +191,7 @@ jobs:
 
             This single Windows release always contains the latest Windows build.
 
-            The user-facing Windows application version increases for every application update (for example v1.1.4 → v1.1.5). The GitHub release tag remains v1.1.0 as the stable Windows channel.
+            The user-facing Windows application version automatically increases for every Windows application change. The GitHub release tag remains v1.1.0 as the stable Windows channel.
 
             Older Windows installer assets are replaced after every successful build.
           files: electron/release-files/*
