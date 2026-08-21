@@ -44,8 +44,10 @@ jobs:
             local workflow_file="$1"
             local tag="$2"
             local app="$3"
+            local asset="$4"
 
             local run_id run_number run_sha version_name release_json release_id latest_change body
+            local tmp_dir apk_path apk_sha256
 
             if [ "$EVENT_NAME" = "workflow_run" ]; then
               run_id="$RUN_ID"
@@ -72,38 +74,57 @@ jobs:
             fi
 
             release_id="$(printf '%s' "$release_json" | jq -r '.id')"
+
+            # Always calculate the integrity hash from the APK that is actually
+            # attached to the latest release. Never trust a stale release body.
+            tmp_dir="$(mktemp -d)"
+            trap 'rm -rf "$tmp_dir"' RETURN
+            gh release download "$tag" --repo "$REPO" --pattern "$asset" --dir "$tmp_dir" --clobber
+            apk_path="$tmp_dir/$asset"
+            test -s "$apk_path" || { echo "Latest release APK was not downloaded: $asset"; exit 1; }
+            apk_sha256="$(sha256sum "$apk_path" | awk '{print tolower($1)}')"
+            test "${#apk_sha256}" -eq 64 || { echo "Invalid APK SHA-256 length"; exit 1; }
+
             latest_change="$(gh api "repos/$REPO/commits/$run_sha" --jq '.commit.message' | head -n 1 | sed 's/^[[:space:]]*//; s/[[:space:]]*$//')"
             [ -n "$latest_change" ] || latest_change="Latest bug fixes and improvements."
+            # Keep the user-facing What's New section to ONE latest change only.
+            latest_change="$(printf '%s' "$latest_change" | sed 's/\\r//g; s/\\n/ /g' | head -c 300)"
+            [ -n "$latest_change" ] || latest_change="Latest bug fixes and improvements."
 
-            body="## What's New
+            body=$(cat <<EOF
+## What's New
 
-- $latest_change
+- ${latest_change}
 
 ## Build information
 
-Version code: $run_number
-Version name: $version_name"
+Version code: ${run_number}
+Version name: ${version_name}
+APK SHA-256: ${apk_sha256}
+EOF
+)
 
             gh api "repos/$REPO/releases/$release_id" -X PATCH \
               -f "name=$app $version_name" \
               -f "body=$body" >/dev/null
 
             echo "Updated $tag -> $version_name (build $run_number)"
+            echo "APK SHA-256: $apk_sha256"
           }
 
           if [ "$EVENT_NAME" = "workflow_run" ]; then
             case "$WORKFLOW_NAME" in
               "Build Android App")
-                update_release "build-android.yml" "android-latest" "Rizvi Diagnostic Center"
+                update_release "build-android.yml" "android-latest" "Rizvi Diagnostic Center" "RizviDiagnosticCenter-latest.apk"
                 ;;
               "Build Superadmin Android App")
-                update_release "build-superadmin-android.yml" "android-superadmin-latest" "Rizvi Diagnostic Center Superadmin"
+                update_release "build-superadmin-android.yml" "android-superadmin-latest" "Rizvi Diagnostic Center Superadmin" "RizviDiagnosticSuperadmin-latest.apk"
                 ;;
               *)
                 echo "Ignoring unrelated workflow: $WORKFLOW_NAME"
                 ;;
             esac
           else
-            update_release "build-android.yml" "android-latest" "Rizvi Diagnostic Center"
-            update_release "build-superadmin-android.yml" "android-superadmin-latest" "Rizvi Diagnostic Center Superadmin"
+            update_release "build-android.yml" "android-latest" "Rizvi Diagnostic Center" "RizviDiagnosticCenter-latest.apk"
+            update_release "build-superadmin-android.yml" "android-superadmin-latest" "Rizvi Diagnostic Center Superadmin" "RizviDiagnosticSuperadmin-latest.apk"
           fi
