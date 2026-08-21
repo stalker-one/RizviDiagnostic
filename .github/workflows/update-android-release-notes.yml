@@ -6,56 +6,98 @@ on:
       - Build Android App
       - Build Superadmin Android App
     types: [completed]
+  workflow_dispatch:
+  push:
+    paths:
+      - .github/workflows/update-android-release-notes.yml
 
 permissions:
   contents: write
+  actions: read
 
 jobs:
   latest-only:
-    if: ${{ github.event.workflow_run.conclusion == 'success' }}
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      github.event_name == 'push' ||
+      github.event.workflow_run.conclusion == 'success'
     runs-on: ubuntu-latest
     steps:
-      - name: Update release notes
+      - name: Update latest Android release metadata
         env:
           GH_TOKEN: ${{ github.token }}
           REPO: ${{ github.repository }}
-          WORKFLOW_NAME: ${{ github.event.workflow_run.name }}
-          RUN_NUMBER: ${{ github.event.workflow_run.run_number }}
-          RUN_SHA: ${{ github.event.workflow_run.head_sha }}
+          EVENT_NAME: ${{ github.event_name }}
+          TRIGGER_WORKFLOW: ${{ github.event.workflow_run.name }}
+          TRIGGER_RUN_ID: ${{ github.event.workflow_run.id }}
+          TRIGGER_SHA: ${{ github.event.workflow_run.head_sha }}
         shell: bash
         run: |
           set -euo pipefail
-          if [ "$WORKFLOW_NAME" = "Build Superadmin Android App" ]; then
-            TAG="android-superadmin-latest"
-            APP="Rizvi Diagnostic Center Superadmin"
-          else
-            TAG="android-latest"
-            APP="Rizvi Diagnostic Center"
-          fi
 
-          VERSION_NAME="1.0.${RUN_NUMBER}"
-          RELEASE_JSON="$(gh api "repos/$REPO/releases/tags/$TAG")"
-          RELEASE_ID="$(printf '%s' "$RELEASE_JSON" | jq -r '.id')"
+          update_release() {
+            local workflow_name="$1"
+            local tag="$2"
+            local app="$3"
 
-          # Use the actual latest commit subject as the single What's New item.
-          # Do not expose build metadata, commit hashes, or historical notes in the modal.
-          LATEST_CHANGE="$(gh api "repos/$REPO/commits/$RUN_SHA" --jq '.commit.message' | head -n 1 | sed 's/^[[:space:]]*//; s/[[:space:]]*$//')"
-          if [ -z "$LATEST_CHANGE" ]; then
-            LATEST_CHANGE="Latest bug fixes and improvements."
-          fi
+            local run_json run_id run_number run_sha version_name release_json release_id latest_change body
 
-          BODY=$(cat <<EOF
+            if [ "$EVENT_NAME" = "workflow_run" ] && [ "$TRIGGER_WORKFLOW" = "$workflow_name" ]; then
+              run_id="$TRIGGER_RUN_ID"
+              run_number="$(gh api "repos/$REPO/actions/runs/$run_id" --jq '.run_number')"
+              run_sha="$TRIGGER_SHA"
+            else
+              run_json="$(gh api "repos/$REPO/actions/workflows/$(if [ "$workflow_name" = "Build Superadmin Android App" ]; then echo build-superadmin-android.yml; else echo build-android.yml; fi)/runs?status=success&branch=main&per_page=1")"
+              run_id="$(printf '%s' "$run_json" | jq -r '.workflow_runs[0].id // empty')"
+              if [ -z "$run_id" ]; then
+                echo "No successful $workflow_name run found; skipping $tag."
+                return 0
+              fi
+              run_number="$(printf '%s' "$run_json" | jq -r '.workflow_runs[0].run_number')"
+              run_sha="$(printf '%s' "$run_json" | jq -r '.workflow_runs[0].head_sha')"
+            fi
+
+            version_name="1.0.${run_number}"
+            release_json="$(gh api "repos/$REPO/releases/tags/$tag" 2>/dev/null || true)"
+
+            if [ -z "$release_json" ]; then
+              echo "Release $tag does not exist. Creating it."
+              gh release create "$tag" --repo "$REPO" --title "$app $version_name" --notes "Latest update pending."
+              release_json="$(gh api "repos/$REPO/releases/tags/$tag")"
+            fi
+
+            release_id="$(printf '%s' "$release_json" | jq -r '.id')"
+            latest_change="$(gh api "repos/$REPO/commits/$run_sha" --jq '.commit.message' | head -n 1 | sed 's/^[[:space:]]*//; s/[[:space:]]*$//')"
+            if [ -z "$latest_change" ]; then
+              latest_change="Latest bug fixes and improvements."
+            fi
+
+            body=$(cat <<EOF
 ## What's New
 
-- ${LATEST_CHANGE}
+- ${latest_change}
 
 ## Build information
 
-Version code: ${RUN_NUMBER}
-Version name: ${VERSION_NAME}
-Commit: ${RUN_SHA}
+Version code: ${run_number}
+Version name: ${version_name}
 EOF
 )
 
-          gh api "repos/$REPO/releases/$RELEASE_ID" -X PATCH -f body="$BODY" >/dev/null
-          echo "Updated $TAG release notes with one latest change and valid numeric version metadata."
+            gh api "repos/$REPO/releases/$release_id" -X PATCH -f "name=$app $version_name" -f "body=$body" >/dev/null
+            echo "Updated $tag: $version_name (build $run_number)"
+          }
+
+          if [ "$EVENT_NAME" = "workflow_run" ]; then
+            case "$TRIGGER_WORKFLOW" in
+              "Build Android App")
+                update_release "Build Android App" "android-latest" "Rizvi Diagnostic Center"
+                ;;
+              "Build Superadmin Android App")
+                update_release "Build Superadmin Android App" "android-superadmin-latest" "Rizvi Diagnostic Center Superadmin"
+                ;;
+            esac
+          else
+            update_release "Build Android App" "android-latest" "Rizvi Diagnostic Center"
+            update_release "Build Superadmin Android App" "android-superadmin-latest" "Rizvi Diagnostic Center Superadmin"
+          fi
