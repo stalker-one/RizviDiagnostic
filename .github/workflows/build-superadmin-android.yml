@@ -32,12 +32,7 @@ jobs:
           cp "$SOURCE_VIDEO" /tmp/startup-source.mp4
           sudo apt-get update -qq
           sudo apt-get install -y --no-install-recommends ffmpeg
-          ffmpeg -y -i /tmp/startup-source.mp4 \
-            -map 0:v:0 -map 0:a:0? \
-            -vf "scale='min(1920,iw)':'min(1920,ih)':force_original_aspect_ratio=decrease,pad=ceil(iw/2)*2:ceil(ih/2)*2:(ow-iw)/2:(oh-ih)/2,format=yuv420p" \
-            -c:v libx264 -profile:v main -level 4.0 -pix_fmt yuv420p -preset medium -crf 20 \
-            -c:a aac -b:a 128k -ar 44100 -ac 2 -movflags +faststart -shortest \
-            frontend/android/app/src/main/res/raw/startup_animation.mp4
+          ffmpeg -y -i /tmp/startup-source.mp4 -map 0:v:0 -map 0:a:0? -vf "scale='min(1920,iw)':'min(1920,ih)':force_original_aspect_ratio=decrease,pad=ceil(iw/2)*2:ceil(ih/2)*2:(ow-iw)/2:(oh-ih)/2,format=yuv420p" -c:v libx264 -profile:v main -level 4.0 -pix_fmt yuv420p -preset medium -crf 20 -c:a aac -b:a 128k -ar 44100 -ac 2 -movflags +faststart -shortest frontend/android/app/src/main/res/raw/startup_animation.mp4
           test -s frontend/android/app/src/main/res/raw/startup_animation.mp4
       - uses: actions/setup-node@v4
         with:
@@ -90,12 +85,8 @@ jobs:
           test -n "$ANDROID_KEY_PASSWORD"
           mkdir -p .github/android-signing
           rm -f "$ANDROID_KEYSTORE_PATH"
-          if [ -s .github/android-signing/keystore.p12.enc ]; then
-            openssl enc -d -aes-256-cbc -pbkdf2 -pass env:ANDROID_KEYSTORE_PASSWORD -in .github/android-signing/keystore.p12.enc -out "$ANDROID_KEYSTORE_PATH" 2>/tmp/keystore.err || true
-          fi
-          if [ ! -s "$ANDROID_KEYSTORE_PATH" ] && [ -n "${ANDROID_KEYSTORE_BASE64:-}" ]; then
-            printf '%s' "$ANDROID_KEYSTORE_BASE64" | tr -d '[:space:]' | base64 --decode > "$ANDROID_KEYSTORE_PATH" 2>/tmp/base64.err || rm -f "$ANDROID_KEYSTORE_PATH"
-          fi
+          if [ -s .github/android-signing/keystore.p12.enc ]; then openssl enc -d -aes-256-cbc -pbkdf2 -pass env:ANDROID_KEYSTORE_PASSWORD -in .github/android-signing/keystore.p12.enc -out "$ANDROID_KEYSTORE_PATH" 2>/tmp/keystore.err || true; fi
+          if [ ! -s "$ANDROID_KEYSTORE_PATH" ] && [ -n "${ANDROID_KEYSTORE_BASE64:-}" ]; then printf '%s' "$ANDROID_KEYSTORE_BASE64" | tr -d '[:space:]' | base64 --decode > "$ANDROID_KEYSTORE_PATH" 2>/tmp/base64.err || rm -f "$ANDROID_KEYSTORE_PATH"; fi
           test -s "$ANDROID_KEYSTORE_PATH"
           keytool -list -keystore "$ANDROID_KEYSTORE_PATH" -storepass "$ANDROID_KEYSTORE_PASSWORD" -alias "$ANDROID_KEY_ALIAS" >/dev/null
           chmod 600 "$ANDROID_KEYSTORE_PATH"
@@ -150,23 +141,13 @@ jobs:
           overwrite_files: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      - name: Publish rate-limit-safe Superadmin update manifest
+      - name: Publish Superadmin update manifest without overwriting Staff
         run: |
           set -euo pipefail
-          cat > update-manifest-android.json <<EOF
-          {
-            "superadmin": {
-              "tag": "android-superadmin-latest",
-              "versionCode": ${{ github.run_number }},
-              "versionName": "1.0.${{ github.run_number }}",
-              "apkUrl": "https://github.com/stalker-one/RizviDiagnostic/releases/download/android-superadmin-latest/RizviDiagnosticSuperadmin-latest.apk",
-              "sha256": "${APK_SHA256}",
-              "sizeBytes": ${APK_SIZE},
-              "releaseNotes": "Latest update from the current release."
-            },
-            "updatedAt": "${{ github.sha }}"
-          }
-          EOF
+          if [ ! -s update-manifest-android.json ]; then echo '{"staff":{},"superadmin":{}}' > update-manifest-android.json; fi
+          tmp="$(mktemp)"
+          jq --argjson code "${{ github.run_number }}" --arg version "1.0.${{ github.run_number }}" --arg hash "$APK_SHA256" --argjson size "$APK_SIZE" '.superadmin={tag:"android-superadmin-latest",versionCode:$code,versionName:$version,apkUrl:"https://github.com/stalker-one/RizviDiagnostic/releases/download/android-superadmin-latest/RizviDiagnosticSuperadmin-latest.apk",sha256:$hash,sizeBytes:$size,releaseNotes:"Latest update from the current release."} | .updatedAt="${{ github.sha }}"' update-manifest-android.json > "$tmp"
+          mv "$tmp" update-manifest-android.json
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add update-manifest-android.json
