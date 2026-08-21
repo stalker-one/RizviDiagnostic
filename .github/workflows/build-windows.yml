@@ -55,9 +55,8 @@ jobs:
           }
 
           if ($publishedVersion -and $sourceVersion -le $publishedVersion) {
-            # A Windows build is an application update whenever electron/frontend/backend changes.
-            # Automatically advance the patch version in the build workspace so developers do not
-            # have to manually bump electron/package.json for every small fix.
+            # Automatically advance the patch version in the build workspace. This keeps every
+            # Windows application update uniquely versioned without requiring a manual package.json bump.
             $next = [version]::new($publishedVersion.Major, $publishedVersion.Minor, ($publishedVersion.Build + 1))
             $package.version = $next.ToString()
             $packageJson = $package | ConvertTo-Json -Depth 100
@@ -66,7 +65,8 @@ jobs:
             if (Test-Path 'electron/package-lock.json') {
               $lock = Get-Content 'electron/package-lock.json' -Raw | ConvertFrom-Json
               $lock.version = $package.version
-              if ($lock.packages -and $lock.packages.'' ) { $lock.packages.''.version = $package.version }
+              $rootPackage = $lock.packages.PSObject.Properties['']
+              if ($rootPackage -and $rootPackage.Value) { $rootPackage.Value.version = $package.version }
               Set-Content -Path 'electron/package-lock.json' -Value ($lock | ConvertTo-Json -Depth 100) -Encoding UTF8
             }
 
