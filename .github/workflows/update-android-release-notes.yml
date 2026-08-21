@@ -15,7 +15,7 @@ permissions:
 
 jobs:
   repair:
-    if: ${{ github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success' }}
+    if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success'
     runs-on: ubuntu-latest
     steps:
       - name: Repair release metadata
@@ -35,7 +35,7 @@ jobs:
             local app="$2"
             local asset="$3"
             local workflow="$4"
-            local id sha run code version release release_id dir apk hash size change body
+            local id sha run code version release release_id dir apk hash size change body run_data
 
             if [ "$EVENT_NAME" = "workflow_run" ]; then
               id="$TRIGGER_ID"
@@ -43,7 +43,10 @@ jobs:
             else
               run_data="$(gh api "repos/$REPO/actions/workflows/$workflow/runs?branch=main&status=success&per_page=1")"
               id="$(jq -r '.workflow_runs[0].id // empty' <<< "$run_data")"
-              [ -n "$id" ] || { echo "No successful run found for $workflow"; return 0; }
+              if [ -z "$id" ]; then
+                echo "No successful run found for $workflow"
+                return 0
+              fi
               sha="$(jq -r '.workflow_runs[0].head_sha' <<< "$run_data")"
             fi
 
@@ -52,20 +55,31 @@ jobs:
             version="1.0.$code"
 
             release="$(gh api "repos/$REPO/releases/tags/$tag" 2>/dev/null || true)"
-            [ -n "$release" ] || { echo "Release $tag is not available yet"; return 0; }
+            if [ -z "$release" ]; then
+              echo "Release $tag is not available yet"
+              return 0
+            fi
             release_id="$(jq -r '.id' <<< "$release")"
 
             dir="$(mktemp -d)"
             gh release download "$tag" --repo "$REPO" --pattern "$asset" --dir "$dir" --clobber
             apk="$dir/$asset"
-            test -s "$apk" || { echo "APK asset is missing: $asset"; exit 1; }
+            if [ ! -s "$apk" ]; then
+              echo "APK asset is missing: $asset"
+              exit 1
+            fi
 
             hash="$(sha256sum "$apk" | awk '{print tolower($1)}')"
             size="$(stat -c '%s' "$apk")"
-            test "${#hash}" -eq 64 || { echo "Invalid SHA-256"; exit 1; }
+            if [ "${#hash}" -ne 64 ]; then
+              echo "Invalid SHA-256"
+              exit 1
+            fi
 
             change="$(gh api "repos/$REPO/commits/$sha" --jq '.commit.message' | head -n 1 | tr '\r\n' ' ' | sed 's/[[:space:]][[:space:]]*/ /g' | cut -c1-300)"
-            [ -n "$change" ] || change="Latest bug fixes and improvements."
+            if [ -z "$change" ]; then
+              change="Latest bug fixes and improvements."
+            fi
 
             body="## What's New
 
