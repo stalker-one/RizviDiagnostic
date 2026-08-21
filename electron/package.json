@@ -23,8 +23,7 @@
     "win": {
       "target": "nsis",
       "icon": "build/icon.ico",
-      "publisherName": "Mian Bilal",
-      "win32metadata": {"CompanyName": "Mian Bilal", "ProductName": "Rizvi Diagnostic Center", "FileDescription": "Rizvi Diagnostic Center"}
+      "publisherName": "Mian Bilal"
     },
     "nsis": {
       "oneClick": false,
