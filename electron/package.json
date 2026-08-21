@@ -1,6 +1,6 @@
 {
   "name": "rizvi-diagnostic-desktop",
-  "version": "1.1.0",
+  "version": "1.1.1",
   "description": "Rizvi Diagnostic Center — desktop (Windows) app wrapper. Runs the existing backend + built frontend as one native window, no separately hosted/live site required.",
   "private": true,
   "main": "main.js",
