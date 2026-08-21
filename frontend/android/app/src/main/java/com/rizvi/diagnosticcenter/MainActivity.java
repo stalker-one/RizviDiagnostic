@@ -6,7 +6,6 @@ import android.media.AudioManager;
 import android.media.MediaPlayer;
 import android.os.Bundle;
 import android.view.Gravity;
-import android.view.PixelFormat;
 import android.view.Surface;
 import android.view.SurfaceHolder;
 import android.view.SurfaceView;
@@ -14,6 +13,7 @@ import android.view.View;
 import android.view.ViewGroup;
 import android.view.Window;
 import android.view.WindowManager;
+import android.graphics.PixelFormat;
 import android.widget.FrameLayout;
 
 import com.getcapacitor.BridgeActivity;
@@ -62,10 +62,6 @@ public class MainActivity extends BridgeActivity {
 
             startupVideo = new SurfaceView(this);
             startupVideo.setBackgroundColor(Color.BLACK);
-            // The SurfaceView is an overlay above the Capacitor WebView. Without an
-            // explicit Z order Android can render the audio/video decoder surface
-            // behind the WebView, producing exactly the symptom: sound works but the
-            // video is invisible.
             startupVideo.setZOrderOnTop(true);
             startupVideo.getHolder().setFormat(PixelFormat.OPAQUE);
             startupVideo.getHolder().addCallback(new SurfaceHolder.Callback() {
@@ -150,9 +146,6 @@ public class MainActivity extends BridgeActivity {
 
     private void applyVideoScale(int viewWidth, int viewHeight) {
         if (startupVideo == null || videoWidth <= 0 || videoHeight <= 0 || viewWidth <= 0 || viewHeight <= 0) return;
-        // Keep the SurfaceView itself full-screen. Scaling the SurfaceView with
-        // setScaleX/Y can move the hardware surface out of its visible buffer on
-        // some devices. Android's SurfaceView should stay MATCH_PARENT.
         startupVideo.setScaleX(1f);
         startupVideo.setScaleY(1f);
         startupVideo.setPivotX(viewWidth / 2f);
