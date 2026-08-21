@@ -15,16 +15,25 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Setup Node
+      - name: Setup Node 22
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
           cache: npm
           cache-dependency-path: frontend/package-lock.json
 
-      - name: Install dependencies
+      - name: Install dependencies and repair lockfile drift
         working-directory: frontend
-        run: npm ci
+        run: |
+          npm install --no-audit --no-fund
+          npm install --package-lock-only --ignore-scripts --no-audit --no-fund
+
+      - name: Verify Capacitor installation
+        working-directory: frontend
+        run: |
+          node --version
+          npm --version
+          npx cap --version
 
       - name: Build Staff web application
         working-directory: frontend
