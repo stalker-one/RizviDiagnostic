@@ -136,7 +136,7 @@ jobs:
           name: Rizvi Diagnostic Center Superadmin ${{ github.run_number }}
           body: |
             ## What's New
-            - Latest Superadmin update from commit ${{ github.sha }}.
+            - Latest update from the current release.
 
             ## Build information
             Version code: ${{ github.run_number }}
@@ -150,6 +150,28 @@ jobs:
           overwrite_files: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Publish rate-limit-safe Superadmin update manifest
+        run: |
+          set -euo pipefail
+          cat > update-manifest-android.json <<EOF
+          {
+            "superadmin": {
+              "tag": "android-superadmin-latest",
+              "versionCode": ${{ github.run_number }},
+              "versionName": "1.0.${{ github.run_number }}",
+              "apkUrl": "https://github.com/stalker-one/RizviDiagnostic/releases/download/android-superadmin-latest/RizviDiagnosticSuperadmin-latest.apk",
+              "sha256": "${APK_SHA256}",
+              "sizeBytes": ${APK_SIZE},
+              "releaseNotes": "Latest update from the current release."
+            },
+            "updatedAt": "${{ github.sha }}"
+          }
+          EOF
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add update-manifest-android.json
+          git diff --cached --quiet || git commit -m "Update Superadmin Android update manifest [skip ci]"
+          git push origin HEAD:main
       - name: Remove signing keystore
         if: always()
         run: rm -f "$ANDROID_KEYSTORE_PATH"
