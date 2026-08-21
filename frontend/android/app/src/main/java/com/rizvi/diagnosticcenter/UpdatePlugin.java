@@ -48,18 +48,14 @@ public class UpdatePlugin extends Plugin {
     private String apkName(String p){return p.endsWith(".superadmin")?"RizviDiagnosticSuperadmin-latest.apk":"RizviDiagnosticCenter-latest.apk";}
 
     private JSONObject fetchRelease(String tag)throws Exception{
-        String raw=null;
-        Exception networkError=null;
+        String raw=null;Exception networkError=null;
         try{
             URL u=new URL(MANIFEST_URL+"?ts="+System.currentTimeMillis());
             HttpURLConnection c=(HttpURLConnection)u.openConnection();
-            c.setConnectTimeout(2500);c.setReadTimeout(3500);c.setUseCaches(false);c.setRequestProperty("Cache-Control","no-cache");c.setRequestProperty("Pragma","no-cache");c.setRequestProperty("User-Agent","RizviDiagnosticCenter-Android-Updater/8");c.connect();
-            int s=c.getResponseCode();
-            if(s!=200)throw new IllegalStateException("Update manifest HTTP "+s);
-            StringBuilder j=new StringBuilder();
-            try(BufferedReader br=new BufferedReader(new InputStreamReader(c.getInputStream(),StandardCharsets.UTF_8))){String line;while((line=br.readLine())!=null)j.append(line);}finally{c.disconnect();}
-            raw=j.toString();
-            getContext().getSharedPreferences(PREFS,0).edit().putString("manifest",raw).apply();
+            c.setConnectTimeout(1200);c.setReadTimeout(1800);c.setUseCaches(false);c.setRequestProperty("Cache-Control","no-cache");c.setRequestProperty("Pragma","no-cache");c.setRequestProperty("User-Agent","RizviDiagnosticCenter-Android-Updater/8");c.connect();
+            int s=c.getResponseCode();if(s!=200)throw new IllegalStateException("Update manifest HTTP "+s);
+            StringBuilder j=new StringBuilder();try(BufferedReader br=new BufferedReader(new InputStreamReader(c.getInputStream(),StandardCharsets.UTF_8))){String line;while((line=br.readLine())!=null)j.append(line);}finally{c.disconnect();}
+            raw=j.toString();getContext().getSharedPreferences(PREFS,0).edit().putString("manifest",raw).apply();
         }catch(Exception e){networkError=e;raw=getContext().getSharedPreferences(PREFS,0).getString("manifest",null);}
         if(raw==null||raw.trim().isEmpty())throw(networkError!=null?networkError:new IllegalStateException("Update manifest unavailable"));
         JSONObject root=new JSONObject(raw);String key=tag.equals("android-superadmin-latest")?"superadmin":"staff";JSONObject item=root.optJSONObject(key);if(item==null)throw new IllegalStateException("No update information for "+key);
