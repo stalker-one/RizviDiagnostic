@@ -28,14 +28,34 @@ jobs:
           if [ "$WORKFLOW_NAME" = "Build Superadmin Android App" ]; then
             TAG="android-superadmin-latest"
             APP="Rizvi Diagnostic Center Superadmin"
-            VERSION_NAME="1.0.${RUN_NUMBER}"
           else
             TAG="android-latest"
             APP="Rizvi Diagnostic Center"
-            VERSION_NAME="1.0.${RUN_NUMBER}"
           fi
+
+          VERSION_NAME="1.0.${RUN_NUMBER}"
           RELEASE_JSON="$(gh api "repos/$REPO/releases/tags/$TAG")"
           RELEASE_ID="$(printf '%s' "$RELEASE_JSON" | jq -r '.id')"
-          BODY="## What's New\n\n- Updated the $APP update experience: the Update Required modal now has a top-right Close button and shows only the latest release change instead of historical updates.\n\n## Build information\n\nVersion code: ${RUN_NUMBER}\nVersion name: ${VERSION_NAME}\nCommit: ${RUN_SHA}\n"
+
+          # Use the actual latest commit subject as the single What's New item.
+          # Do not expose build metadata, commit hashes, or historical notes in the modal.
+          LATEST_CHANGE="$(gh api "repos/$REPO/commits/$RUN_SHA" --jq '.commit.message' | head -n 1 | sed 's/^[[:space:]]*//; s/[[:space:]]*$//')"
+          if [ -z "$LATEST_CHANGE" ]; then
+            LATEST_CHANGE="Latest bug fixes and improvements."
+          fi
+
+          BODY=$(cat <<EOF
+## What's New
+
+- ${LATEST_CHANGE}
+
+## Build information
+
+Version code: ${RUN_NUMBER}
+Version name: ${VERSION_NAME}
+Commit: ${RUN_SHA}
+EOF
+)
+
           gh api "repos/$REPO/releases/$RELEASE_ID" -X PATCH -f body="$BODY" >/dev/null
-          echo "Updated $TAG release notes to latest-only format with numeric version code ${RUN_NUMBER}."
+          echo "Updated $TAG release notes with one latest change and valid numeric version metadata."
