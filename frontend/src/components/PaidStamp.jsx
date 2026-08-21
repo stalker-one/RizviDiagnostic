@@ -36,20 +36,9 @@ export default function PaidStamp({ settings = {}, compact = false, variant = 's
   const showClinic = get('ShowClinicName', true) !== false;
   const showDate = get('ShowDateTime', true) !== false;
 
-  // Thermal-only controls. Values are CSS px so they remain easy to tune against
-  // the 80mm printer output. They are ignored for the normal/simple stamp.
-  const thermal = variant === 'thermal';
-  const stampWidth = thermal ? clamp(get('Width', 105), 40, 220, 105) : null;
-  const stampHeight = thermal ? clamp(get('Height', 55), 25, 160, 55) : null;
-  const stampFontSize = thermal
-    ? clamp(get('FontSize', compact ? 14 : 26), 8, 72, compact ? 14 : 26)
-    : clamp(get('FontSize', compact ? 14 : 26), 8, 72, compact ? 14 : 26);
-  const clinicFontSize = thermal
-    ? clamp(get('ClinicNameFontSize', compact ? 6 : 9), 4, 30, compact ? 6 : 9)
-    : (compact ? 6 : 9);
-  const dateFontSize = thermal
-    ? clamp(get('DateTimeFontSize', compact ? 6 : 9), 4, 30, compact ? 6 : 9)
-    : (compact ? 6 : 9);
+  const fontSize = clamp(get('FontSize', compact ? 14 : 26), 8, 72, compact ? 14 : 26);
+  const clinicFontSize = compact ? 6 : 9;
+  const dateFontSize = compact ? 6 : 9;
 
   const stampedAt = new Date().toLocaleString('en-US', {
     timeZone: 'Asia/Karachi',
@@ -63,27 +52,14 @@ export default function PaidStamp({ settings = {}, compact = false, variant = 's
   if (position.startsWith('center')) translate += 'translateY(-50%) ';
   const transform = `${translate}rotate(${rotation}deg) scale(${scale})`.trim();
 
-  const sizeStyle = thermal
-    ? {
-        width: `${stampWidth}px`,
-        height: `${stampHeight}px`,
-        boxSizing: 'border-box',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        overflow: 'hidden',
-      }
-    : {};
-
   let bodyStyle;
   if (style === 'circle') {
     bodyStyle = {
-      ...sizeStyle,
       border: `${borderWidth}px solid ${color}`,
       borderRadius: '50%',
       color,
-      width: thermal ? `${stampWidth}px` : (compact ? 74 : 132),
-      height: thermal ? `${stampHeight}px` : (compact ? 74 : 132),
+      width: compact ? 74 : 132,
+      height: compact ? 74 : 132,
       display: 'flex',
       flexDirection: 'column',
       alignItems: 'center',
@@ -93,7 +69,6 @@ export default function PaidStamp({ settings = {}, compact = false, variant = 's
     };
   } else if (style === 'ribbon') {
     bodyStyle = {
-      ...sizeStyle,
       background: color,
       color: '#fff',
       borderRadius: 4,
@@ -102,7 +77,6 @@ export default function PaidStamp({ settings = {}, compact = false, variant = 's
     };
   } else if (style === 'dashed') {
     bodyStyle = {
-      ...sizeStyle,
       border: `${borderWidth}px dashed ${color}`,
       borderRadius: 5,
       color,
@@ -111,7 +85,6 @@ export default function PaidStamp({ settings = {}, compact = false, variant = 's
     };
   } else if (style === 'outline') {
     bodyStyle = {
-      ...sizeStyle,
       border: `${borderWidth}px solid ${color}`,
       borderRadius: 3,
       color,
@@ -120,7 +93,6 @@ export default function PaidStamp({ settings = {}, compact = false, variant = 's
     };
   } else {
     bodyStyle = {
-      ...sizeStyle,
       border: `${borderWidth}px double ${color}`,
       borderRadius: 6,
       color,
@@ -147,9 +119,9 @@ export default function PaidStamp({ settings = {}, compact = false, variant = 's
       <div style={bodyStyle}>
         <div
           style={{
-            fontSize: `${stampFontSize}px`,
+            fontSize: `${fontSize}px`,
             fontWeight: 800,
-            letterSpacing: thermal ? 1.5 : 2,
+            letterSpacing: variant === 'thermal' ? 1.5 : 2,
             lineHeight: 1.05,
           }}
         >
