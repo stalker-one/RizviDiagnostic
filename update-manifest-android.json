@@ -1,0 +1,20 @@
+{
+  "staff": {
+    "tag": "android-latest",
+    "versionCode": 120,
+    "versionName": "1.0.120",
+    "apkUrl": "https://github.com/stalker-one/RizviDiagnostic/releases/download/android-latest/RizviDiagnosticCenter-latest.apk",
+    "sha256": "8ae058bd5e68a932c51243adcb33107d1b75aaee46dfbca3eb30545ca70eff49",
+    "sizeBytes": 4811659,
+    "releaseNotes": "Latest update from the current release."
+  },
+  "superadmin": {
+    "tag": "android-superadmin-latest",
+    "versionCode": 120,
+    "versionName": "1.0.120",
+    "apkUrl": "https://github.com/stalker-one/RizviDiagnostic/releases/download/android-superadmin-latest/RizviDiagnosticSuperadmin-latest.apk",
+    "sha256": "",
+    "sizeBytes": 0,
+    "releaseNotes": "Latest update from the current release."
+  }
+}
