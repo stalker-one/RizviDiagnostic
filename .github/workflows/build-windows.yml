@@ -44,24 +44,21 @@ jobs:
           MONGODB_DB_NAME_SECRET: ${{ secrets.MONGODB_DB_NAME }}
         run: |
           $uri = @($env:MONGODB_URI, $env:MONGODB_URI_2, $env:MONGODB_URI_3) | Where-Object { $_ -and ($_ -match '^mongodb(\+srv)?://') } | Select-Object -First 1
-          if (-not $uri) { throw 'No valid MongoDB connection string is configured in GitHub Actions secrets. Add MONGODB_URI (or MONGODB_URI_2/MONGODB_URI_3) before building the Windows application.' }
-          # Normalize accidental surrounding whitespace/newlines without ever printing the secret.
+          if (-not $uri) { throw 'No valid MongoDB connection string is configured in GitHub Actions secrets.' }
           $uri = $uri.Trim()
           $dbName = if ($env:MONGODB_DB_NAME_SECRET) { $env:MONGODB_DB_NAME_SECRET.Trim() } else { 'rizvi_diagnostic_center' }
           if ($dbName -notmatch '^[A-Za-z0-9_-]+$') { throw 'MONGODB_DB_NAME contains unsupported characters.' }
-          # Write the URI as one exact dotenv assignment. ConvertFrom-StringData is used to verify
-          # that subsequent variables are not being swallowed into MONGODB_URI.
           $envText = "MONGODB_URI=$uri`r`nMONGODB_DB_NAME=$dbName`r`nJWT_EXPIRES_IN=12h`r`nCLINIC_NAME=Rizvi Diagnostic Center`r`n"
           Set-Content -Path backend/.env -Value $envText -Encoding UTF8 -NoNewline
           $parsed = Get-Content backend/.env -Raw | ConvertFrom-StringData
           if ($parsed['MONGODB_URI'] -ne $uri) { throw 'MONGODB_URI was not preserved as a single .env value.' }
           if ($parsed['MONGODB_DB_NAME'] -ne $dbName) { throw 'MONGODB_DB_NAME was not preserved correctly.' }
-          Write-Host 'Windows desktop MongoDB configuration created and .env parsing validated (URI value is not printed).'
+          Write-Host 'Windows desktop MongoDB configuration created and .env parsing validated (URI hidden).'
       - name: Verify MongoDB connection before packaging
         working-directory: backend
         shell: pwsh
         run: |
-          node - <<'NODE'
+          $script = @'
           require('./src/env');
           const { MongoClient } = require('mongodb');
           const uri = process.env.MONGODB_URI?.trim();
@@ -73,18 +70,19 @@ jobs:
           if (!parsed.hostname) throw new Error('MONGODB_URI has no hostname');
           console.log(`MongoDB URI validated for host ${parsed.hostname}; secret value hidden`);
           const client = new MongoClient(uri, { serverSelectionTimeoutMS: 20000, connectTimeoutMS: 20000, family: 4 });
-          client.connect()
-            .then(async () => {
-              await client.db(dbName).command({ ping: 1 });
-              console.log('MongoDB Atlas ping: OK');
-              await client.close();
-            })
-            .catch(async (error) => {
-              console.error('MongoDB Atlas ping failed:', error.message);
-              try { await client.close(); } catch {}
-              process.exit(1);
-            });
-          NODE
+          client.connect().then(async () => {
+            await client.db(dbName).command({ ping: 1 });
+            console.log('MongoDB Atlas ping: OK');
+            await client.close();
+          }).catch(async (error) => {
+            console.error('MongoDB Atlas ping failed:', error.message);
+            try { await client.close(); } catch {}
+            process.exit(1);
+          });
+          '@
+          Set-Content -Path verify-mongodb.cjs -Value $script -Encoding UTF8
+          node verify-mongodb.cjs
+          Remove-Item verify-mongodb.cjs -Force -ErrorAction SilentlyContinue
       - name: Install frontend dependencies
         working-directory: frontend
         run: npm install
