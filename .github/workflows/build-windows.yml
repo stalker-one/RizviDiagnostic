@@ -17,42 +17,56 @@ concurrency:
   group: windows-release
   cancel-in-progress: false
 
+env:
+  MONGODB_DB_NAME: rizvi_diagnostic_center
+
 jobs:
   build-windows:
     runs-on: windows-latest
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
           node-version: 22
           cache: npm
           cache-dependency-path: electron/package-lock.json
-
       - name: Install backend dependencies
         working-directory: backend
         run: npm install --omit=dev
-
+      - name: Configure Windows desktop database connection
+        shell: pwsh
+        env:
+          MONGODB_URI: ${{ secrets.MONGODB_URI }}
+          MONGODB_URI_2: ${{ secrets.MONGODB_URI_2 }}
+          MONGODB_URI_3: ${{ secrets.MONGODB_URI_3 }}
+          MONGODB_DB_NAME_SECRET: ${{ secrets.MONGODB_DB_NAME }}
+        run: |
+          $uri = @($env:MONGODB_URI, $env:MONGODB_URI_2, $env:MONGODB_URI_3) | Where-Object { $_ -and ($_ -match '^mongodb(\+srv)?://') } | Select-Object -First 1
+          if (-not $uri) { throw 'No valid MongoDB connection string is configured in GitHub Actions secrets. Add MONGODB_URI (or MONGODB_URI_2/MONGODB_URI_3) before building the Windows application.' }
+          $dbName = if ($env:MONGODB_DB_NAME_SECRET) { $env:MONGODB_DB_NAME_SECRET } else { 'rizvi_diagnostic_center' }
+          @('MONGODB_URI=' + $uri, 'MONGODB_DB_NAME=' + $dbName, 'JWT_EXPIRES_IN=12h', 'CLINIC_NAME=Rizvi Diagnostic Center') | Set-Content -Path backend/.env -Encoding UTF8
+          Write-Host 'Windows desktop MongoDB configuration created (URI value is not printed).'
+      - name: Verify MongoDB connection before packaging
+        working-directory: backend
+        shell: pwsh
+        run: |
+          node -e "require('./src/env'); const {MongoClient}=require('mongodb'); const uri=process.env.MONGODB_URI; if(!uri) throw new Error('MONGODB_URI missing'); const c=new MongoClient(uri,{serverSelectionTimeoutMS:15000,connectTimeoutMS:15000}); c.connect().then(async()=>{await c.db(process.env.MONGODB_DB_NAME).command({ping:1}); console.log('MongoDB Atlas ping: OK'); await c.close();}).catch(e=>{console.error('MongoDB Atlas ping failed:',e.message); process.exit(1);})"
       - name: Install frontend dependencies
         working-directory: frontend
         run: npm install
-
       - name: Build frontend
         working-directory: frontend
         env:
           VITE_API_BASE_URL: http://localhost:5000/api
         run: npm run build
-
       - name: Install Electron dependencies
         working-directory: electron
         run: npm install
-
       - name: Build Windows installer
         working-directory: electron
         run: npm run dist -- --publish never
-
       - name: Verify installer and updater metadata
         shell: pwsh
         working-directory: electron
@@ -65,7 +79,6 @@ jobs:
           Write-Host "Installer: $($exe.FullName) ($($exe.Length) bytes)"
           Write-Host "Updater metadata: $($latest.FullName)"
           Get-FileHash $exe -Algorithm SHA256
-
       - name: Prepare release files
         shell: pwsh
         working-directory: electron
@@ -74,7 +87,6 @@ jobs:
           Copy-Item dist-installer\*.exe release-files\ -Force
           Copy-Item dist-installer\latest.yml release-files\ -Force
           Get-ChildItem dist-installer -Filter *.blockmap -File | Copy-Item -Destination release-files -Force -ErrorAction SilentlyContinue
-
       - name: Read application version
         id: version
         shell: pwsh
@@ -82,7 +94,6 @@ jobs:
         run: |
           $package = Get-Content package.json -Raw | ConvertFrom-Json
           "version=$($package.version)" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
-
       - name: Publish GitHub release
         uses: softprops/action-gh-release@v2
         with:
@@ -94,7 +105,6 @@ jobs:
           fail_on_unmatched_files: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
       - name: Upload Windows build artifact
         uses: actions/upload-artifact@v4
         with:
