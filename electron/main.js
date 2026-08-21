@@ -16,6 +16,7 @@ const UPDATE_CHECK_INTERVAL = 60 * 1000;
 let mainWindow = null;
 let updateCheckTimer = null;
 let updateInProgress = false;
+let updateCheckRunning = false;
 
 function logToFile(line) {
   try { const logDir = path.join(app.getPath('userData'), 'logs'); if (!fs.existsSync(logDir)) fs.mkdirSync(logDir, { recursive: true }); fs.appendFileSync(path.join(logDir, 'main.log'), `[${new Date().toISOString()}] ${line}\n`); } catch (_) {}
@@ -23,40 +24,49 @@ function logToFile(line) {
 function showFatalError(title, err) { const message = err && err.stack ? err.stack : String(err); logToFile(`FATAL: ${title} — ${message}`); dialog.showErrorBox(title, `${message}\n\nA full log has been saved to:\n${path.join(app.getPath('userData'), 'logs', 'main.log')}`); }
 function parseVersion(version) { const clean = String(version || '').trim().replace(/^v/i, '').split('-')[0]; const parts = clean.split('.').map((part) => Number.parseInt(part, 10)); return [parts[0] || 0, parts[1] || 0, parts[2] || 0]; }
 function compareVersions(a, b) { const av = parseVersion(a); const bv = parseVersion(b); for (let i = 0; i < 3; i += 1) { if (av[i] > bv[i]) return 1; if (av[i] < bv[i]) return -1; } return 0; }
-function requestJson(url) { return new Promise((resolve, reject) => { const request = https.get(url, { headers: { Accept: 'application/vnd.github+json', 'User-Agent': 'Rizvi-Diagnostic-Center-Desktop' } }, (response) => { let body = ''; response.setEncoding('utf8'); response.on('data', (chunk) => { body += chunk; }); response.on('end', () => { if (response.statusCode < 200 || response.statusCode >= 300) { reject(new Error(`GitHub Windows release check returned HTTP ${response.statusCode}`)); return; } try { resolve(JSON.parse(body)); } catch (error) { reject(new Error(`Invalid GitHub release response: ${error.message}`)); } }); }); request.setTimeout(20000, () => request.destroy(new Error('GitHub release check timed out'))); request.on('error', reject); }); }
-function downloadFile(url, destination, redirectCount = 0) { return new Promise((resolve, reject) => { if (redirectCount > 5) return reject(new Error('Too many download redirects')); const output = fs.createWriteStream(destination); const request = https.get(url, { headers: { 'User-Agent': 'Rizvi-Diagnostic-Center-Desktop' } }, (response) => { if ([301, 302, 303, 307, 308].includes(response.statusCode) && response.headers.location) { output.close(); try { fs.unlinkSync(destination); } catch (_) {} downloadFile(response.headers.location, destination, redirectCount + 1).then(resolve).catch(reject); return; } if (response.statusCode !== 200) { output.close(); try { fs.unlinkSync(destination); } catch (_) {} reject(new Error(`Download returned HTTP ${response.statusCode}`)); return; } response.pipe(output); output.on('finish', () => output.close(() => { try { if (fs.statSync(destination).size < 100 * 1024) reject(new Error('Downloaded installer is unexpectedly small')); else resolve(destination); } catch (error) { reject(error); } })); }); request.setTimeout(10 * 60 * 1000, () => request.destroy(new Error('Installer download timed out'))); request.on('error', (error) => { output.destroy(); try { fs.unlinkSync(destination); } catch (_) {} reject(error); }); }); }
-function getWindowsInstallerAsset(release) { const assets = Array.isArray(release.assets) ? release.assets : []; return assets.find((asset) => /\.exe$/i.test(asset.name) && !/\.blockmap$/i.test(asset.name)) || null; }
-function getBuildVersionFromRelease(release) { const assets = Array.isArray(release.assets) ? release.assets : []; const manifest = assets.find((asset) => asset.name === 'windows-version.json'); return manifest ? requestJson(manifest.browser_download_url) : Promise.resolve(null); }
+function requestJson(url) { return new Promise((resolve, reject) => { const request = https.get(url, { headers: { Accept: 'application/vnd.github+json', 'User-Agent': 'Rizvi-Diagnostic-Center-Desktop' } }, (response) => { let body = ''; response.setEncoding('utf8'); response.on('data', (chunk) => { body += chunk; }); response.on('end', () => { if (response.statusCode < 200 || response.statusCode >= 300) { reject(new Error(`GitHub Windows release check returned HTTP ${response.statusCode}`)); return; } try { resolve(JSON.parse(body)); } catch (error) { reject(new Error(`Invalid GitHub release response: ${error.message}`)); } }); }); request.setTimeout(15000, () => request.destroy(new Error('GitHub release check timed out'))); request.on('error', reject); }); }
+function downloadFile(url, destination, redirectCount = 0) { return new Promise((resolve, reject) => { if (redirectCount > 5) return reject(new Error('Too many download redirects')); const output = fs.createWriteStream(destination); const request = https.get(url, { headers: { 'User-Agent': 'Rizvi-Diagnostic-Center-Desktop' } }, (response) => { if ([301,302,303,307,308].includes(response.statusCode) && response.headers.location) { output.close(); try { fs.unlinkSync(destination); } catch (_) {} downloadFile(response.headers.location, destination, redirectCount + 1).then(resolve).catch(reject); return; } if (response.statusCode !== 200) { output.close(); try { fs.unlinkSync(destination); } catch (_) {} reject(new Error(`Download returned HTTP ${response.statusCode}`)); return; } response.pipe(output); output.on('finish', () => output.close(() => { try { if (fs.statSync(destination).size < 100 * 1024) reject(new Error('Downloaded installer is unexpectedly small')); else resolve(destination); } catch (error) { reject(error); } })); }); request.setTimeout(10 * 60 * 1000, () => request.destroy(new Error('Installer download timed out'))); request.on('error', (error) => { output.destroy(); try { fs.unlinkSync(destination); } catch (_) {} reject(error); }); }); }
+function getWindowsInstallerAsset(release) { const assets = Array.isArray(release.assets) ? release.assets : []; return assets.find((asset) => /^Rizvi-Diagnostic-Center-Setup-\d+\.\d+\.\d+\.exe$/i.test(asset.name)) || assets.find((asset) => /\.exe$/i.test(asset.name) && !/\.blockmap$/i.test(asset.name)) || null; }
+function getBuildVersionFromRelease(release) { const assets = Array.isArray(release.assets) ? release.assets : []; const manifest = assets.find((asset) => asset.name.toLowerCase() === 'windows-version.json'); return manifest ? requestJson(manifest.browser_download_url) : Promise.resolve(null); }
 
 async function checkForLatestWindowsUpdate(showNoUpdate = false) {
-  if (!app.isPackaged || updateInProgress) return;
+  if (!app.isPackaged || updateInProgress || updateCheckRunning) return;
+  updateCheckRunning = true;
   try {
     const currentVersion = app.getVersion();
     const release = await requestJson(GITHUB_WINDOWS_RELEASE_API);
+    if (release.draft || release.prerelease) throw new Error('Windows release is not a stable published release');
     const manifest = await getBuildVersionFromRelease(release);
-    const latestVersion = String(manifest?.version || release.tag_name || '').replace(/^v/i, '');
-    if (!latestVersion) throw new Error('Windows release has no version information');
-    logToFile(`[update] Windows release checked: installed=${currentVersion}, latest=${latestVersion}`);
+    const latestVersion = String(manifest?.version || '').trim().replace(/^v/i, '');
+    if (!latestVersion) throw new Error('The Windows release is missing windows-version.json.');
+    logToFile(`[update] Windows channel ${release.tag_name}: installed=${currentVersion}, latest=${latestVersion}`);
     if (compareVersions(latestVersion, currentVersion) <= 0) {
-      if (showNoUpdate && mainWindow) await dialog.showMessageBox(mainWindow, { type: 'info', title: 'Updates', message: 'You are using the latest version.', detail: `Installed: v${currentVersion}\nLatest: v${latestVersion}`, buttons: ['OK'] });
+      if (showNoUpdate && mainWindow && !mainWindow.isDestroyed()) await dialog.showMessageBox(mainWindow, { type: 'info', title: 'Updates', message: 'You are using the latest Windows version.', detail: `Installed: v${currentVersion}\nLatest: v${latestVersion}`, buttons: ['OK'] });
       return;
     }
     const asset = getWindowsInstallerAsset(release);
-    if (!asset?.browser_download_url) throw new Error('Windows release has no installer asset.');
+    if (!asset?.browser_download_url) throw new Error('The Windows release has no installer asset.');
     const notes = String(manifest?.notes || release.body || '').trim();
-    const result = await dialog.showMessageBox(mainWindow, { type: 'info', title: 'Update Required — Rizvi Diagnostic Center', message: `A new version v${latestVersion} is available.`, detail: [`Current version: v${currentVersion}`, `Latest version: v${latestVersion}`, '', 'Latest updates:', notes ? notes.slice(0, 5000) : 'Bug fixes and improvements.'].join('\n'), buttons: ['Update Now', 'Later'], defaultId: 0, cancelId: 1 });
+    if (!mainWindow || mainWindow.isDestroyed()) return;
+    const result = await dialog.showMessageBox(mainWindow, { type: 'warning', title: 'Update Required — Rizvi Diagnostic Center', message: `New Windows version v${latestVersion} is available.`, detail: [`Current version: v${currentVersion}`, `Latest version: v${latestVersion}`, '', 'Latest updates:', notes ? notes.slice(0, 5000) : 'Bug fixes and improvements.', '', 'Please update to the latest version.'].join('\n'), buttons: ['Update Now', 'Later'], defaultId: 0, cancelId: 1, noLink: true });
     if (result.response !== 0) return;
     updateInProgress = true;
     const tempDir = path.join(app.getPath('temp'), 'RizviDiagnosticCenter-update'); fs.mkdirSync(tempDir, { recursive: true });
     const installerPath = path.join(tempDir, asset.name.replace(/[^a-zA-Z0-9._-]/g, '_'));
     await downloadFile(asset.browser_download_url, installerPath);
-    const installResult = await dialog.showMessageBox(mainWindow, { type: 'info', title: 'Update Ready', message: `v${latestVersion} is ready to install.`, detail: 'The application will close and install the latest build. Your database and settings remain in your Windows user profile.', buttons: ['Install and Restart', 'Cancel'], defaultId: 0, cancelId: 1 });
+    const installResult = await dialog.showMessageBox(mainWindow, { type: 'info', title: 'Update Ready', message: `v${latestVersion} is ready to install.`, detail: 'The application will close and install the latest Windows build. Your database and settings remain in your Windows user profile.', buttons: ['Install and Restart', 'Cancel'], defaultId: 0, cancelId: 1, noLink: true });
     if (installResult.response !== 0) { updateInProgress = false; return; }
-    spawn(installerPath, ['/S'], { detached: true, stdio: 'ignore', windowsHide: true }).unref(); app.quit();
-  } catch (error) { updateInProgress = false; logToFile(`[update] Error: ${error && error.stack ? error.stack : error}`); if (showNoUpdate && mainWindow) await dialog.showMessageBox(mainWindow, { type: 'warning', title: 'Update Check Failed', message: 'Could not check for the latest Windows update.', detail: error.message, buttons: ['OK'] }); }
+    spawn(installerPath, ['/S'], { detached: true, stdio: 'ignore', windowsHide: true }).unref();
+    app.quit();
+  } catch (error) {
+    updateInProgress = false;
+    logToFile(`[update] Error: ${error && error.stack ? error.stack : error}`);
+    if (showNoUpdate && mainWindow && !mainWindow.isDestroyed()) await dialog.showMessageBox(mainWindow, { type: 'warning', title: 'Update Check Failed', message: 'Could not check for the latest Windows update.', detail: error.message, buttons: ['OK'] });
+  } finally { updateCheckRunning = false; }
 }
 function setupAutoUpdate() {
   if (!app.isPackaged) return;
+  // Run immediately after the window exists, then poll every minute for a newly published build.
   checkForLatestWindowsUpdate(false);
   updateCheckTimer = setInterval(() => checkForLatestWindowsUpdate(false), UPDATE_CHECK_INTERVAL);
 }
