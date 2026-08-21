@@ -19,7 +19,7 @@
     ],
     "directories": {"output": "dist-installer"},
     "publish": {"provider": "github", "owner": "stalker-one", "repo": "RizviDiagnostic"},
-    "win": {"target": "nsis", "icon": "build/icon.ico", "publisherName": "Rizvi Diagnostic Center"},
+    "win": {"target": "nsis", "icon": "build/icon.ico", "publisherName": "Mian Bilal"},
     "nsis": {"oneClick": false, "allowToChangeInstallationDirectory": true, "createDesktopShortcut": true, "createStartMenuShortcut": true}
   }
 }
