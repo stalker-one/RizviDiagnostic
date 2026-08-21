@@ -138,6 +138,29 @@ jobs:
           Copy-Item dist-installer\latest.yml release-files\ -Force
           Copy-Item dist-installer\windows-version.json release-files\ -Force
           Get-ChildItem dist-installer -Filter *.blockmap -File | Copy-Item -Destination release-files -Force -ErrorAction SilentlyContinue
+      - name: Remove stale installer assets from the release
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          $ErrorActionPreference = 'Continue'
+          # artifactName embeds the version (Setup-${version}.exe), so
+          # overwrite_files below only replaces an asset with the exact same
+          # filename — it never removes older-versioned installers already
+          # on the release. Left alone they pile up release after release,
+          # and the desktop app's update picker could grab a stale one.
+          $assets = gh release view v1.1.0 --repo stalker-one/RizviDiagnostic --json assets --jq '.assets[].name' 2>$null
+          if ($LASTEXITCODE -eq 0 -and $assets) {
+            foreach ($name in ($assets -split "`n")) {
+              $name = $name.Trim()
+              if ($name -match '\.(exe|blockmap)$') {
+                Write-Host "Deleting stale release asset: $name"
+                gh release delete-asset v1.1.0 $name --repo stalker-one/RizviDiagnostic --yes 2>$null
+              }
+            }
+          } else {
+            Write-Host 'No existing release assets found (first release) — nothing to clean up.'
+          }
       - name: Replace existing Windows release with latest build
         uses: softprops/action-gh-release@v2
         with:
