@@ -27,27 +27,18 @@ jobs:
         run: |
           set -euo pipefail
           SOURCE_VIDEO="frontend/android/app/src/main/res/Rizvi_Android_Startup_2x.mp4"
-          test -s "$SOURCE_VIDEO" || { echo "Missing required startup video: $SOURCE_VIDEO"; exit 1; }
+          test -s "$SOURCE_VIDEO"
           mkdir -p frontend/android/app/src/main/res/raw
           cp "$SOURCE_VIDEO" /tmp/startup-source.mp4
-          echo 'Using repository startup video:'
-          ls -lh "$SOURCE_VIDEO"
-          sha256sum "$SOURCE_VIDEO"
           sudo apt-get update -qq
           sudo apt-get install -y --no-install-recommends ffmpeg
-          echo 'Source video:'
-          ffprobe -v error -show_entries format=duration,size -show_entries stream=index,codec_name,codec_type,width,height,pix_fmt,r_frame_rate,profile -of default=noprint_wrappers=1 /tmp/startup-source.mp4
           ffmpeg -y -i /tmp/startup-source.mp4 \
             -map 0:v:0 -map 0:a:0? \
             -vf "scale='min(1920,iw)':'min(1920,ih)':force_original_aspect_ratio=decrease,pad=ceil(iw/2)*2:ceil(ih/2)*2:(ow-iw)/2:(oh-ih)/2,format=yuv420p" \
             -c:v libx264 -profile:v main -level 4.0 -pix_fmt yuv420p -preset medium -crf 20 \
-            -c:a aac -b:a 128k -ar 44100 -ac 2 \
-            -movflags +faststart -shortest \
+            -c:a aac -b:a 128k -ar 44100 -ac 2 -movflags +faststart -shortest \
             frontend/android/app/src/main/res/raw/startup_animation.mp4
           test -s frontend/android/app/src/main/res/raw/startup_animation.mp4
-          echo 'Android-compatible startup video:'
-          ffprobe -v error -show_entries format=duration,size -show_entries stream=index,codec_name,codec_type,width,height,pix_fmt,r_frame_rate,profile -of default=noprint_wrappers=1 frontend/android/app/src/main/res/raw/startup_animation.mp4
-          sha256sum frontend/android/app/src/main/res/raw/startup_animation.mp4
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
@@ -82,10 +73,9 @@ jobs:
             if [ -x "$candidate" ]; then SDKMANAGER="$candidate"; break; fi
           done
           if [ -z "$SDKMANAGER" ]; then SDKMANAGER="$(find "$ANDROID_HOME/cmdline-tools" -type f -path '*/bin/sdkmanager' -print -quit 2>/dev/null || true)"; fi
-          test -n "$SDKMANAGER" && test -x "$SDKMANAGER" || { echo 'Android sdkmanager not found'; exit 1; }
+          test -n "$SDKMANAGER" && test -x "$SDKMANAGER"
           yes | "$SDKMANAGER" --licenses >/dev/null 2>&1 || true
           "$SDKMANAGER" platform-tools 'platforms;android-36' 'build-tools;36.0.0'
-          test -x "$ANDROID_HOME/build-tools/36.0.0/apksigner"
       - name: Restore existing Android signing keystore
         shell: bash
         env:
@@ -95,22 +85,18 @@ jobs:
           ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
         run: |
           set -euo pipefail
-          test -n "$ANDROID_KEYSTORE_PASSWORD" || { echo 'Missing ANDROID_KEYSTORE_PASSWORD'; exit 1; }
-          test -n "$ANDROID_KEY_ALIAS" || { echo 'Missing ANDROID_KEY_ALIAS'; exit 1; }
-          test -n "$ANDROID_KEY_PASSWORD" || { echo 'Missing ANDROID_KEY_PASSWORD'; exit 1; }
+          test -n "$ANDROID_KEYSTORE_PASSWORD"
+          test -n "$ANDROID_KEY_ALIAS"
+          test -n "$ANDROID_KEY_PASSWORD"
           mkdir -p .github/android-signing
           rm -f "$ANDROID_KEYSTORE_PATH"
           if [ -s .github/android-signing/keystore.p12.enc ]; then
             openssl enc -d -aes-256-cbc -pbkdf2 -pass env:ANDROID_KEYSTORE_PASSWORD -in .github/android-signing/keystore.p12.enc -out "$ANDROID_KEYSTORE_PATH" 2>/tmp/keystore.err || true
           fi
           if [ ! -s "$ANDROID_KEYSTORE_PATH" ] && [ -n "${ANDROID_KEYSTORE_BASE64:-}" ]; then
-            NORMALIZED_B64="$(printf '%s' "$ANDROID_KEYSTORE_BASE64" | tr -d '[:space:]')"
-            NORMALIZED_B64="${NORMALIZED_B64#\"}"; NORMALIZED_B64="${NORMALIZED_B64%\"}"
-            NORMALIZED_B64="${NORMALIZED_B64#\'}"; NORMALIZED_B64="${NORMALIZED_B64%\'}"
-            if printf '%s' "$NORMALIZED_B64" | grep -qi '^data:'; then NORMALIZED_B64="${NORMALIZED_B64#*,}"; fi
-            printf '%s' "$NORMALIZED_B64" | tr '_-' '/+' | base64 --decode > "$ANDROID_KEYSTORE_PATH" 2>/tmp/base64.err || rm -f "$ANDROID_KEYSTORE_PATH"
+            printf '%s' "$ANDROID_KEYSTORE_BASE64" | tr -d '[:space:]' | base64 --decode > "$ANDROID_KEYSTORE_PATH" 2>/tmp/base64.err || rm -f "$ANDROID_KEYSTORE_PATH"
           fi
-          test -s "$ANDROID_KEYSTORE_PATH" || { echo 'Existing Android signing keystore could not be restored. Refusing to generate a new signing key because that would break installed-app updates.'; cat /tmp/keystore.err 2>/dev/null || true; cat /tmp/base64.err 2>/dev/null || true; exit 1; }
+          test -s "$ANDROID_KEYSTORE_PATH"
           keytool -list -keystore "$ANDROID_KEYSTORE_PATH" -storepass "$ANDROID_KEYSTORE_PASSWORD" -alias "$ANDROID_KEY_ALIAS" >/dev/null
           chmod 600 "$ANDROID_KEYSTORE_PATH"
       - name: Build Superadmin APK
@@ -130,12 +116,12 @@ jobs:
           "$ANDROID_HOME/build-tools/36.0.0/aapt" dump badging "$APK" | grep -E 'package:|versionCode|versionName'
           mkdir -p dist-superadmin
           cp "$APK" "dist-superadmin/RizviDiagnosticSuperadmin-latest.apk"
-      - name: Calculate release APK integrity hash
+      - name: Calculate release APK integrity hash and size
         run: |
           set -euo pipefail
           APK="frontend/android/app/build/outputs/apk/superadmin/release/app-superadmin-release.apk"
-          APK_SHA256="$(sha256sum "$APK" | awk '{print $1}')"
-          echo "APK_SHA256=$APK_SHA256" >> "$GITHUB_ENV"
+          echo "APK_SHA256=$(sha256sum "$APK" | awk '{print $1}')" >> "$GITHUB_ENV"
+          echo "APK_SIZE=$(stat -c '%s' "$APK")" >> "$GITHUB_ENV"
       - name: Upload Superadmin APK
         uses: actions/upload-artifact@v4
         with:
@@ -147,27 +133,16 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           tag_name: android-superadmin-latest
-          name: Android Superadmin App (latest build)
+          name: Rizvi Diagnostic Center Superadmin ${{ github.run_number }}
           body: |
-            # What's new
-            - Uses the uploaded Rizvi_Android_Startup_2x.mp4 from the repository as the Superadmin startup video.
-            - Startup video is normalized to Android-safe H.264/AAC/YUV420P before packaging.
-            - Startup animation plays fullscreen and automatically opens the application when finished.
-            - Improved authenticated session resume and application startup behavior.
-            - Separated Simple/A4 Paid Stamp settings from Thermal Paid Stamp settings.
-            - Improved Thermal and Simple invoice printing.
-            - Added secure APK signature and integrity verification.
-            - Includes bug fixes and performance improvements.
+            ## What's New
+            - Latest Superadmin update from commit ${{ github.sha }}.
 
-            # Build information
-            Dedicated Superadmin Android application.
-            Package: com.rizvi.diagnosticcenter.superadmin
-            Login route: /adminlogin
+            ## Build information
             Version code: ${{ github.run_number }}
             Version name: 1.0.${{ github.run_number }}
-            Commit: ${{ github.sha }}
             APK SHA-256: ${{ env.APK_SHA256 }}
-            Release-signed APK for sideloading.
+            APK size: ${{ env.APK_SIZE }} bytes
           files: frontend/android/dist-superadmin/RizviDiagnosticSuperadmin-latest.apk
           prerelease: true
           make_latest: false
