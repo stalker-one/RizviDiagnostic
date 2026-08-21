@@ -20,18 +20,22 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           REPO: ${{ github.repository }}
           WORKFLOW_NAME: ${{ github.event.workflow_run.name }}
+          RUN_NUMBER: ${{ github.event.workflow_run.run_number }}
+          RUN_SHA: ${{ github.event.workflow_run.head_sha }}
         shell: bash
         run: |
           set -euo pipefail
           if [ "$WORKFLOW_NAME" = "Build Superadmin Android App" ]; then
             TAG="android-superadmin-latest"
             APP="Rizvi Diagnostic Center Superadmin"
+            VERSION_NAME="1.0.${RUN_NUMBER}"
           else
             TAG="android-latest"
             APP="Rizvi Diagnostic Center"
+            VERSION_NAME="1.0.${RUN_NUMBER}"
           fi
           RELEASE_JSON="$(gh api "repos/$REPO/releases/tags/$TAG")"
           RELEASE_ID="$(printf '%s' "$RELEASE_JSON" | jq -r '.id')"
-          BODY="## What's New\n\n- Updated the $APP update experience: the Update Required modal now has a top-right Close button and shows only the latest release change instead of historical updates.\n\n## Build information\n\nVersion code: $(printf '%s' "$RELEASE_JSON" | jq -r '.tag_name')\n"
+          BODY="## What's New\n\n- Updated the $APP update experience: the Update Required modal now has a top-right Close button and shows only the latest release change instead of historical updates.\n\n## Build information\n\nVersion code: ${RUN_NUMBER}\nVersion name: ${VERSION_NAME}\nCommit: ${RUN_SHA}\n"
           gh api "repos/$REPO/releases/$RELEASE_ID" -X PATCH -f body="$BODY" >/dev/null
-          echo "Updated $TAG release notes to latest-only format."
+          echo "Updated $TAG release notes to latest-only format with numeric version code ${RUN_NUMBER}."

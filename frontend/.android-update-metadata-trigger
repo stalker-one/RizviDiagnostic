@@ -1,0 +1,1 @@
+Android release metadata trigger. This file intentionally causes both Android workflows to rebuild so the latest release receives a numeric version code for the in-app updater.
