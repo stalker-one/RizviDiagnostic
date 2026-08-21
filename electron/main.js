@@ -30,18 +30,33 @@ function downloadFile(url, destination, redirectCount = 0) { return new Promise(
 function getWindowsInstallerAsset(release, expectedVersion) {
   const assets = Array.isArray(release.assets) ? release.assets : [];
   if (expectedVersion) {
-    const escaped = String(expectedVersion).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-    const exact = assets.find((asset) => new RegExp(`^Rizvi-Diagnostic-Center-Setup-${escaped}\\.exe$`, 'i').test(asset.name));
+    const exactName = `Rizvi-Diagnostic-Center-Setup-${String(expectedVersion).replace(/^v/i, '')}.exe`.toLowerCase();
+    const exact = assets.find((asset) => String(asset.name || '').toLowerCase() === exactName);
     if (exact) return exact;
   }
   const versioned = assets
-    .map((asset) => { const match = /^Rizvi-Diagnostic-Center-Setup-(\d+\.\d+\.\d+)\.exe$/i.exec(asset.name); return match ? { asset, version: match[1] } : null; })
+    .map((asset) => { const match = /^Rizvi-Diagnostic-Center-Setup-(\d+\.\d+\.\d+)\.exe$/i.exec(String(asset.name || '')); return match ? { asset, version: match[1] } : null; })
     .filter(Boolean)
     .sort((a, b) => compareVersions(b.version, a.version));
-  if (versioned.length) return versioned[0].asset;
-  return assets.find((asset) => /\.exe$/i.test(asset.name) && !/\.blockmap$/i.test(asset.name)) || null;
+  return versioned.length ? versioned[0].asset : (assets.find((asset) => /\.exe$/i.test(String(asset.name || '')) && !/\.blockmap$/i.test(String(asset.name || ''))) || null);
 }
-function getBuildVersionFromRelease(release) { const assets = Array.isArray(release.assets) ? release.assets : []; const manifest = assets.find((asset) => asset.name.toLowerCase() === 'windows-version.json'); return manifest ? requestJson(manifest.browser_download_url) : Promise.resolve(null); }
+function getHighestInstallerVersion(release) {
+  const assets = Array.isArray(release.assets) ? release.assets : [];
+  return assets
+    .map((asset) => { const match = /^Rizvi-Diagnostic-Center-Setup-(\d+\.\d+\.\d+)\.exe$/i.exec(String(asset.name || '')); return match ? match[1] : null; })
+    .filter(Boolean)
+    .sort(compareVersions)
+    .pop() || '';
+}
+function getBuildVersionFromRelease(release) {
+  const assets = Array.isArray(release.assets) ? release.assets : [];
+  const manifest = assets.find((asset) => String(asset.name || '').toLowerCase() === 'windows-version.json');
+  if (!manifest?.browser_download_url) return Promise.resolve(null);
+  return requestJson(manifest.browser_download_url).catch((error) => {
+    logToFile(`[update] windows-version.json could not be read: ${error.message}; falling back to installer asset version.`);
+    return null;
+  });
+}
 
 async function checkForLatestWindowsUpdate(showNoUpdate = false) {
   if (!app.isPackaged || updateInProgress || updateCheckRunning) return;
@@ -49,43 +64,60 @@ async function checkForLatestWindowsUpdate(showNoUpdate = false) {
   updateCheckRunning = true;
   try {
     const currentVersion = app.getVersion();
+    // Always query the single configured Windows release directly. Do not use a
+    // cached release page or a browser URL, so an update is detected immediately.
     const release = await requestJson(GITHUB_WINDOWS_RELEASE_API);
     if (release.draft || release.prerelease) throw new Error('Windows release is not a stable published release');
+
     const manifest = await getBuildVersionFromRelease(release);
-    const latestVersion = String(manifest?.version || '').trim().replace(/^v/i, '');
-    if (!latestVersion) throw new Error('The Windows release is missing windows-version.json.');
-    logToFile(`[update] Windows channel ${release.tag_name}: installed=${currentVersion}, latest=${latestVersion}`);
+    // The manifest is preferred, but the updater can now work even when the
+    // manifest is delayed/missing by deriving the version from the installer.
+    const latestVersion = String(manifest?.version || getHighestInstallerVersion(release) || release.tag_name || '').trim().replace(/^v/i, '');
+    if (!latestVersion) throw new Error('The Windows release has no detectable Windows installer version.');
+
+    logToFile(`[update] Windows channel ${release.tag_name}: installed=${currentVersion}, latest=${latestVersion}, assets=${Array.isArray(release.assets) ? release.assets.length : 0}`);
+
     if (compareVersions(latestVersion, currentVersion) <= 0) {
       if (showNoUpdate && mainWindow && !mainWindow.isDestroyed()) await dialog.showMessageBox(mainWindow, { type: 'info', title: 'Updates', message: 'You are using the latest Windows version.', detail: `Installed: v${currentVersion}\nLatest: v${latestVersion}`, buttons: ['OK'] });
       return;
     }
+
     const asset = getWindowsInstallerAsset(release, latestVersion);
     if (!asset?.browser_download_url) throw new Error(`Windows release v${latestVersion} has no matching installer asset.`);
+
     const notes = String(manifest?.notes || release.body || '').trim();
     logToFile(`[update] Update available: ${currentVersion} -> ${latestVersion}; installer=${asset.name}`);
+
+    // This modal is deliberately shown by the Electron main process, after the
+    // BrowserWindow is ready, so it cannot be hidden behind the startup window.
     const result = await dialog.showMessageBox(mainWindow, { type: 'warning', title: 'Update Required — Rizvi Diagnostic Center', message: `New Windows version v${latestVersion} is available.`, detail: [`Current version: v${currentVersion}`, `Latest version: v${latestVersion}`, '', 'Latest updates:', notes ? notes.slice(0, 5000) : 'Bug fixes and improvements.', '', 'Please update to the latest version.'].join('\n'), buttons: ['Update Now', 'Later'], defaultId: 0, cancelId: 1, noLink: true });
     if (result.response !== 0) return;
+
     updateInProgress = true;
-    const tempDir = path.join(app.getPath('temp'), 'RizviDiagnosticCenter-update'); fs.mkdirSync(tempDir, { recursive: true });
+    const tempDir = path.join(app.getPath('temp'), 'RizviDiagnosticCenter-update');
+    fs.mkdirSync(tempDir, { recursive: true });
     const installerPath = path.join(tempDir, asset.name.replace(/[^a-zA-Z0-9._-]/g, '_'));
     await downloadFile(asset.browser_download_url, installerPath);
+
     const installResult = await dialog.showMessageBox(mainWindow, { type: 'info', title: 'Update Ready', message: `v${latestVersion} is ready to install.`, detail: 'The application will close and install the latest Windows build. Your database and settings remain in your Windows user profile.', buttons: ['Install and Restart', 'Cancel'], defaultId: 0, cancelId: 1, noLink: true });
     if (installResult.response !== 0) { updateInProgress = false; return; }
+
     spawn(installerPath, ['/S'], { detached: true, stdio: 'ignore', windowsHide: true }).unref();
     app.quit();
   } catch (error) {
     updateInProgress = false;
     logToFile(`[update] Error: ${error && error.stack ? error.stack : error}`);
     if (showNoUpdate && mainWindow && !mainWindow.isDestroyed()) await dialog.showMessageBox(mainWindow, { type: 'warning', title: 'Update Check Failed', message: 'Could not check for the latest Windows update.', detail: error.message, buttons: ['OK'] });
-  } finally { updateCheckRunning = false; }
+  } finally {
+    updateCheckRunning = false;
+  }
 }
+
 function setupAutoUpdate() {
   if (!app.isPackaged || !mainWindow || mainWindow.isDestroyed()) return;
-  // Check as soon as the packaged window is actually visible, then retry once
-  // shortly afterwards and continue polling every minute. This avoids the old
-  // startup race where the check could finish before BrowserWindow was ready.
   const runInitialCheck = () => {
     if (!mainWindow || mainWindow.isDestroyed()) return;
+    logToFile('[update] Startup update check triggered after window ready.');
     checkForLatestWindowsUpdate(false);
     if (updateInitialCheckTimer) clearTimeout(updateInitialCheckTimer);
     updateInitialCheckTimer = setTimeout(() => checkForLatestWindowsUpdate(false), 5000);
