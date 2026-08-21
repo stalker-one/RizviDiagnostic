@@ -19,6 +19,7 @@ concurrency:
 
 env:
   MONGODB_DB_NAME: rizvi_diagnostic_center
+  WINDOWS_RELEASE_TAG: v1.1.0
 
 jobs:
   build-windows:
@@ -117,27 +118,30 @@ jobs:
           Copy-Item dist-installer\*.exe release-files\ -Force
           Copy-Item dist-installer\latest.yml release-files\ -Force
           Get-ChildItem dist-installer -Filter *.blockmap -File | Copy-Item -Destination release-files -Force -ErrorAction SilentlyContinue
-      - name: Read application version
-        id: version
-        shell: pwsh
-        working-directory: electron
-        run: |
-          $package = Get-Content package.json -Raw | ConvertFrom-Json
-          "version=$($package.version)" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
-      - name: Publish GitHub release
+      - name: Replace existing v1.1.0 release assets with latest build
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: v${{ steps.version.outputs.version }}
-          name: Rizvi Diagnostic Center v${{ steps.version.outputs.version }}
-          generate_release_notes: true
-          make_latest: true
+          tag_name: v1.1.0
+          name: Rizvi Diagnostic Center v1.1.0 (Latest Windows Build)
+          body: |
+            # Rizvi Diagnostic Center — Windows
+
+            This release contains the **latest Windows application build**. Older Windows installer assets are intentionally replaced so users only see the current installer.
+
+            ## Update policy
+            - Windows release tag remains **v1.1.0**.
+            - The installer filename remains **Rizvi-Diagnostic-Center-Setup-1.1.0.exe**.
+            - Each successful Windows build replaces the previous installer, `latest.yml`, and blockmap.
+            - Do not create another Windows release for ordinary bug fixes.
           files: electron/release-files/*
           fail_on_unmatched_files: true
+          make_latest: true
+          overwrite_files: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      - name: Upload Windows build artifact
+      - name: Upload latest Windows build artifact
         uses: actions/upload-artifact@v4
         with:
-          name: Rizvi-Diagnostic-Center-Windows-v${{ steps.version.outputs.version }}
+          name: Rizvi-Diagnostic-Center-Windows-latest
           path: electron/release-files/*
           retention-days: 90
