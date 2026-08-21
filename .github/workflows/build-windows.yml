@@ -55,21 +55,13 @@ jobs:
           }
 
           if ($publishedVersion -and $sourceVersion -le $publishedVersion) {
-            # Automatically advance the patch version in the build workspace. This keeps every
-            # Windows application update uniquely versioned without requiring a manual package.json bump.
+            # Automatically advance only the build workspace version. package-lock.json is
+            # intentionally left untouched because PowerShell 7 cannot safely deserialize the
+            # npm lockfile's required empty-string root package property without -AsHashtable.
             $next = [version]::new($publishedVersion.Major, $publishedVersion.Minor, ($publishedVersion.Build + 1))
             $package.version = $next.ToString()
             $packageJson = $package | ConvertTo-Json -Depth 100
             Set-Content -Path $packagePath -Value $packageJson -Encoding UTF8
-
-            if (Test-Path 'electron/package-lock.json') {
-              $lock = Get-Content 'electron/package-lock.json' -Raw | ConvertFrom-Json
-              $lock.version = $package.version
-              $rootPackage = $lock.packages.PSObject.Properties['']
-              if ($rootPackage -and $rootPackage.Value) { $rootPackage.Value.version = $package.version }
-              Set-Content -Path 'electron/package-lock.json' -Value ($lock | ConvertTo-Json -Depth 100) -Encoding UTF8
-            }
-
             $sourceVersion = $next
             Write-Host "Published Windows version is v$publishedVersion; automatically advancing this build to v$sourceVersion."
           } elseif ($publishedVersion) {
