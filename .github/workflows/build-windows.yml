@@ -55,9 +55,6 @@ jobs:
           }
 
           if ($publishedVersion -and $sourceVersion -le $publishedVersion) {
-            # Automatically advance only the build workspace version. package-lock.json is
-            # intentionally left untouched because PowerShell 7 cannot safely deserialize the
-            # npm lockfile's required empty-string root package property without -AsHashtable.
             $next = [version]::new($publishedVersion.Major, $publishedVersion.Minor, ($publishedVersion.Build + 1))
             $package.version = $next.ToString()
             $packageJson = $package | ConvertTo-Json -Depth 100
@@ -123,6 +120,22 @@ jobs:
         env:
           VITE_API_BASE_URL: http://localhost:5000/api
         run: npm run build
+      - name: Prepare shared Rizvi application icon
+        shell: pwsh
+        run: |
+          $iconUrl = 'https://raw.githubusercontent.com/stalker-one/RizviDiagnostic/main/frontend/android/app/src/main/res/Icon.jpg'
+          New-Item -ItemType Directory -Force -Path electron/build | Out-Null
+          Invoke-WebRequest -Uri "$iconUrl?t=$([DateTimeOffset]::UtcNow.ToUnixTimeMilliseconds())" -OutFile electron/build/icon.jpg
+          if (-not (Test-Path electron/build/icon.jpg) -or (Get-Item electron/build/icon.jpg).Length -lt 1000) { throw 'Shared Icon.jpg could not be downloaded.' }
+          if (Get-Command magick -ErrorAction SilentlyContinue) {
+            magick electron/build/icon.jpg -resize 1024x1024^ -gravity center -extent 1024x1024 electron/build/icon.png
+          } elseif (Get-Command convert -ErrorAction SilentlyContinue) {
+            convert electron/build/icon.jpg -resize 1024x1024^ -gravity center -extent 1024x1024 electron/build/icon.png
+          } else {
+            throw 'ImageMagick is not available on the Windows runner; cannot generate the Windows icon.'
+          }
+          if (-not (Test-Path electron/build/icon.png) -or (Get-Item electron/build/icon.png).Length -lt 1000) { throw 'Windows icon PNG was not generated.' }
+          Write-Host 'Shared Icon.jpg converted to the Windows icon source.'
       - name: Install Electron dependencies
         working-directory: electron
         run: npm install
