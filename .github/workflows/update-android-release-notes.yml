@@ -8,6 +8,9 @@ on:
     types:
       - completed
   workflow_dispatch:
+  push:
+    paths:
+      - '.github/workflows/update-android-release-notes.yml'
 
 permissions:
   contents: write
@@ -15,7 +18,7 @@ permissions:
 
 jobs:
   update-release:
-    if: ${{ github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success' }}
+    if: ${{ github.event_name == 'workflow_dispatch' || github.event_name == 'push' || github.event.workflow_run.conclusion == 'success' }}
     runs-on: ubuntu-latest
     steps:
       - name: Update Android release metadata
@@ -75,20 +78,19 @@ jobs:
 
             release_id="$(printf '%s' "$release_json" | jq -r '.id')"
 
-            # Always calculate the integrity hash from the APK that is actually
-            # attached to the latest release. Never trust a stale release body.
+            # Calculate the hash from the actual APK attached to the release.
+            # This prevents stale/missing release-note hashes from breaking updates.
             tmp_dir="$(mktemp -d)"
-            trap 'rm -rf "$tmp_dir"' RETURN
             gh release download "$tag" --repo "$REPO" --pattern "$asset" --dir "$tmp_dir" --clobber
             apk_path="$tmp_dir/$asset"
             test -s "$apk_path" || { echo "Latest release APK was not downloaded: $asset"; exit 1; }
             apk_sha256="$(sha256sum "$apk_path" | awk '{print tolower($1)}')"
             test "${#apk_sha256}" -eq 64 || { echo "Invalid APK SHA-256 length"; exit 1; }
+            rm -rf "$tmp_dir"
 
             latest_change="$(gh api "repos/$REPO/commits/$run_sha" --jq '.commit.message' | head -n 1 | sed 's/^[[:space:]]*//; s/[[:space:]]*$//')"
             [ -n "$latest_change" ] || latest_change="Latest bug fixes and improvements."
-            # Keep the user-facing What's New section to ONE latest change only.
-            latest_change="$(printf '%s' "$latest_change" | sed 's/\\r//g; s/\\n/ /g' | head -c 300)"
+            latest_change="$(printf '%s' "$latest_change" | tr '\r\n' ' ' | sed 's/[[:space:]][[:space:]]*/ /g' | head -c 300)"
             [ -n "$latest_change" ] || latest_change="Latest bug fixes and improvements."
 
             body=$(cat <<EOF
