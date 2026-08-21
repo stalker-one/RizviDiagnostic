@@ -6,6 +6,7 @@ import android.media.AudioManager;
 import android.media.MediaPlayer;
 import android.os.Bundle;
 import android.view.Gravity;
+import android.view.PixelFormat;
 import android.view.Surface;
 import android.view.SurfaceHolder;
 import android.view.SurfaceView;
@@ -27,7 +28,6 @@ public class MainActivity extends BridgeActivity {
     private boolean startupShown;
     private boolean startupFinished;
     private boolean surfaceReady;
-    private boolean playerPrepared;
     private int videoWidth;
     private int videoHeight;
 
@@ -37,19 +37,15 @@ public class MainActivity extends BridgeActivity {
         registerPlugin(UpdatePlugin.class);
         registerPlugin(ExportPlugin.class);
         super.onCreate(savedInstanceState);
-        // Wait until Capacitor has attached its content view. This avoids a race
-        // where the startup overlay is created before the WebView hierarchy exists.
         getWindow().getDecorView().post(this::showStartupAnimation);
     }
 
     private void showStartupAnimation() {
         if (startupShown || isFinishing() || isDestroyed()) return;
         startupShown = true;
-
         try {
             Window window = getWindow();
-            window.setFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN,
-                    WindowManager.LayoutParams.FLAG_FULLSCREEN);
+            window.setFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN, WindowManager.LayoutParams.FLAG_FULLSCREEN);
             window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
             applyImmersiveFullscreen();
 
@@ -59,9 +55,6 @@ public class MainActivity extends BridgeActivity {
                 return;
             }
 
-            // Put the video on the window's decor root, above the Capacitor WebView.
-            // SurfaceView uses Android's native video rendering path and is much more
-            // reliable than TextureView for hardware-decoded MP4 on physical devices.
             startupRoot = new FrameLayout(this);
             startupRoot.setBackgroundColor(Color.BLACK);
             startupRoot.setClickable(true);
@@ -69,6 +62,12 @@ public class MainActivity extends BridgeActivity {
 
             startupVideo = new SurfaceView(this);
             startupVideo.setBackgroundColor(Color.BLACK);
+            // The SurfaceView is an overlay above the Capacitor WebView. Without an
+            // explicit Z order Android can render the audio/video decoder surface
+            // behind the WebView, producing exactly the symptom: sound works but the
+            // video is invisible.
+            startupVideo.setZOrderOnTop(true);
+            startupVideo.getHolder().setFormat(PixelFormat.OPAQUE);
             startupVideo.getHolder().addCallback(new SurfaceHolder.Callback() {
                 @Override
                 public void surfaceCreated(SurfaceHolder holder) {
@@ -104,8 +103,7 @@ public class MainActivity extends BridgeActivity {
                     ViewGroup.LayoutParams.MATCH_PARENT));
             startupRoot.bringToFront();
             startupRoot.requestFocus();
-
-            // Surface creation is asynchronous; the callback above starts playback.
+            startupVideo.bringToFront();
         } catch (Exception ignored) {
             finishStartupAnimation();
         }
@@ -113,7 +111,6 @@ public class MainActivity extends BridgeActivity {
 
     private void startStartupPlayerIfReady() {
         if (startupFinished || !surfaceReady || startupSurface == null || startupPlayer != null) return;
-
         try {
             startupPlayer = new MediaPlayer();
             startupPlayer.setAudioStreamType(AudioManager.STREAM_MUSIC);
@@ -125,7 +122,6 @@ public class MainActivity extends BridgeActivity {
                 finishStartupAnimation();
                 return;
             }
-
             try {
                 startupPlayer.setDataSource(afd.getFileDescriptor(), afd.getStartOffset(), afd.getLength());
             } finally {
@@ -134,7 +130,6 @@ public class MainActivity extends BridgeActivity {
 
             startupPlayer.setOnPreparedListener(player -> {
                 if (startupFinished) return;
-                playerPrepared = true;
                 videoWidth = player.getVideoWidth();
                 videoHeight = player.getVideoHeight();
                 applyVideoScale(startupVideo.getWidth(), startupVideo.getHeight());
@@ -142,7 +137,6 @@ public class MainActivity extends BridgeActivity {
                 player.setVolume(1f, 1f);
                 player.start();
             });
-
             startupPlayer.setOnCompletionListener(player -> finishStartupAnimation());
             startupPlayer.setOnErrorListener((player, what, extra) -> {
                 finishStartupAnimation();
@@ -154,21 +148,13 @@ public class MainActivity extends BridgeActivity {
         }
     }
 
-    /**
-     * Center-crop the video so the startup animation always fills the entire phone.
-     * SurfaceView is laid out full-screen and the video is scaled uniformly.
-     */
     private void applyVideoScale(int viewWidth, int viewHeight) {
         if (startupVideo == null || videoWidth <= 0 || videoHeight <= 0 || viewWidth <= 0 || viewHeight <= 0) return;
-
-        float scale = Math.max((float) viewWidth / videoWidth, (float) viewHeight / videoHeight);
-        float scaledWidth = videoWidth * scale;
-        float scaledHeight = videoHeight * scale;
-
-        // SurfaceView itself is already MATCH_PARENT. Scale the rendered surface
-        // around its center; this removes letterboxing while preserving the aspect ratio.
-        startupVideo.setScaleX(scaledWidth / viewWidth);
-        startupVideo.setScaleY(scaledHeight / viewHeight);
+        // Keep the SurfaceView itself full-screen. Scaling the SurfaceView with
+        // setScaleX/Y can move the hardware surface out of its visible buffer on
+        // some devices. Android's SurfaceView should stay MATCH_PARENT.
+        startupVideo.setScaleX(1f);
+        startupVideo.setScaleY(1f);
         startupVideo.setPivotX(viewWidth / 2f);
         startupVideo.setPivotY(viewHeight / 2f);
         startupVideo.requestLayout();
@@ -198,21 +184,18 @@ public class MainActivity extends BridgeActivity {
             }
         } catch (Exception ignored) { }
         startupPlayer = null;
-        playerPrepared = false;
     }
 
     private void finishStartupAnimation() {
         if (startupFinished) return;
         startupFinished = true;
         releasePlayerOnly();
-
         try {
             if (startupRoot != null) {
                 ViewGroup parent = (ViewGroup) startupRoot.getParent();
                 if (parent != null) parent.removeView(startupRoot);
             }
         } catch (Exception ignored) { }
-
         startupVideo = null;
         startupRoot = null;
         startupSurface = null;
