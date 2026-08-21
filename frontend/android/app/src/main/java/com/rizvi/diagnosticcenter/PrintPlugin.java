@@ -51,11 +51,12 @@ public class PrintPlugin extends Plugin {
                                     .setColorMode(PrintAttributes.COLOR_MODE_COLOR);
                             if (thermal) {
                                 int widthMils = narrow58 ? 2283 : 3150;
+                                int heightMils = 11693; // 297mm
                                 builder.setMediaSize(new PrintAttributes.MediaSize(
                                         narrow58 ? "THERMAL_58MM" : "THERMAL_80MM",
                                         narrow58 ? "58mm Thermal Receipt" : "80mm Thermal Receipt",
                                         widthMils,
-                                        20000
+                                        heightMils
                                 ));
                             } else {
                                 builder.setMediaSize(PrintAttributes.MediaSize.ISO_A4);
@@ -73,18 +74,20 @@ public class PrintPlugin extends Plugin {
     private String preparePrintHtml(String html, boolean thermal, boolean narrow58) {
         String css;
         if (thermal) {
-            String width = narrow58 ? "58mm" : "80mm";
+            String paperWidth = narrow58 ? "58mm" : "80mm";
+            String contentWidth = narrow58 ? "50mm" : "72mm";
             css = "<style id=\"android-thermal-print\">" +
-                    "@page{size:" + width + " auto;margin:0!important;}" +
-                    "html{width:100%!important;margin:0!important;padding:0!important;}" +
-                    "body{width:100%!important;min-width:0!important;max-width:none!important;margin:0!important;padding:0!important;display:flex!important;flex-direction:column!important;align-items:center!important;font-family:Arial,Helvetica,sans-serif!important;color:#000!important;background:#fff!important;overflow:visible!important;}" +
+                    "@page{size:" + paperWidth + " 297mm;margin:0!important;}" +
+                    "html{width:" + paperWidth + "!important;max-width:" + paperWidth + "!important;margin:0!important;padding:0!important;}" +
+                    "body{width:" + paperWidth + "!important;min-width:0!important;max-width:" + paperWidth + "!important;margin:0!important;padding:0!important;display:flex!important;flex-direction:column!important;align-items:center!important;font-family:Arial,Helvetica,sans-serif!important;color:#000!important;background:#fff!important;overflow:visible!important;}" +
                     "body>*{box-sizing:border-box!important;}" +
-                    "#printable-area{width:" + width + "!important;min-width:0!important;max-width:" + width + "!important;margin-left:auto!important;margin-right:auto!important;margin-top:0!important;margin-bottom:0!important;padding:0!important;align-self:center!important;justify-self:center!important;overflow:visible!important;border:0!important;box-shadow:none!important;}" +
-                    "#printable-area>div{width:100%!important;min-width:0!important;max-width:100%!important;margin-left:0!important;margin-right:0!important;box-sizing:border-box!important;box-shadow:none!important;border:0!important;overflow:visible!important;}" +
+                    "#printable-area{width:" + contentWidth + "!important;min-width:0!important;max-width:" + contentWidth + "!important;margin:0 auto!important;padding:0!important;align-self:center!important;overflow:visible!important;border:0!important;box-shadow:none!important;box-sizing:border-box!important;}" +
+                    "#printable-area>div{width:100%!important;min-width:0!important;max-width:100%!important;margin:0!important;box-sizing:border-box!important;overflow:visible!important;border:0!important;box-shadow:none!important;}" +
                     "table{width:100%!important;max-width:100%!important;min-width:0!important;border-collapse:collapse!important;table-layout:fixed!important;}" +
-                    "th,td{padding:2px 1px!important;vertical-align:top!important;overflow-wrap:anywhere!important;word-break:break-word!important;}" +
+                    "th,td{min-width:0!important;max-width:100%!important;padding:2px 1px!important;vertical-align:top!important;overflow-wrap:anywhere!important;word-break:break-word!important;white-space:normal!important;}" +
+                    "th:last-child,td:last-child{width:28%!important;text-align:right!important;white-space:nowrap!important;overflow-wrap:normal!important;word-break:normal!important;}" +
                     "img{display:block!important;max-width:100%!important;height:auto!important;margin-left:auto!important;margin-right:auto!important;}" +
-                    "h1,h2,h3,h4,p{margin-top:0!important;margin-bottom:4px!important;}" +
+                    "h1,h2,h3,h4,p{max-width:100%!important;overflow-wrap:anywhere!important;word-break:break-word!important;margin-top:0!important;margin-bottom:4px!important;}" +
                     ".no-print{display:none!important;}" +
                     "</style>";
         } else {
