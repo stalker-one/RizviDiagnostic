@@ -1,5 +1,10 @@
 package com.rizvi.diagnosticcenter;
 
+import android.Manifest;
+import android.app.NotificationChannel;
+import android.app.NotificationManager;
+import android.app.PendingIntent;
+import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.content.pm.PackageInfo;
@@ -8,12 +13,17 @@ import android.content.pm.Signature;
 import android.net.Uri;
 import android.os.Build;
 import android.provider.Settings;
+import androidx.core.app.NotificationCompat;
+import androidx.core.app.NotificationManagerCompat;
 import androidx.core.content.FileProvider;
 import com.getcapacitor.JSObject;
+import com.getcapacitor.PermissionState;
 import com.getcapacitor.Plugin;
 import com.getcapacitor.PluginCall;
 import com.getcapacitor.PluginMethod;
 import com.getcapacitor.annotation.CapacitorPlugin;
+import com.getcapacitor.annotation.Permission;
+import com.getcapacitor.annotation.PermissionCallback;
 import org.json.JSONArray;
 import org.json.JSONObject;
 import java.io.BufferedReader;
@@ -33,14 +43,76 @@ import java.util.concurrent.Executors;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-@CapacitorPlugin(name = "AndroidUpdate")
+@CapacitorPlugin(
+    name = "AndroidUpdate",
+    permissions = {
+        @Permission(strings = { Manifest.permission.POST_NOTIFICATIONS }, alias = "notifications")
+    }
+)
 public class UpdatePlugin extends Plugin {
     private static final String REPO = "stalker-one/RizviDiagnostic";
     private static final String MANIFEST_URL = "https://raw.githubusercontent.com/stalker-one/RizviDiagnostic/main/update-manifest-android.json";
     private static final String PREFS = "rizvi_android_update";
+    private static final String UPDATE_CHANNEL_ID = "rizvi_update_channel";
+    private static final int UPDATE_NOTIFICATION_ID = 2001;
     private final ExecutorService executor = Executors.newSingleThreadExecutor();
 
     @PluginMethod public void getVersion(PluginCall call){try{PackageInfo i=getContext().getPackageManager().getPackageInfo(getContext().getPackageName(),0);long c=Build.VERSION.SDK_INT>=Build.VERSION_CODES.P?i.getLongVersionCode():i.versionCode;JSObject r=new JSObject();r.put("versionCode",c);r.put("versionName",i.versionName==null?"":i.versionName);call.resolve(r);}catch(Exception e){call.reject("Unable to read installed Android app version: "+e.getMessage(),e);}}
+
+    // Posts a system notification (status bar / notification tray) telling
+    // the user a new update is available, so they see it even if the app is
+    // in the background or minimized -- not just the in-app modal, which
+    // only shows while the app is actually open.
+    @PluginMethod public void notifyUpdateAvailable(PluginCall call){
+        if(Build.VERSION.SDK_INT>=33&&getPermissionState("notifications")!=PermissionState.GRANTED){
+            requestPermissionForAlias("notifications",call,"notificationPermCallback");
+            return;
+        }
+        postUpdateNotification(call);
+    }
+
+    @PermissionCallback
+    private void notificationPermCallback(PluginCall call){
+        if(Build.VERSION.SDK_INT<33||getPermissionState("notifications")==PermissionState.GRANTED){
+            postUpdateNotification(call);
+        }else{
+            JSObject r=new JSObject();r.put("posted",false);r.put("permissionDenied",true);call.resolve(r);
+        }
+    }
+
+    private void postUpdateNotification(PluginCall call){
+        try{
+            String title=call.getString("title","Update available");
+            String message=call.getString("message","A new version is ready to install.");
+            NotificationManager nm=(NotificationManager)getContext().getSystemService(Context.NOTIFICATION_SERVICE);
+            if(Build.VERSION.SDK_INT>=Build.VERSION_CODES.O&&nm.getNotificationChannel(UPDATE_CHANNEL_ID)==null){
+                NotificationChannel channel=new NotificationChannel(UPDATE_CHANNEL_ID,"App updates",NotificationManager.IMPORTANCE_HIGH);
+                channel.setDescription("Notifies when a new app update is available to install.");
+                nm.createNotificationChannel(channel);
+            }
+            Intent launchIntent=getContext().getPackageManager().getLaunchIntentForPackage(getContext().getPackageName());
+            if(launchIntent==null)launchIntent=new Intent();
+            launchIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK|Intent.FLAG_ACTIVITY_CLEAR_TOP);
+            int piFlags=PendingIntent.FLAG_UPDATE_CURRENT|(Build.VERSION.SDK_INT>=Build.VERSION_CODES.M?PendingIntent.FLAG_IMMUTABLE:0);
+            PendingIntent pendingIntent=PendingIntent.getActivity(getContext(),0,launchIntent,piFlags);
+            NotificationCompat.Builder builder=new NotificationCompat.Builder(getContext(),UPDATE_CHANNEL_ID)
+                .setSmallIcon(R.drawable.ic_stat_update)
+                .setContentTitle(title)
+                .setContentText(message)
+                .setStyle(new NotificationCompat.BigTextStyle().bigText(message))
+                .setPriority(NotificationCompat.PRIORITY_HIGH)
+                .setAutoCancel(true)
+                .setContentIntent(pendingIntent);
+            // Fixed notification ID so a later, newer update replaces this
+            // one instead of stacking duplicate notifications.
+            NotificationManagerCompat.from(getContext()).notify(UPDATE_NOTIFICATION_ID,builder.build());
+            JSObject r=new JSObject();r.put("posted",true);call.resolve(r);
+        }catch(SecurityException se){
+            JSObject r=new JSObject();r.put("posted",false);r.put("permissionDenied",true);call.resolve(r);
+        }catch(Exception e){
+            call.reject("Unable to show update notification: "+e.getMessage(),e);
+        }
+    }
 
     @PluginMethod public void checkForUpdate(PluginCall call){executor.execute(()->{try{PackageInfo installed=getContext().getPackageManager().getPackageInfo(getContext().getPackageName(),0);long installedCode=Build.VERSION.SDK_INT>=Build.VERSION_CODES.P?installed.getLongVersionCode():installed.versionCode;String pkg=installed.packageName;JSONObject release=fetchRelease(releaseTag(pkg));JSONObject apk=findBestApk(release.optJSONArray("assets"),apkName(pkg));JSObject r=new JSObject();r.put("available",false);r.put("installedVersionCode",installedCode);r.put("installedVersionName",installed.versionName==null?"":installed.versionName);r.put("packageName",pkg);r.put("tag",releaseTag(pkg));r.put("releaseName",release.optString("name",releaseTag(pkg)));String body=release.optString("body","");body=body.replace("\\r\\n","\n").replace("\\r","").replace("\\n","\n");r.put("releaseNotes",cleanReleaseNotes(body));if(apk==null){call.resolve(r);return;}long remote=extractNumber(body,"Version code\\s*:\\s*(\\d+)");if(remote<=0)remote=extractNumber(body,"Version\\s*(?:Code|Build)\\s*[:=]\\s*(\\d+)");if(remote<=0)remote=extractNumber(apk.optString("name",""),"(?:-|_)(\\d+)(?:-|_)[0-9a-f]{7,40}\\.apk$");if(remote<=0)remote=extractNumber(apk.optString("name",""),"(?:-|_)(\\d+)\\.apk$");if(remote<=0){call.resolve(r);return;}if(remote<=installedCode){call.resolve(r);return;}String vn=extractText(body,"Version name\\s*:\\s*([^\\r\\n]+)");r.put("available",true);r.put("versionCode",remote);r.put("versionName",vn.isEmpty()?"1.0."+remote:vn);r.put("url",apk.optString("browser_download_url",""));r.put("sha256",extractSha256(body));long size=apk.optLong("size",0);r.put("sizeBytes",size);r.put("sizeMB",Math.round((size/1024d/1024d)*10d)/10d);r.put("commit",extractText(body,"commit\\s+([0-9a-f]{7,40})"));call.resolve(r);}catch(Exception e){JSObject r=new JSObject();try{PackageInfo installed=getContext().getPackageManager().getPackageInfo(getContext().getPackageName(),0);r.put("installedVersionCode",Build.VERSION.SDK_INT>=Build.VERSION_CODES.P?installed.getLongVersionCode():installed.versionCode);r.put("installedVersionName",installed.versionName==null?"":installed.versionName);}catch(Exception ignored){}r.put("available",false);r.put("offline",true);call.resolve(r);}});}
 
