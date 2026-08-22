@@ -1,27 +1,33 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState, Suspense, lazy } from 'react';
 import { Routes, Route, Navigate, useLocation, useNavigate } from 'react-router-dom';
 import { Capacitor, registerPlugin } from '@capacitor/core';
 import ProtectedRoute from './components/ProtectedRoute.jsx';
 import SiteLockGate from './components/SiteLockGate.jsx';
+import PageLoader from './components/PageLoader.jsx';
 import api from './api/axios';
-import Login from './pages/Login.jsx';
-import AdminLogin from './pages/AdminLogin.jsx';
-import Home from './pages/Home.jsx';
-import Dashboard from './pages/Dashboard.jsx';
-import Patients from './pages/Patients.jsx';
-import PatientDetail from './pages/PatientDetail.jsx';
-import CreateInvoice from './pages/CreateInvoice.jsx';
-import Invoices from './pages/Invoices.jsx';
-import InvoicePrint from './pages/InvoicePrint.jsx';
-import RadiologyReports from './pages/RadiologyReports.jsx';
-import Analytics from './pages/Analytics.jsx';
-import Referrals from './pages/Referrals.jsx';
-import Doctors from './pages/Doctors.jsx';
-import Procedures from './pages/Procedures.jsx';
-import Users from './pages/Users.jsx';
-import Settings from './pages/Settings.jsx';
-import Profile from './pages/Profile.jsx';
-import SiteControl from './pages/SiteControl.jsx';
+// Every page used to be imported eagerly here, so visiting any single page
+// (even the login screen) downloaded the JS for the entire app in one
+// ~1.2MB bundle. Lazy-loading each page means the browser only fetches the
+// code for the page actually being visited; Suspense (wrapped around the
+// <Routes> below) shows PageLoader while a chunk is fetched.
+const Login = lazy(() => import('./pages/Login.jsx'));
+const AdminLogin = lazy(() => import('./pages/AdminLogin.jsx'));
+const Home = lazy(() => import('./pages/Home.jsx'));
+const Dashboard = lazy(() => import('./pages/Dashboard.jsx'));
+const Patients = lazy(() => import('./pages/Patients.jsx'));
+const PatientDetail = lazy(() => import('./pages/PatientDetail.jsx'));
+const CreateInvoice = lazy(() => import('./pages/CreateInvoice.jsx'));
+const Invoices = lazy(() => import('./pages/Invoices.jsx'));
+const InvoicePrint = lazy(() => import('./pages/InvoicePrint.jsx'));
+const RadiologyReports = lazy(() => import('./pages/RadiologyReports.jsx'));
+const Analytics = lazy(() => import('./pages/Analytics.jsx'));
+const Referrals = lazy(() => import('./pages/Referrals.jsx'));
+const Doctors = lazy(() => import('./pages/Doctors.jsx'));
+const Procedures = lazy(() => import('./pages/Procedures.jsx'));
+const Users = lazy(() => import('./pages/Users.jsx'));
+const Settings = lazy(() => import('./pages/Settings.jsx'));
+const Profile = lazy(() => import('./pages/Profile.jsx'));
+const SiteControl = lazy(() => import('./pages/SiteControl.jsx'));
 
 const REALTIME_INTERVAL_MS = 1500;
 const ANDROID_UPDATE_INTERVAL_MS = 5 * 60 * 1000;
@@ -162,5 +168,5 @@ export default function App(){
  const installAndroidUpdate=async()=>{if(!androidUpdate?.url||androidUpdateBusy)return;setAndroidUpdateBusy(true);setAndroidUpdateError('');setAndroidUpdateProgress({percent:0,downloadedBytes:0,totalBytes:androidUpdate.sizeBytes||0});try{await AndroidUpdate.installApk({url:androidUpdate.url});}catch(error){setAndroidUpdateError(error?.message||'Unable to start the Android update. Please allow installation and try again.');}finally{setAndroidUpdateBusy(false);}};
  const protectedRoutes=<><Route path="/dashboard" element={<ProtectedRoute><Dashboard/></ProtectedRoute>}/><Route path="/patients" element={<ProtectedRoute><Patients/></ProtectedRoute>}/><Route path="/patients/:id" element={<ProtectedRoute><PatientDetail/></ProtectedRoute>}/><Route path="/invoices/create" element={<ProtectedRoute><CreateInvoice/></ProtectedRoute>}/><Route path="/invoices" element={<ProtectedRoute><Invoices/></ProtectedRoute>}/><Route path="/invoices/:id/print" element={<ProtectedRoute><InvoicePrint/></ProtectedRoute>}/><Route path="/radiology-reports" element={<ProtectedRoute><RadiologyReports/></ProtectedRoute>}/><Route path="/analytics" element={<ProtectedRoute><Analytics/></ProtectedRoute>}/><Route path="/referrals" element={<ProtectedRoute><Referrals/></ProtectedRoute>}/><Route path="/doctors" element={<ProtectedRoute><Doctors/></ProtectedRoute>}/><Route path="/procedures" element={<ProtectedRoute><Procedures/></ProtectedRoute>}/><Route path="/users" element={<ProtectedRoute adminOnly><Users/></ProtectedRoute>}/><Route path="/settings" element={<ProtectedRoute adminOnly><Settings/></ProtectedRoute>}/><Route path="/site-control" element={<ProtectedRoute superadminOnly><SiteControl/></ProtectedRoute>}/><Route path="/profile" element={<ProtectedRoute><Profile/></ProtectedRoute>}/></>;
  const routes=IS_SUPERADMIN_APP?<Routes><Route path="/adminlogin" element={<AdminLogin/>}/>{protectedRoutes}<Route path="*" element={<Navigate to="/dashboard" replace/>}/></Routes>:<Routes><Route path="/" element={<StaffEntryRoute/>}/><Route path="/login" element={<Login/>}/><Route path="/adminlogin" element={<AdminLogin/>}/>{protectedRoutes}<Route path="*" element={<Navigate to="/" replace/>}/></Routes>;
- return <><style>{'@keyframes spin{to{transform:rotate(360deg)}}@keyframes pulse{0%,100%{opacity:.35;transform:scale(.85)}50%{opacity:1;transform:scale(1)}}'}</style><SiteLockGate/>{IS_SUPERADMIN_APP&&<SuperadminGuard/>}<div key={refreshKey} className="contents">{routes}</div><AndroidUpdateModal update={androidUpdate} checking={androidUpdateChecking} busy={androidUpdateBusy} error={androidUpdateError} progress={androidUpdateProgress} onUpdate={installAndroidUpdate} onClose={closeAndroidUpdate} onRetry={()=>retryCheckRef.current?.()}/></>;
+ return <><style>{'@keyframes spin{to{transform:rotate(360deg)}}@keyframes pulse{0%,100%{opacity:.35;transform:scale(.85)}50%{opacity:1;transform:scale(1)}}'}</style><SiteLockGate/>{IS_SUPERADMIN_APP&&<SuperadminGuard/>}<div key={refreshKey} className="contents"><Suspense fallback={<PageLoader fullScreen message="Loading page..."/>}>{routes}</Suspense></div><AndroidUpdateModal update={androidUpdate} checking={androidUpdateChecking} busy={androidUpdateBusy} error={androidUpdateError} progress={androidUpdateProgress} onUpdate={installAndroidUpdate} onClose={closeAndroidUpdate} onRetry={()=>retryCheckRef.current?.()}/></>;
 }
