@@ -10,12 +10,12 @@
   },
   "superadmin": {
     "tag": "android-superadmin-latest",
-    "versionCode": 132,
-    "versionName": "1.0.132",
+    "versionCode": 133,
+    "versionName": "1.0.133",
     "apkUrl": "https://github.com/stalker-one/RizviDiagnostic/releases/download/android-superadmin-latest/RizviDiagnosticSuperadmin-latest.apk",
-    "sha256": "848090882dcb025f84de8b56d8451cc872d489b60d1acec04ad0148f8efd8764",
-    "sizeBytes": 4844787,
-    "releaseNotes": "Latest update from the current release."
+    "sha256": "2ea020401dbd8e402039800a211f2d7e1622ef8fbe8d1f4d6796e32759c7b862",
+    "sizeBytes": 4844411,
+    "releaseNotes": "- Show real code changes in Android What's New instead of placeholder text\n- Code-split page routes to speed up initial page load\n- Modernize PageLoader design (used by Superadmin Control and other pages)\n- Fix broken LATEST version chip text in Android update modal\n- Improve update-check loader design\n- Modernize Android Update Required modal design\n- Reduce realtime update check latency\n- Fix realtime Android update checks and GitHub 403 handling\n- Sanitize Android update What's New metadata\n- Trigger Android rebuild with fixed update metadata\n- Fix Android update modal close and latest-only What's New\n- Remove accidental placeholder resource"
   },
   "updatedAt": "568df2c44f634bac810d0f0df9defef43a31b769"
 }
