@@ -26,6 +26,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
       - name: Use uploaded Superadmin startup video
         shell: bash
         run: |
@@ -117,6 +119,40 @@ jobs:
           APK="frontend/android/app/build/outputs/apk/superadmin/release/app-superadmin-release.apk"
           echo "APK_SHA256=$(sha256sum "$APK" | awk '{print $1}')" >> "$GITHUB_ENV"
           echo "APK_SIZE=$(stat -c '%s' "$APK")" >> "$GITHUB_ENV"
+      - name: Generate changelog since last release
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin 'refs/tags/android-superadmin-latest:refs/tags/android-superadmin-latest' 2>/dev/null || true
+          PREV_SHA="$(git rev-list -n1 android-superadmin-latest 2>/dev/null || true)"
+          if [ -n "$PREV_SHA" ] && git cat-file -e "${PREV_SHA}^{commit}" 2>/dev/null; then
+            RANGE="${PREV_SHA}..HEAD"
+          else
+            RANGE="HEAD"
+          fi
+          mapfile -t CHANGES < <(
+            git log $RANGE --no-merges --pretty=format:'%s' -- frontend/ \
+              | grep -viE '^(Update (Staff|Superadmin) Android update manifest)' \
+              | awk '!seen[$0]++' \
+              | head -n 12
+          )
+          if [ ${#CHANGES[@]} -eq 0 ]; then
+            CHANGES=("General improvements and bug fixes.")
+          fi
+          : > whats-new.md
+          for line in "${CHANGES[@]}"; do
+            echo "- $line" >> whats-new.md
+          done
+          {
+            echo "## What's New"
+            cat whats-new.md
+            echo
+            echo "## Build information"
+            echo "Version code: ${{ github.run_number }}"
+            echo "Version name: 1.0.${{ github.run_number }}"
+            echo "APK SHA-256: ${APK_SHA256}"
+            echo "APK size: ${APK_SIZE} bytes"
+          } > release-notes.md
       - name: Upload Superadmin APK
         uses: actions/upload-artifact@v4
         with:
@@ -129,15 +165,7 @@ jobs:
         with:
           tag_name: android-superadmin-latest
           name: Rizvi Diagnostic Center Superadmin ${{ github.run_number }}
-          body: |
-            ## What's New
-            - Latest update from the current release.
-
-            ## Build information
-            Version code: ${{ github.run_number }}
-            Version name: 1.0.${{ github.run_number }}
-            APK SHA-256: ${{ env.APK_SHA256 }}
-            APK size: ${{ env.APK_SIZE }} bytes
+          body_path: release-notes.md
           files: frontend/android/dist-superadmin/RizviDiagnosticSuperadmin-latest.apk
           prerelease: true
           make_latest: false
@@ -152,7 +180,7 @@ jobs:
           git reset --hard origin/main
           if [ ! -s update-manifest-android.json ]; then echo '{"staff":{},"superadmin":{}}' > update-manifest-android.json; fi
           tmp="$(mktemp)"
-          jq --argjson code "${{ github.run_number }}" --arg version "1.0.${{ github.run_number }}" --arg hash "$APK_SHA256" --argjson size "$APK_SIZE" '.superadmin={tag:"android-superadmin-latest",versionCode:$code,versionName:$version,apkUrl:"https://github.com/stalker-one/RizviDiagnostic/releases/download/android-superadmin-latest/RizviDiagnosticSuperadmin-latest.apk",sha256:$hash,sizeBytes:$size,releaseNotes:"Latest update from the current release."} | .updatedAt="${{ github.sha }}"' update-manifest-android.json > "$tmp"
+          jq --argjson code "${{ github.run_number }}" --arg version "1.0.${{ github.run_number }}" --arg hash "$APK_SHA256" --argjson size "$APK_SIZE" --rawfile notes whats-new.md '.superadmin={tag:"android-superadmin-latest",versionCode:$code,versionName:$version,apkUrl:"https://github.com/stalker-one/RizviDiagnostic/releases/download/android-superadmin-latest/RizviDiagnosticSuperadmin-latest.apk",sha256:$hash,sizeBytes:$size,releaseNotes:($notes|rtrimstr("\n"))} | .updatedAt="${{ github.sha }}"' update-manifest-android.json > "$tmp"
           mv "$tmp" update-manifest-android.json
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"

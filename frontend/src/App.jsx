@@ -48,14 +48,15 @@ function cleanReleaseNotes(notes){
  let start=-1;
  for(let i=0;i<lines.length;i++){if(versionHeading.test(lines[i])||datedHeading.test(lines[i])){start=i;break;}}
  const current=start>=0?lines.slice(start+1):lines;
+ const changes=[];
  for(const line of current){
   if(/^#?\s*(build information|technical information|release information|installation|assets?)\b/i.test(line))break;
   if(/^(package|version code|version name|commit|release-signed apk|automatically rebuilt|release-signed|sha|workflow|github|artifact|download|full changelog)\b/i.test(line))continue;
   if(/^#\s*(what'?s new|changes?|release notes?)\s*$/i.test(line))continue;
   const clean=line.replace(/^[-*•]\s*/,'').replace(/^\d+[.)]\s*/,'').trim();
-  if(clean)return [clean];
+  if(clean)changes.push(clean);
  }
- return ['Latest update: bug fixes and improvements.'];
+ return changes.length?changes:['Latest update: bug fixes and improvements.'];
 }
 
 function AndroidUpdateModal({update,checking,onUpdate,onClose,busy,error,onRetry,progress}){
