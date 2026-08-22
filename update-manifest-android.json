@@ -1,12 +1,12 @@
 {
   "staff": {
     "tag": "android-latest",
-    "versionCode": 202,
-    "versionName": "1.0.202",
+    "versionCode": 203,
+    "versionName": "1.0.203",
     "apkUrl": "https://github.com/stalker-one/RizviDiagnostic/releases/download/android-latest/RizviDiagnosticCenter-latest.apk",
-    "sha256": "a63edff0ea2309b42be1176679aeb7115438b7132bfa6b787c3abbbcd6f4cfe1",
-    "sizeBytes": 4844675,
-    "releaseNotes": "Latest update from the current release."
+    "sha256": "f64512a340a8d6eb9d6518f9136b83133d7b425e9b9184e441ade3246d485c31",
+    "sizeBytes": 4844915,
+    "releaseNotes": "- Show real code changes in Android What's New instead of placeholder text\n- Code-split page routes to speed up initial page load\n- Modernize PageLoader design (used by Superadmin Control and other pages)\n- Fix broken LATEST version chip text in Android update modal\n- Improve update-check loader design\n- Modernize Android Update Required modal design\n- Reduce realtime update check latency\n- Fix realtime Android update checks and GitHub 403 handling\n- Sanitize Android update What's New metadata\n- Trigger Android rebuild with fixed update metadata\n- Fix Android update modal close and latest-only What's New\n- Remove accidental placeholder resource"
   },
   "superadmin": {
     "tag": "android-superadmin-latest",
@@ -17,5 +17,5 @@
     "sizeBytes": 4844787,
     "releaseNotes": "Latest update from the current release."
   },
-  "updatedAt": "2c2500f05a66e8837e71745309023de6b6704aef"
+  "updatedAt": "568df2c44f634bac810d0f0df9defef43a31b769"
 }
