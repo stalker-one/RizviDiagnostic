@@ -63,10 +63,20 @@ function AndroidUpdateModal({update,checking,onUpdate,onClose,busy,error,onRetry
  const closeBtn=(top)=><button type="button" aria-label="Close" title="Close" onClick={close} disabled={busy} style={{position:'absolute',top,right:16,width:34,height:34,border:0,borderRadius:'50%',background:'rgba(255,255,255,.18)',color:'#fff',fontSize:20,lineHeight:1,cursor:busy?'not-allowed':'pointer',display:'flex',alignItems:'center',justifyContent:'center',opacity:busy?.5:1}}>×</button>;
  return <div style={overlay}>
   <div style={card}>
-   {checking?<div style={{padding:36,textAlign:'center',margin:'auto'}}>
-     <div style={{width:52,height:52,borderRadius:'50%',border:'4px solid #e2e8f0',borderTopColor:'#4f46e5',margin:'0 auto 18px',animation:'spin .9s linear infinite'}}/>
-     <h2 style={{margin:'0 0 6px',fontSize:20,fontWeight:800,color:'#0f172a'}}>Checking for updates</h2>
-     <p style={{margin:0,color:'#64748b',fontSize:14}}>Looking up the latest {appName} release…</p>
+   {checking?<div style={{flex:1,display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',padding:'44px 32px',textAlign:'center'}}>
+     <div style={{position:'relative',width:76,height:76,marginBottom:22}}>
+      <div style={{position:'absolute',inset:0,borderRadius:'50%',background:'conic-gradient(from 0deg,#4f46e5,#0891b2,#4f46e5)',animation:'spin 1.1s linear infinite',WebkitMask:'radial-gradient(farthest-side,transparent calc(100% - 5px),#000 calc(100% - 5px))',mask:'radial-gradient(farthest-side,transparent calc(100% - 5px),#000 calc(100% - 5px))'}}/>
+      <div style={{position:'absolute',inset:8,borderRadius:'50%',background:'#fff',boxShadow:'0 2px 8px rgba(15,23,42,.08)',display:'flex',alignItems:'center',justifyContent:'center'}}>
+       <svg width="26" height="26" viewBox="0 0 24 24" fill="none"><path d="M12 4v11m0 0 4-4m-4 4-4-4" stroke="#4f46e5" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"/><path d="M5 19h14" stroke="#4f46e5" strokeWidth="2.2" strokeLinecap="round"/></svg>
+      </div>
+     </div>
+     <h2 style={{margin:'0 0 6px',fontSize:19,fontWeight:800,color:'#0f172a'}}>Checking for updates</h2>
+     <p style={{margin:'0 0 16px',color:'#64748b',fontSize:13.5}}>Looking up the latest {appName} release…</p>
+     <div style={{display:'flex',gap:6}}>
+      <span style={{width:7,height:7,borderRadius:'50%',background:'#4f46e5',animation:'pulse 1s ease-in-out infinite',animationDelay:'0s'}}/>
+      <span style={{width:7,height:7,borderRadius:'50%',background:'#4f46e5',animation:'pulse 1s ease-in-out infinite',animationDelay:'.15s'}}/>
+      <span style={{width:7,height:7,borderRadius:'50%',background:'#4f46e5',animation:'pulse 1s ease-in-out infinite',animationDelay:'.3s'}}/>
+     </div>
    </div>
    :update?<>
     <div style={{position:'relative',flex:'0 0 auto',padding:'28px 24px 22px',background:'linear-gradient(140deg,#4338ca,#4f46e5 45%,#0891b2)'}}>
@@ -152,5 +162,5 @@ export default function App(){
  const installAndroidUpdate=async()=>{if(!androidUpdate?.url||androidUpdateBusy)return;setAndroidUpdateBusy(true);setAndroidUpdateError('');setAndroidUpdateProgress({percent:0,downloadedBytes:0,totalBytes:androidUpdate.sizeBytes||0});try{await AndroidUpdate.installApk({url:androidUpdate.url});}catch(error){setAndroidUpdateError(error?.message||'Unable to start the Android update. Please allow installation and try again.');}finally{setAndroidUpdateBusy(false);}};
  const protectedRoutes=<><Route path="/dashboard" element={<ProtectedRoute><Dashboard/></ProtectedRoute>}/><Route path="/patients" element={<ProtectedRoute><Patients/></ProtectedRoute>}/><Route path="/patients/:id" element={<ProtectedRoute><PatientDetail/></ProtectedRoute>}/><Route path="/invoices/create" element={<ProtectedRoute><CreateInvoice/></ProtectedRoute>}/><Route path="/invoices" element={<ProtectedRoute><Invoices/></ProtectedRoute>}/><Route path="/invoices/:id/print" element={<ProtectedRoute><InvoicePrint/></ProtectedRoute>}/><Route path="/radiology-reports" element={<ProtectedRoute><RadiologyReports/></ProtectedRoute>}/><Route path="/analytics" element={<ProtectedRoute><Analytics/></ProtectedRoute>}/><Route path="/referrals" element={<ProtectedRoute><Referrals/></ProtectedRoute>}/><Route path="/doctors" element={<ProtectedRoute><Doctors/></ProtectedRoute>}/><Route path="/procedures" element={<ProtectedRoute><Procedures/></ProtectedRoute>}/><Route path="/users" element={<ProtectedRoute adminOnly><Users/></ProtectedRoute>}/><Route path="/settings" element={<ProtectedRoute adminOnly><Settings/></ProtectedRoute>}/><Route path="/site-control" element={<ProtectedRoute superadminOnly><SiteControl/></ProtectedRoute>}/><Route path="/profile" element={<ProtectedRoute><Profile/></ProtectedRoute>}/></>;
  const routes=IS_SUPERADMIN_APP?<Routes><Route path="/adminlogin" element={<AdminLogin/>}/>{protectedRoutes}<Route path="*" element={<Navigate to="/dashboard" replace/>}/></Routes>:<Routes><Route path="/" element={<StaffEntryRoute/>}/><Route path="/login" element={<Login/>}/><Route path="/adminlogin" element={<AdminLogin/>}/>{protectedRoutes}<Route path="*" element={<Navigate to="/" replace/>}/></Routes>;
- return <><style>{'@keyframes spin{to{transform:rotate(360deg)}}'}</style><SiteLockGate/>{IS_SUPERADMIN_APP&&<SuperadminGuard/>}<div key={refreshKey} className="contents">{routes}</div><AndroidUpdateModal update={androidUpdate} checking={androidUpdateChecking} busy={androidUpdateBusy} error={androidUpdateError} progress={androidUpdateProgress} onUpdate={installAndroidUpdate} onClose={closeAndroidUpdate} onRetry={()=>retryCheckRef.current?.()}/></>;
+ return <><style>{'@keyframes spin{to{transform:rotate(360deg)}}@keyframes pulse{0%,100%{opacity:.35;transform:scale(.85)}50%{opacity:1;transform:scale(1)}}'}</style><SiteLockGate/>{IS_SUPERADMIN_APP&&<SuperadminGuard/>}<div key={refreshKey} className="contents">{routes}</div><AndroidUpdateModal update={androidUpdate} checking={androidUpdateChecking} busy={androidUpdateBusy} error={androidUpdateError} progress={androidUpdateProgress} onUpdate={installAndroidUpdate} onClose={closeAndroidUpdate} onRetry={()=>retryCheckRef.current?.()}/></>;
 }
