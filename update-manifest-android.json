@@ -10,11 +10,11 @@
   },
   "superadmin": {
     "tag": "android-superadmin-latest",
-    "versionCode": 129,
-    "versionName": "1.0.129",
+    "versionCode": 130,
+    "versionName": "1.0.130",
     "apkUrl": "https://github.com/stalker-one/RizviDiagnostic/releases/download/android-superadmin-latest/RizviDiagnosticSuperadmin-latest.apk",
-    "sha256": "4a0e8cff670f990edd731cf113bb960351d92a9b10db661c38521d5fd27a9e60",
-    "sizeBytes": 4802475,
+    "sha256": "0d0394bf90aef59719739203a2a321552dce1637c64e6ca696e7a11319480143",
+    "sizeBytes": 4802563,
     "releaseNotes": "Latest update from the current release."
   },
   "updatedAt": "27de41b7936853bb2be229e49a40d1f91585c319"
