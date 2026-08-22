@@ -1,11 +1,11 @@
 {
   "staff": {
     "tag": "android-latest",
-    "versionCode": 201,
-    "versionName": "1.0.201",
+    "versionCode": 202,
+    "versionName": "1.0.202",
     "apkUrl": "https://github.com/stalker-one/RizviDiagnostic/releases/download/android-latest/RizviDiagnosticCenter-latest.apk",
-    "sha256": "a2d70a468feebb039f891aada6dcad58db41713fdeaa5c8b34582962d5bdd7b5",
-    "sizeBytes": 4812987,
+    "sha256": "a63edff0ea2309b42be1176679aeb7115438b7132bfa6b787c3abbbcd6f4cfe1",
+    "sizeBytes": 4844675,
     "releaseNotes": "Latest update from the current release."
   },
   "superadmin": {
