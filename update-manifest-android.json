@@ -1,12 +1,12 @@
 {
   "staff": {
     "tag": "android-latest",
-    "versionCode": 225,
-    "versionName": "1.0.225",
+    "versionCode": 226,
+    "versionName": "1.0.226",
     "apkUrl": "https://github.com/stalker-one/RizviDiagnostic/releases/download/android-latest/RizviDiagnosticCenter-latest.apk",
-    "sha256": "b0c1c4712dd1d2e5d88461ad4735b417b3c1441e4adc1f2c5e0512998943ad13",
+    "sha256": "85d96b07c691e069fd05ca496944fd75898f895152a5501c2b0efe207737f799",
     "sizeBytes": 6457450,
-    "releaseNotes": "- Fix notification deep-link intent construction"
+    "releaseNotes": "- Fix Android FCM deep-link delivery by using data-only messages\n- Fix notification deep-link intent construction\n- Deep-link patient and invoice notifications to exact records\n- Register Android notification deep-link activity\n- Add Android notification deep-link activity\n- Fix Android notification center build and trigger both APK workflows\n- Store notification type and entity for Android notification center\n- Register Android notification center activity\n- Add Android notification center and preferences\n- Add Android notification history and preferences\n- Complete FCM diagnostic sender integration\n- Fix FCM OAuth delivery without Firebase Admin credential URL error"
   },
   "superadmin": {
     "tag": "android-superadmin-latest",
