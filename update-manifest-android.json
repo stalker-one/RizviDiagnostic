@@ -1,12 +1,12 @@
 {
   "staff": {
     "tag": "android-latest",
-    "versionCode": 205,
-    "versionName": "1.0.205",
+    "versionCode": 206,
+    "versionName": "1.0.206",
     "apkUrl": "https://github.com/stalker-one/RizviDiagnostic/releases/download/android-latest/RizviDiagnosticCenter-latest.apk",
-    "sha256": "daaeb7e91ab30c33c35fcd2a036ee807b5dbec7d28d5d2ec92938b4a47e3c33f",
-    "sizeBytes": 4846347,
-    "releaseNotes": "- Restore developer credit in Android update modal (both apps)\n- Show a system notification when a new Android update is available\n- Show real code changes in Android What's New instead of placeholder text\n- Code-split page routes to speed up initial page load\n- Modernize PageLoader design (used by Superadmin Control and other pages)\n- Fix broken LATEST version chip text in Android update modal\n- Improve update-check loader design\n- Modernize Android Update Required modal design\n- Reduce realtime update check latency\n- Fix realtime Android update checks and GitHub 403 handling\n- Sanitize Android update What's New metadata\n- Trigger Android rebuild with fixed update metadata"
+    "sha256": "a996ea72ce25aba7e149399924c710346c817a06e669eff9a40e79a4c0b0b0bd",
+    "sizeBytes": 5169776,
+    "releaseNotes": "- Show update notification without opening the app; reduce Play Protect confusion\n- Restore developer credit in Android update modal (both apps)\n- Show a system notification when a new Android update is available\n- Show real code changes in Android What's New instead of placeholder text\n- Code-split page routes to speed up initial page load\n- Modernize PageLoader design (used by Superadmin Control and other pages)\n- Fix broken LATEST version chip text in Android update modal\n- Improve update-check loader design\n- Modernize Android Update Required modal design\n- Reduce realtime update check latency\n- Fix realtime Android update checks and GitHub 403 handling\n- Sanitize Android update What's New metadata"
   },
   "superadmin": {
     "tag": "android-superadmin-latest",
@@ -17,5 +17,5 @@
     "sizeBytes": 4846467,
     "releaseNotes": "- Restore developer credit in Android update modal (both apps)\n- Show a system notification when a new Android update is available\n- Show real code changes in Android What's New instead of placeholder text\n- Code-split page routes to speed up initial page load\n- Modernize PageLoader design (used by Superadmin Control and other pages)\n- Fix broken LATEST version chip text in Android update modal\n- Improve update-check loader design\n- Modernize Android Update Required modal design\n- Reduce realtime update check latency\n- Fix realtime Android update checks and GitHub 403 handling\n- Sanitize Android update What's New metadata\n- Trigger Android rebuild with fixed update metadata"
   },
-  "updatedAt": "0287f44f9a153bd16bfdd2dda384ce82843dead0"
+  "updatedAt": "ed2b3e34c5b9942df08090fc054e7fcb6eeaba2c"
 }
