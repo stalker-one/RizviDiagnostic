@@ -1,0 +1,48 @@
+{
+  "project_info": {
+    "project_number": "762400287018",
+    "project_id": "rizvi-diagnostic-center",
+    "storage_bucket": "rizvi-diagnostic-center.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:762400287018:android:e7d3590317e81f233d1653",
+        "android_client_info": {
+          "package_name": "com.rizvi.diagnosticcenter"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCnSP0U5HygtunBjs20XJNTMYYea6tyKok"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:762400287018:android:99fa8df6ea506a223d1653",
+        "android_client_info": {
+          "package_name": "com.rizvi.diagnosticcenter.superadmin"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCnSP0U5HygtunBjs20XJNTMYYea6tyKok"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

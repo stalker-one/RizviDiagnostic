@@ -2,6 +2,7 @@ const express = require('express');
 const { readTable, writeTable, generateId, clinicYearMonth, getDepartments, applyDateRange, applyStaffEntryLimit, staffLimitInfo, paginate } = require('../db');
 const { authenticate, requireRole } = require('../middleware/auth');
 const { getFreshTable } = require('../mongo-table');
+const { sendPushToAll } = require('../services/push.service');
 
 const router = express.Router();
 router.use(authenticate);
@@ -90,6 +91,7 @@ router.post('/', (req, res) => {
   else if (doctorId) { const doctor = readTable('doctors').find((d) => d.id === doctorId); doctorName = doctor?.name || ''; }
   const newPatient = { id: generateId('pat'), name, gender, age: age || '', phone: phone || '', address: address || '', guardianName: guardianName || '', referredBy: referredById, referredByName, department: department || '', doctorId: doctorIdToSave, doctorName, mrNumber: generateMR(), createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(), createdBy: req.user.id, createdByName: req.user.name };
   patients.push(newPatient); writeTable('patients', patients); res.status(201).json(newPatient);
+  sendPushToAll('Patient created', `${newPatient.name} was added as a new patient.`, { type: 'patient_created', patientId: newPatient.id }).catch(() => {});
 });
 
 router.put('/:id', (req, res) => {

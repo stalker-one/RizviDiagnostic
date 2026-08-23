@@ -17,6 +17,7 @@ import com.getcapacitor.PluginMethod;
 import com.getcapacitor.annotation.CapacitorPlugin;
 import com.getcapacitor.annotation.Permission;
 import com.getcapacitor.annotation.PermissionCallback;
+import com.google.firebase.messaging.FirebaseMessaging;
 import org.json.JSONObject;
 import java.io.File;
 import java.io.FileInputStream;
@@ -93,6 +94,24 @@ public class UpdatePlugin extends Plugin {
         String message=call.getString("message","");
         boolean posted=NotificationHelper.postActivity(getContext(),title,message);
         JSObject r=new JSObject();r.put("posted",posted);call.resolve(r);
+    }
+
+    // Used by App.jsx to fetch the current device's push token and register
+    // it with the backend (JS has the authenticated axios instance with the
+    // correct backend URL already available, so registration happens there
+    // rather than from native code).
+    @PluginMethod public void getFcmToken(PluginCall call){
+        try{
+            FirebaseMessaging.getInstance().getToken().addOnCompleteListener(task->{
+                if(task.isSuccessful()){
+                    JSObject r=new JSObject();r.put("token",task.getResult());call.resolve(r);
+                }else{
+                    call.reject("Unable to get FCM token: "+(task.getException()!=null?task.getException().getMessage():"unknown error"));
+                }
+            });
+        }catch(Exception e){
+            call.reject("Firebase Messaging is not available: "+e.getMessage(),e);
+        }
     }
 
     @PluginMethod public void checkForUpdate(PluginCall call){executor.execute(()->{try{PackageInfo installed=getContext().getPackageManager().getPackageInfo(getContext().getPackageName(),0);long installedCode=Build.VERSION.SDK_INT>=Build.VERSION_CODES.P?installed.getLongVersionCode():installed.versionCode;String pkg=installed.packageName;JSONObject release=UpdateChecker.fetchRelease(getContext(),UpdateChecker.releaseTag(pkg));JSONObject apk=UpdateChecker.findBestApk(release.optJSONArray("assets"),UpdateChecker.apkName(pkg));JSObject r=new JSObject();r.put("available",false);r.put("installedVersionCode",installedCode);r.put("installedVersionName",installed.versionName==null?"":installed.versionName);r.put("packageName",pkg);r.put("tag",UpdateChecker.releaseTag(pkg));r.put("releaseName",release.optString("name",UpdateChecker.releaseTag(pkg)));String body=release.optString("body","");body=body.replace("\\r\\n","\n").replace("\\r","").replace("\\n","\n");r.put("releaseNotes",UpdateChecker.cleanReleaseNotes(body));if(apk==null){call.resolve(r);return;}long remote=UpdateChecker.extractNumber(body,"Version code\\s*:\\s*(\\d+)");if(remote<=0)remote=UpdateChecker.extractNumber(body,"Version\\s*(?:Code|Build)\\s*[:=]\\s*(\\d+)");if(remote<=0)remote=UpdateChecker.extractNumber(apk.optString("name",""),"(?:-|_)(\\d+)(?:-|_)[0-9a-f]{7,40}\\.apk$");if(remote<=0)remote=UpdateChecker.extractNumber(apk.optString("name",""),"(?:-|_)(\\d+)\\.apk$");if(remote<=0){call.resolve(r);return;}if(remote<=installedCode){call.resolve(r);return;}String vn=UpdateChecker.extractText(body,"Version name\\s*:\\s*([^\\r\\n]+)");r.put("available",true);r.put("versionCode",remote);r.put("versionName",vn.isEmpty()?"1.0."+remote:vn);r.put("url",apk.optString("browser_download_url",""));r.put("sha256",UpdateChecker.extractSha256(body));long size=apk.optLong("size",0);r.put("sizeBytes",size);r.put("sizeMB",Math.round((size/1024d/1024d)*10d)/10d);r.put("commit",UpdateChecker.extractText(body,"commit\\s+([0-9a-f]{7,40})"));call.resolve(r);}catch(Exception e){JSObject r=new JSObject();try{PackageInfo installed=getContext().getPackageManager().getPackageInfo(getContext().getPackageName(),0);r.put("installedVersionCode",Build.VERSION.SDK_INT>=Build.VERSION_CODES.P?installed.getLongVersionCode():installed.versionCode);r.put("installedVersionName",installed.versionName==null?"":installed.versionName);}catch(Exception ignored){}r.put("available",false);r.put("offline",true);call.resolve(r);}});}
