@@ -72,8 +72,8 @@ final class NotificationHelper {
             NotificationManagerCompat manager = NotificationManagerCompat.from(context);
             if (!manager.areNotificationsEnabled()) return false;
 
-            Intent intent = new Intent(context, "patient_created".equals(type) || "patient".equals(type) || "invoice_created".equals(type) || "invoice".equals(type)
-                    ? NotificationOpenActivity.class : NotificationCenterActivity.class);
+            boolean deepLink = "patient_created".equals(type) || "patient".equals(type) || "invoice_created".equals(type) || "invoice".equals(type);
+            Intent intent = new Intent(context, deepLink ? NotificationOpenActivity.class : NotificationCenterActivity.class);
             intent.putExtra("type", type == null ? "" : type);
             intent.putExtra("entityId", targetId == null ? "" : targetId);
             intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP);
