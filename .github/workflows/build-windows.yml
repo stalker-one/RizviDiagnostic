@@ -3,11 +3,12 @@ name: Build Windows App
 on:
   push:
     branches: [main]
-    paths:
-      - 'electron/**'
-      - 'frontend/**'
-      - 'backend/**'
-      - '.github/workflows/build-windows.yml'
+    paths-ignore:
+      - 'frontend/android/**'
+      - '.github/workflows/build-android.yml'
+      - '.github/workflows/build-superadmin-android.yml'
+      - '.github/workflows/update-android-release-notes.yml'
+      - '.github/workflows/build-android-*.yml'
   workflow_dispatch:
 
 permissions:
