@@ -1,12 +1,12 @@
 {
   "staff": {
     "tag": "android-latest",
-    "versionCode": 220,
-    "versionName": "1.0.220",
+    "versionCode": 219,
+    "versionName": "1.0.219",
     "apkUrl": "https://github.com/stalker-one/RizviDiagnostic/releases/download/android-latest/RizviDiagnosticCenter-latest.apk",
-    "sha256": "09ee10cd3ce6a0f4c366cc9e84d375ae34690a77e0a8fcec314a463f0b70f362",
+    "sha256": "256c52b0dff462310f2a33715899b4e18334aad1d95566c3740d9613bd360485",
     "sizeBytes": 6457414,
-    "releaseNotes": "- Store notification type and entity for Android notification center\n- Register Android notification center activity\n- Add Android notification center and preferences\n- Add Android notification history and preferences\n- Complete FCM diagnostic sender integration\n- Fix FCM OAuth delivery without Firebase Admin credential URL error\n- Fix Firebase Admin credential normalization for FCM\n- Add in-app Push Notification Diagnostics panel (no console commands needed)\n- Pre-create notification channels at app startup (fixes gap from hybrid FCM payload)\n- Fix FCM notifications for closed Android apps\n- Fix: notifications never worked on a device that never saw an update prompt\n- Fix duplicate patient/invoice notifications; make update notifications push-based too"
+    "releaseNotes": "- Register Android notification center activity\n- Add Android notification center and preferences\n- Add Android notification history and preferences\n- Complete FCM diagnostic sender integration\n- Fix FCM OAuth delivery without Firebase Admin credential URL error\n- Fix Firebase Admin credential normalization for FCM\n- Add in-app Push Notification Diagnostics panel (no console commands needed)\n- Pre-create notification channels at app startup (fixes gap from hybrid FCM payload)\n- Fix FCM notifications for closed Android apps\n- Fix: notifications never worked on a device that never saw an update prompt\n- Fix duplicate patient/invoice notifications; make update notifications push-based too\n- Real-time push notifications for patient/invoice creation (both apps)"
   },
   "superadmin": {
     "tag": "android-superadmin-latest",
@@ -17,5 +17,5 @@
     "sizeBytes": 6457462,
     "releaseNotes": "- Store notification type and entity for Android notification center\n- Register Android notification center activity\n- Add Android notification center and preferences\n- Add Android notification history and preferences\n- Complete FCM diagnostic sender integration\n- Fix FCM OAuth delivery without Firebase Admin credential URL error\n- Fix Firebase Admin credential normalization for FCM\n- Add in-app Push Notification Diagnostics panel (no console commands needed)\n- Pre-create notification channels at app startup (fixes gap from hybrid FCM payload)\n- Fix FCM notifications for closed Android apps\n- Fix: notifications never worked on a device that never saw an update prompt\n- Fix duplicate patient/invoice notifications; make update notifications push-based too"
   },
-  "updatedAt": "7ff9b63516a89f76ad38e35ff531b10f6d403db0"
+  "updatedAt": "89f5d0639253bbf7239264896bb1abd2d4974912"
 }
