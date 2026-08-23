@@ -3,9 +3,16 @@ import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContai
 import Layout from '../components/Layout.jsx';
 import StatCard from '../components/StatCard.jsx';
 import Button from '../components/Button.jsx';
+import PageLoader from '../components/PageLoader.jsx';
 import { Filter } from 'lucide-react';
 import api from '../api/axios';
 import { useAuth } from '../context/AuthContext.jsx';
+
+// Module-scoped (not component state), so it survives navigating away and
+// back to the Dashboard within the same app session. Lets a revisit render
+// the last-known numbers immediately instead of showing a blank loading
+// screen again while the same data gets refetched in the background.
+let dashboardCache = null;
 
 const RANGE_OPTIONS = [
   { key: 'today', label: 'Today' },
@@ -25,20 +32,24 @@ const COLORS = ['#0f6fde', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899'
 
 export default function Dashboard() {
   const { isAdmin } = useAuth();
-  const [summary, setSummary] = useState(null);
-  const [trend, setTrend] = useState([]);
-  const [testDistribution, setTestDistribution] = useState([]);
-  const [dailyRevenue, setDailyRevenue] = useState([]);
-  const [range, setRange] = useState('today');
+  const [summary, setSummary] = useState(dashboardCache?.summary ?? null);
+  const [trend, setTrend] = useState(dashboardCache?.trend ?? []);
+  const [testDistribution, setTestDistribution] = useState(dashboardCache?.testDistribution ?? []);
+  const [dailyRevenue, setDailyRevenue] = useState(dashboardCache?.dailyRevenue ?? []);
+  const [range, setRange] = useState(dashboardCache?.range ?? 'today');
   const [from, setFrom] = useState('');
   const [to, setTo] = useState('');
-  const [loading, setLoading] = useState(true);
+  // Only block the whole page behind a loading screen when there is
+  // nothing cached yet to show in the meantime.
+  const [loading, setLoading] = useState(!dashboardCache);
 
   const load = (opts = {}) => {
     const r = opts.range ?? range;
     const f = opts.from ?? from;
     const t = opts.to ?? to;
-    setLoading(true);
+    // If we already have something on screen (from cache or a prior load),
+    // keep showing it while this refresh runs instead of blanking the page.
+    if (!summary) setLoading(true);
     
     const params = {
       range: f || t ? undefined : r,
@@ -58,6 +69,11 @@ export default function Dashboard() {
         setTestDistribution(td.data || []);
         setDailyRevenue(dr.data || []);
         if (s.data.range) setRange(s.data.range);
+        // Only cache the default "today" view (no custom date range), since
+        // that's the one shown on a fresh revisit to this page.
+        if (!f && !t) {
+          dashboardCache = { summary: s.data, trend: t2.data || [], testDistribution: td.data || [], dailyRevenue: dr.data || [], range: s.data.range || r };
+        }
       })
       .catch((error) => {
         console.error('Error loading dashboard data:', error);
@@ -143,7 +159,7 @@ export default function Dashboard() {
       )}
 
       {loading || !summary ? (
-        <div className="text-slate-400">Loading dashboard...</div>
+        <PageLoader message="Loading dashboard..." />
       ) : (
         <>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
