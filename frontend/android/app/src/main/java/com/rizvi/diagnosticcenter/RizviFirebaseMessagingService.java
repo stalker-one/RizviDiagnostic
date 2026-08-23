@@ -31,7 +31,18 @@ public class RizviFirebaseMessagingService extends FirebaseMessagingService {
             if (nTitle != null) title = nTitle;
             if (nBody != null) body = nBody;
         }
-        NotificationHelper.postActivity(getApplicationContext(), title, body);
+        if ("update_available".equals(data.get("type"))) {
+            // Shares the same version-code idempotency guard as the
+            // foreground check (UpdatePlugin) and the background poll
+            // (UpdateCheckWorker), so this push can't post a duplicate
+            // notification for a version either of those already announced,
+            // regardless of which one runs first.
+            long versionCode = 0;
+            try { versionCode = Long.parseLong(data.getOrDefault("versionCode", "0")); } catch (NumberFormatException ignored) {}
+            NotificationHelper.postIfNewVersion(getApplicationContext(), versionCode, title, body);
+        } else {
+            NotificationHelper.postActivity(getApplicationContext(), title, body);
+        }
     }
 
     @Override

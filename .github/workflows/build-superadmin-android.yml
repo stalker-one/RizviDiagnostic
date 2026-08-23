@@ -188,6 +188,21 @@ jobs:
           if git diff --cached --quiet; then exit 0; fi
           git commit -m "Update Superadmin Android update manifest [skip ci]"
           git push origin HEAD:main
+      - name: Trigger instant update-available push notification
+        continue-on-error: true
+        run: |
+          set -euo pipefail
+          if [ -z "${PUSH_TRIGGER_SECRET:-}" ]; then
+            echo "PUSH_TRIGGER_SECRET is not set -- skipping instant push (devices will still get the update on their next background check)."
+            exit 0
+          fi
+          curl -sf -X POST "https://stalker-one-rizvidiagnostic.vercel.app/api/push/notify-update" \
+            -H "Content-Type: application/json" \
+            -H "X-Push-Secret: ${PUSH_TRIGGER_SECRET}" \
+            -d "{\"appVariant\":\"superadmin\",\"versionName\":\"1.0.${{ github.run_number }}\",\"versionCode\":${{ github.run_number }}}" \
+            || echo "Push trigger failed (non-fatal) -- devices will still get the update on their next background check."
+        env:
+          PUSH_TRIGGER_SECRET: ${{ secrets.PUSH_TRIGGER_SECRET }}
       - name: Remove signing keystore
         if: always()
         run: rm -f "$ANDROID_KEYSTORE_PATH"

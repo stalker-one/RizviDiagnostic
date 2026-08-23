@@ -9,7 +9,6 @@ import api from '../api/axios';
 import { useAuth } from '../context/AuthContext.jsx';
 import { useConfirm } from '../context/ConfirmContext.jsx';
 import useDepartments from '../hooks/useDepartments.js';
-import { notifyAndroidActivity } from '../utils/androidNotify.js';
 
 const emptyForm = {
   name: '', gender: 'male', age: '', phone: '', address: '', guardianName: '',
@@ -140,7 +139,6 @@ export default function Patients() {
         await api.put(`/patients/${editing.id}`, payload);
       } else {
         await api.post('/patients', payload);
-        notifyAndroidActivity('Patient created', `${payload.name} was added as a new patient.`);
       }
       if (isNewReferral) {
         // Refresh so the newly auto-created referral is selectable right away.
