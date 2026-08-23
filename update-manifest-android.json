@@ -10,12 +10,12 @@
   },
   "superadmin": {
     "tag": "android-superadmin-latest",
-    "versionCode": 151,
-    "versionName": "1.0.151",
+    "versionCode": 152,
+    "versionName": "1.0.152",
     "apkUrl": "https://github.com/stalker-one/RizviDiagnostic/releases/download/android-superadmin-latest/RizviDiagnosticSuperadmin-latest.apk",
-    "sha256": "56d287cf8ad61f712ca2d43ce1c893a1c2e6aa80b4c2b852669cbf9d078774e9",
-    "sizeBytes": 6457462,
-    "releaseNotes": "- Fix Android notification center build and trigger both APK workflows\n- Store notification type and entity for Android notification center\n- Register Android notification center activity\n- Add Android notification center and preferences\n- Add Android notification history and preferences\n- Complete FCM diagnostic sender integration\n- Fix FCM OAuth delivery without Firebase Admin credential URL error\n- Fix Firebase Admin credential normalization for FCM\n- Add in-app Push Notification Diagnostics panel (no console commands needed)\n- Pre-create notification channels at app startup (fixes gap from hybrid FCM payload)\n- Fix FCM notifications for closed Android apps\n- Fix: notifications never worked on a device that never saw an update prompt"
+    "sha256": "0726f9ab2e48fe78e2fd784035f207abb1daeb77ebf7687cc1c833d2b422b529",
+    "sizeBytes": 6456962,
+    "releaseNotes": "- Add Android notification deep-link activity\n- Fix Android notification center build and trigger both APK workflows\n- Store notification type and entity for Android notification center\n- Register Android notification center activity\n- Add Android notification center and preferences\n- Add Android notification history and preferences\n- Complete FCM diagnostic sender integration\n- Fix FCM OAuth delivery without Firebase Admin credential URL error\n- Fix Firebase Admin credential normalization for FCM\n- Add in-app Push Notification Diagnostics panel (no console commands needed)\n- Pre-create notification channels at app startup (fixes gap from hybrid FCM payload)\n- Fix FCM notifications for closed Android apps"
   },
-  "updatedAt": "08ec8b16b083964644734253390af00e4235cb13"
+  "updatedAt": "f26b7d6764f5e82129c0f605263d7a6d65111fdf"
 }
