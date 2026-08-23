@@ -9,42 +9,26 @@ import android.content.SharedPreferences;
 import android.os.Build;
 import androidx.core.app.NotificationCompat;
 import androidx.core.app.NotificationManagerCompat;
+import org.json.JSONArray;
+import org.json.JSONObject;
 import java.util.concurrent.atomic.AtomicInteger;
 
-/**
- * Posts system notifications for this app: update-available (with a
- * version-based idempotency guard, since that check can run repeatedly for
- * the same version from both the foreground plugin and the background
- * worker) and one-off activity events (patient created, invoice created).
- * Both the foreground, JS-triggered paths and the background periodic
- * update check end up here, so there's exactly one place deciding what
- * actually gets posted.
- */
 final class NotificationHelper {
     private static final String PREFS = "rizvi_android_update";
     private static final String LAST_NOTIFIED_KEY = "last_notified_version_code";
+    private static final String HISTORY_KEY = "notification_history";
+    private static final String ACTIVITY_ENABLED_KEY = "notifications_activity_enabled";
+    private static final String UPDATE_ENABLED_KEY = "notifications_update_enabled";
+    private static final String SOUND_ENABLED_KEY = "notifications_sound_enabled";
+    private static final String VIBRATION_ENABLED_KEY = "notifications_vibration_enabled";
     private static final String UPDATE_CHANNEL_ID = "rizvi_update_channel";
     private static final String ACTIVITY_CHANNEL_ID = "rizvi_activity_channel";
     private static final int UPDATE_NOTIFICATION_ID = 2001;
-    // Patient/invoice notifications each get their own notification ID (not
-    // a single fixed one like the update notification) so several of them
-    // can sit in the tray at once instead of replacing each other.
     private static final AtomicInteger activityIdSeq = new AtomicInteger(3001);
+    private static final int MAX_HISTORY = 100;
 
     private NotificationHelper() {}
 
-    /**
-     * Creates both notification channels up front if they don't already
-     * exist. Needed because the backend now sends a hybrid
-     * notification+data FCM payload (not data-only): when the app is
-     * backgrounded or killed, Android auto-displays that notification
-     * payload directly using the channel ID the backend specifies, WITHOUT
-     * calling onMessageReceived at all -- so our own code never gets a
-     * chance to lazily create the channel on first post in that case. On a
-     * fresh install, that could otherwise silently fail to show anything
-     * the very first time a push arrives before the app has ever posted a
-     * notification itself.
-     */
     static void ensureChannelsCreated(Context context) {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return;
         try {
@@ -59,47 +43,40 @@ final class NotificationHelper {
                 channel.setDescription("Notifies when a patient or invoice is created.");
                 nm.createNotificationChannel(channel);
             }
-        } catch (Exception ignored) {
-        }
+        } catch (Exception ignored) { }
     }
 
-    /**
-     * Posts the update-available notification for {@code versionCode}
-     * unless that version (or a newer one) was already announced. Returns
-     * true if a notification was actually posted.
-     */
     static boolean postIfNewVersion(Context context, long versionCode, String title, String message) {
+        if (!isEnabled(context, UPDATE_ENABLED_KEY, true)) return false;
         SharedPreferences prefs = context.getSharedPreferences(PREFS, 0);
         long lastNotified = prefs.getLong(LAST_NOTIFIED_KEY, 0);
         if (versionCode > 0 && versionCode <= lastNotified) return false;
-        boolean posted = post(context, UPDATE_CHANNEL_ID, "App updates", "Notifies when a new app update is available to install.", UPDATE_NOTIFICATION_ID, title, message);
+        boolean posted = post(context, UPDATE_CHANNEL_ID, "App updates", "Notifies when a new app update is available to install.", UPDATE_NOTIFICATION_ID, title, message, "update_available", "", "");
         if (posted && versionCode > 0) prefs.edit().putLong(LAST_NOTIFIED_KEY, versionCode).apply();
         return posted;
     }
 
-    /**
-     * Posts a one-off activity notification (e.g. "Patient created",
-     * "Invoice created") on its own channel, separate from update
-     * notifications so users can mute/manage them independently. No
-     * idempotency guard -- each call is its own distinct event.
-     */
     static boolean postActivity(Context context, String title, String message) {
-        return post(context, ACTIVITY_CHANNEL_ID, "Activity", "Notifies when a patient or invoice is created.", activityIdSeq.incrementAndGet(), title, message);
+        return postActivity(context, title, message, "", "");
     }
 
-    private static boolean post(Context context, String channelId, String channelName, String channelDescription, int notificationId, String title, String message) {
+    static boolean postActivity(Context context, String title, String message, String type, String entityId) {
+        if (!isEnabled(context, ACTIVITY_ENABLED_KEY, true)) return false;
+        return post(context, ACTIVITY_CHANNEL_ID, "Activity", "Notifies when a patient or invoice is created.", activityIdSeq.incrementAndGet(), title, message, type, entityId, entityId);
+    }
+
+    private static boolean post(Context context, String channelId, String channelName, String channelDescription, int notificationId, String title, String message, String type, String entityId, String targetId) {
         try {
-            NotificationManager nm = (NotificationManager) context.getSystemService(Context.NOTIFICATION_SERVICE);
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O && nm.getNotificationChannel(channelId) == null) {
-                NotificationChannel channel = new NotificationChannel(channelId, channelName, NotificationManager.IMPORTANCE_HIGH);
-                channel.setDescription(channelDescription);
-                nm.createNotificationChannel(channel);
-            }
-            Intent launchIntent = context.getPackageManager().getLaunchIntentForPackage(context.getPackageName());
-            if (launchIntent == null) launchIntent = new Intent();
-            launchIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP);
+            ensureChannelsCreated(context);
+            saveHistory(context, title, message, type, targetId);
+            NotificationManagerCompat manager = NotificationManagerCompat.from(context);
+            if (!manager.areNotificationsEnabled()) return false;
+            Intent intent = new Intent(context, NotificationCenterActivity.class);
+            intent.putExtra("type", type == null ? "" : type);
+            intent.putExtra("entityId", targetId == null ? "" : targetId);
+            intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP);
             int piFlags = PendingIntent.FLAG_UPDATE_CURRENT | (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M ? PendingIntent.FLAG_IMMUTABLE : 0);
-            PendingIntent pendingIntent = PendingIntent.getActivity(context, notificationId, launchIntent, piFlags);
+            PendingIntent pendingIntent = PendingIntent.getActivity(context, notificationId, intent, piFlags);
             NotificationCompat.Builder builder = new NotificationCompat.Builder(context, channelId)
                 .setSmallIcon(R.drawable.ic_stat_update)
                 .setContentTitle(title)
@@ -108,14 +85,67 @@ final class NotificationHelper {
                 .setPriority(NotificationCompat.PRIORITY_HIGH)
                 .setAutoCancel(true)
                 .setContentIntent(pendingIntent);
-            NotificationManagerCompat.from(context).notify(notificationId, builder.build());
+            if (isEnabled(context, SOUND_ENABLED_KEY, true)) builder.setDefaults(NotificationCompat.DEFAULT_SOUND);
+            if (isEnabled(context, VIBRATION_ENABLED_KEY, true)) builder.setVibrate(new long[]{0, 180, 80, 180});
+            manager.notify(notificationId, builder.build());
             return true;
-        } catch (SecurityException se) {
-            // Notification permission not granted (Android 13+) -- caller
-            // decides whether to request it; here we just skip silently.
+        } catch (SecurityException ignored) {
             return false;
-        } catch (Exception e) {
+        } catch (Exception ignored) {
             return false;
         }
+    }
+
+    private static void saveHistory(Context context, String title, String message, String type, String targetId) {
+        try {
+            SharedPreferences prefs = context.getSharedPreferences(PREFS, 0);
+            JSONArray old = new JSONArray(prefs.getString(HISTORY_KEY, "[]"));
+            JSONArray next = new JSONArray();
+            JSONObject item = new JSONObject();
+            item.put("id", System.currentTimeMillis());
+            item.put("title", title == null ? "Rizvi Diagnostic Center" : title);
+            item.put("message", message == null ? "" : message);
+            item.put("type", type == null ? "" : type);
+            item.put("targetId", targetId == null ? "" : targetId);
+            item.put("timestamp", System.currentTimeMillis());
+            item.put("read", false);
+            next.put(item);
+            for (int i = 0; i < old.length() && i < MAX_HISTORY - 1; i++) next.put(old.getJSONObject(i));
+            prefs.edit().putString(HISTORY_KEY, next.toString()).apply();
+        } catch (Exception ignored) { }
+    }
+
+    static JSONArray getHistory(Context context) {
+        try { return new JSONArray(context.getSharedPreferences(PREFS, 0).getString(HISTORY_KEY, "[]")); }
+        catch (Exception ignored) { return new JSONArray(); }
+    }
+
+    static int getUnreadCount(Context context) {
+        JSONArray history = getHistory(context);
+        int count = 0;
+        for (int i = 0; i < history.length(); i++) if (!history.optJSONObject(i).optBoolean("read", false)) count++;
+        return count;
+    }
+
+    static void markAllRead(Context context) {
+        try {
+            JSONArray history = getHistory(context);
+            for (int i = 0; i < history.length(); i++) history.optJSONObject(i).put("read", true);
+            context.getSharedPreferences(PREFS, 0).edit().putString(HISTORY_KEY, history.toString()).apply();
+        } catch (Exception ignored) { }
+    }
+
+    static void clearHistory(Context context) {
+        context.getSharedPreferences(PREFS, 0).edit().putString(HISTORY_KEY, "[]").apply();
+    }
+
+    static boolean isActivityEnabled(Context context) { return isEnabled(context, ACTIVITY_ENABLED_KEY, true); }
+    static boolean isUpdateEnabled(Context context) { return isEnabled(context, UPDATE_ENABLED_KEY, true); }
+    static boolean isSoundEnabled(Context context) { return isEnabled(context, SOUND_ENABLED_KEY, true); }
+    static boolean isVibrationEnabled(Context context) { return isEnabled(context, VIBRATION_ENABLED_KEY, true); }
+    static void setPreference(Context context, String key, boolean value) { context.getSharedPreferences(PREFS, 0).edit().putBoolean(key, value).apply(); }
+
+    private static boolean isEnabled(Context context, String key, boolean fallback) {
+        return context.getSharedPreferences(PREFS, 0).getBoolean(key, fallback);
     }
 }
