@@ -10,12 +10,12 @@
   },
   "superadmin": {
     "tag": "android-superadmin-latest",
-    "versionCode": 144,
-    "versionName": "1.0.144",
+    "versionCode": 145,
+    "versionName": "1.0.145",
     "apkUrl": "https://github.com/stalker-one/RizviDiagnostic/releases/download/android-superadmin-latest/RizviDiagnosticSuperadmin-latest.apk",
-    "sha256": "796aa5695463f9c6a3604f60a9308d7fb8c838f187747c7219f16e3d082bc01f",
+    "sha256": "8f08d20e77fba04c33acbc8aab4e0deeaa9171ae7f9eb3621804d1b490cf8f83",
     "sizeBytes": 6457418,
-    "releaseNotes": "- Fix Firebase Admin credential normalization for FCM\n- Add in-app Push Notification Diagnostics panel (no console commands needed)\n- Pre-create notification channels at app startup (fixes gap from hybrid FCM payload)\n- Fix FCM notifications for closed Android apps\n- Fix: notifications never worked on a device that never saw an update prompt\n- Fix duplicate patient/invoice notifications; make update notifications push-based too\n- Real-time push notifications for patient/invoice creation (both apps)\n- Improve background update reliability; add patient/invoice notifications (both apps)\n- Instant Dashboard/Analytics revisits + consistent PageLoader (both apps)\n- Show update notification without opening the app; reduce Play Protect confusion\n- Restore developer credit in Android update modal (both apps)\n- Show a system notification when a new Android update is available"
+    "releaseNotes": "- Fix FCM OAuth delivery without Firebase Admin credential URL error\n- Fix Firebase Admin credential normalization for FCM\n- Add in-app Push Notification Diagnostics panel (no console commands needed)\n- Pre-create notification channels at app startup (fixes gap from hybrid FCM payload)\n- Fix FCM notifications for closed Android apps\n- Fix: notifications never worked on a device that never saw an update prompt\n- Fix duplicate patient/invoice notifications; make update notifications push-based too\n- Real-time push notifications for patient/invoice creation (both apps)\n- Improve background update reliability; add patient/invoice notifications (both apps)\n- Instant Dashboard/Analytics revisits + consistent PageLoader (both apps)\n- Show update notification without opening the app; reduce Play Protect confusion\n- Restore developer credit in Android update modal (both apps)"
   },
-  "updatedAt": "5ffd4c41479c823cb272b96b2f9a72ee3b24089b"
+  "updatedAt": "93db2038892b08a11abcd1dc9f189527e7979fb0"
 }
