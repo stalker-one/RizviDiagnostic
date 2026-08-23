@@ -1,17 +1,11 @@
 const express = require('express');
 const { readTable, writeTable } = require('../db');
 const { authenticate } = require('../middleware/auth');
-const { sendPushToVariant, sendPushToAll, isEnabled } = require('../services/push.service');
+const { sendPushToVariant, sendPushToAll, isEnabled, sendPushToTokens } = require('../services/push.service');
 const { getFreshTable } = require('../mongo-table');
 
 const router = express.Router();
 
-// Called by the Android release GitHub Actions workflows right after a new
-// version is published, so the update-available notification reaches every
-// device instantly instead of waiting for the next ~6-hourly background
-// poll. This is CI calling the backend directly (no logged-in user
-// involved), so it's protected by a shared secret header instead of the
-// normal user JWT auth used by every other route here.
 router.post('/notify-update', (req, res) => {
   const secret = process.env.PUSH_TRIGGER_SECRET;
   if (!secret) return res.status(503).json({ message: 'Update push notifications are not configured on this server.' });
@@ -26,10 +20,6 @@ router.post('/notify-update', (req, res) => {
 
 router.use(authenticate);
 
-// Registering a token isn't itself sensitive (it can only be used to
-// receive pushes, not read any data), but it still requires being logged
-// in -- consistent with the rest of the API, and it keeps this endpoint
-// from being usable to spam arbitrary tokens.
 router.post('/register-token', (req, res) => {
   const { token, appVariant } = req.body;
   if (!token || typeof token !== 'string') return res.status(400).json({ message: 'A push token is required.' });
@@ -50,15 +40,10 @@ router.post('/register-token', (req, res) => {
 router.post('/unregister-token', (req, res) => {
   const { token } = req.body;
   if (!token) return res.status(400).json({ message: 'A push token is required.' });
-  const tokens = readTable('pushTokens').filter((t) => t.token !== token);
-  writeTable('pushTokens', tokens);
+  writeTable('pushTokens', readTable('pushTokens').filter((t) => t.token !== token));
   res.json({ unregistered: true });
 });
 
-// Self-serve diagnostics for tracking down "notifications aren't arriving"
-// without needing device/log access -- tells you exactly which stage is
-// broken: is Firebase even configured on this server, and did this specific
-// account's device actually register a token.
 router.get('/status', async (req, res) => {
   const allTokens = (await getFreshTable('pushTokens', readTable('pushTokens'))) || [];
   const myTokens = allTokens.filter((t) => t.userId === req.user.id);
@@ -69,30 +54,27 @@ router.get('/status', async (req, res) => {
   });
 });
 
-// Sends a real test push to every device registered under the logged-in
-// user's own account (not everyone's), so you can immediately confirm
-// whether a push actually reaches this specific phone right now, instead of
-// only finding out indirectly by creating a patient/invoice.
+// Diagnostic must use the same HTTP FCM implementation as normal pushes.
+// It must never call firebase-admin/messaging directly because the backend
+// intentionally no longer depends on the Firebase Admin default app.
 router.post('/test-send', async (req, res) => {
   if (!isEnabled()) return res.status(503).json({ message: 'Firebase is not configured on this server (FIREBASE_SERVICE_ACCOUNT_JSON missing or invalid).' });
   const allTokens = (await getFreshTable('pushTokens', readTable('pushTokens'))) || [];
   const myTokens = allTokens.filter((t) => t.userId === req.user.id);
   if (!myTokens.length) return res.status(400).json({ message: 'No device is registered under your account yet -- open the Android app and log in first, then try again.' });
+
   try {
-    const { getMessaging } = require('firebase-admin/messaging');
-    const admin = require('firebase-admin/app');
-    const app = admin.getApps()[0];
-    const response = await getMessaging(app).sendEachForMulticast({
-      tokens: myTokens.map((t) => t.token),
-      data: { title: 'Test notification', body: 'If you see this, push delivery is working.', type: 'test' },
-      notification: { title: 'Test notification', body: 'If you see this, push delivery is working.' },
-      android: { priority: 'high', notification: { channelId: 'rizvi_activity_channel', priority: 'high' } },
-    });
+    const result = await sendPushToTokens(
+      myTokens.map((t) => t.token),
+      'Test notification',
+      'If you see this, push delivery is working.',
+      { type: 'test' },
+    );
     res.json({
       attempted: myTokens.length,
-      succeeded: response.successCount,
-      failed: response.failureCount,
-      errors: response.responses.filter((r) => !r.success).map((r) => r.error?.message || String(r.error)),
+      succeeded: result.sent,
+      failed: result.failed,
+      errors: result.errors || [],
     });
   } catch (err) {
     res.status(500).json({ message: err.message });
