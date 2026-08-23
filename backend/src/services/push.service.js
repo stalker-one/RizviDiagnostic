@@ -1,17 +1,12 @@
 // Sends Firebase Cloud Messaging pushes to every registered Android device
-// (both the Staff and Superadmin apps) so a patient/invoice created from
-// anywhere -- the website, the Windows app, or either Android app -- shows
-// up as a real-time notification on Android even if that app is fully
-// closed. This only works while the app is closed because FCM delivery is
-// handled by Google Play services at the OS level, not by the app polling.
+// (both the Staff and Superadmin apps). Patient/invoice pushes use both a
+// notification payload and data payload: Android/Google Play services can
+// therefore place the notification in the system tray when the app process is
+// in the background or closed, while the data is still available to the app
+// when it is foregrounded.
 //
-// Requires a Firebase service account key, provided via the
-// FIREBASE_SERVICE_ACCOUNT_JSON environment variable (the full JSON key
-// content as a string) on whatever host runs this backend. Deliberately not
-// committed to the repo -- it grants full send access to the Firebase
-// project. If that variable isn't set, push sending is skipped with a single
-// warning at startup rather than crashing the server; every other feature
-// keeps working normally.
+// Requires FIREBASE_SERVICE_ACCOUNT_JSON on the backend host. Never commit
+// the service-account JSON itself to the repository.
 const { readTable, writeTable } = require('../db');
 const { getFreshTable } = require('../mongo-table');
 
@@ -31,55 +26,92 @@ try {
 }
 
 if (initError) {
-  console.warn(`[push] Push notifications are disabled: ${initError}. Patient/invoice creation will still work normally.`);
+  console.warn(`[push] Push notifications are disabled: ${initError}`);
 }
 
 function isEnabled() {
   return !initError && !!messagingApp;
 }
 
-/**
- * Sends a data-only push (title/body/extra fields all passed as string
- * "data", not FCM's built-in "notification" payload) to registered devices.
- * The Android apps render the notification themselves from this data, which
- * is what makes it work reliably whether the app is foregrounded,
- * backgrounded, or fully closed.
- *
- * @param {string} [appVariant] - When set ('staff' or 'superadmin'), only
- *   sends to devices registered for that variant -- used for update
- *   notifications, since a Staff-app update isn't relevant to a Superadmin
- *   device and vice versa. Left unset, sends to every registered device
- *   regardless of variant -- used for patient/invoice notifications, which
- *   both apps' users may want to see.
- */
 async function sendPush(title, body, data = {}, appVariant) {
-  if (!isEnabled()) return;
+  if (!isEnabled()) return { enabled: false, sent: 0 };
+
   try {
     const allTokens = (await getFreshTable('pushTokens', readTable('pushTokens'))) || [];
-    const tokens = appVariant ? allTokens.filter((t) => t.appVariant === appVariant) : allTokens;
-    if (!tokens.length) return;
-    const dataPayload = { title: String(title), body: String(body) };
-    Object.keys(data).forEach((k) => { dataPayload[k] = String(data[k]); });
+    const tokens = appVariant
+      ? allTokens.filter((t) => t.appVariant === appVariant)
+      : allTokens;
+
+    if (!tokens.length) return { enabled: true, sent: 0 };
+
+    const dataPayload = {
+      title: String(title),
+      body: String(body),
+    };
+    Object.keys(data).forEach((key) => {
+      dataPayload[key] = String(data[key]);
+    });
+
+    const channelId = data.type === 'update_available'
+      ? 'rizvi_update_channel'
+      : 'rizvi_activity_channel';
+
     const { getMessaging } = require('firebase-admin/messaging');
     const response = await getMessaging(messagingApp).sendEachForMulticast({
       tokens: tokens.map((t) => t.token),
+
+      // Keep the data payload for the existing Android Firebase service.
       data: dataPayload,
-      android: { priority: 'high' },
+
+      // IMPORTANT: this notification payload lets Android/Google Play
+      // services display the notification in the system tray when the app
+      // is backgrounded or its process is not running. The old implementation
+      // sent data-only messages, which depended on onMessageReceived running.
+      notification: {
+        title: String(title),
+        body: String(body),
+      },
+
+      android: {
+        priority: 'high',
+        notification: {
+          channelId,
+          priority: 'high',
+          defaultSound: true,
+          defaultVibrateTimings: true,
+          visibility: 'public',
+        },
+      },
     });
-    // Prune tokens FCM reports as no-longer-valid (app uninstalled, token
-    // rotated, etc.) so the list doesn't grow unbounded with dead entries.
-    // Operates against the full unfiltered list so an appVariant-scoped
-    // send doesn't accidentally drop unrelated tokens for the other app.
+
     const invalidTokens = new Set();
-    tokens.forEach((t, i) => {
-      const result = response.responses[i];
-      if (result.success) return;
-      const code = result.error?.code || '';
-      if (code.includes('registration-token-not-registered') || code.includes('invalid-argument')) invalidTokens.add(t.token);
+    tokens.forEach((tokenRecord, index) => {
+      const result = response.responses[index];
+      if (result?.success) return;
+      const code = result?.error?.code || '';
+      if (
+        code.includes('registration-token-not-registered') ||
+        code.includes('invalid-argument')
+      ) {
+        invalidTokens.add(tokenRecord.token);
+      }
     });
-    if (invalidTokens.size) writeTable('pushTokens', allTokens.filter((t) => !invalidTokens.has(t.token)));
+
+    if (invalidTokens.size) {
+      writeTable(
+        'pushTokens',
+        allTokens.filter((tokenRecord) => !invalidTokens.has(tokenRecord.token)),
+      );
+    }
+
+    return {
+      enabled: true,
+      sent: response.successCount || 0,
+      failed: response.failureCount || 0,
+    };
   } catch (err) {
     console.warn('[push] Failed to send push notification:', err.message);
+    return { enabled: true, sent: 0, error: err.message };
   }
 }
 
