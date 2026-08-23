@@ -1,7 +1,8 @@
 const express = require('express');
 const { readTable, writeTable } = require('../db');
 const { authenticate } = require('../middleware/auth');
-const { sendPushToVariant } = require('../services/push.service');
+const { sendPushToVariant, sendPushToAll, isEnabled } = require('../services/push.service');
+const { getFreshTable } = require('../mongo-table');
 
 const router = express.Router();
 
@@ -52,6 +53,50 @@ router.post('/unregister-token', (req, res) => {
   const tokens = readTable('pushTokens').filter((t) => t.token !== token);
   writeTable('pushTokens', tokens);
   res.json({ unregistered: true });
+});
+
+// Self-serve diagnostics for tracking down "notifications aren't arriving"
+// without needing device/log access -- tells you exactly which stage is
+// broken: is Firebase even configured on this server, and did this specific
+// account's device actually register a token.
+router.get('/status', async (req, res) => {
+  const allTokens = (await getFreshTable('pushTokens', readTable('pushTokens'))) || [];
+  const myTokens = allTokens.filter((t) => t.userId === req.user.id);
+  res.json({
+    firebaseConfigured: isEnabled(),
+    totalRegisteredDevices: allTokens.length,
+    myRegisteredDevices: myTokens.map((t) => ({ appVariant: t.appVariant, registeredAt: t.createdAt, lastUpdated: t.updatedAt })),
+  });
+});
+
+// Sends a real test push to every device registered under the logged-in
+// user's own account (not everyone's), so you can immediately confirm
+// whether a push actually reaches this specific phone right now, instead of
+// only finding out indirectly by creating a patient/invoice.
+router.post('/test-send', async (req, res) => {
+  if (!isEnabled()) return res.status(503).json({ message: 'Firebase is not configured on this server (FIREBASE_SERVICE_ACCOUNT_JSON missing or invalid).' });
+  const allTokens = (await getFreshTable('pushTokens', readTable('pushTokens'))) || [];
+  const myTokens = allTokens.filter((t) => t.userId === req.user.id);
+  if (!myTokens.length) return res.status(400).json({ message: 'No device is registered under your account yet -- open the Android app and log in first, then try again.' });
+  try {
+    const { getMessaging } = require('firebase-admin/messaging');
+    const admin = require('firebase-admin/app');
+    const app = admin.getApps()[0];
+    const response = await getMessaging(app).sendEachForMulticast({
+      tokens: myTokens.map((t) => t.token),
+      data: { title: 'Test notification', body: 'If you see this, push delivery is working.', type: 'test' },
+      notification: { title: 'Test notification', body: 'If you see this, push delivery is working.' },
+      android: { priority: 'high', notification: { channelId: 'rizvi_activity_channel', priority: 'high' } },
+    });
+    res.json({
+      attempted: myTokens.length,
+      succeeded: response.successCount,
+      failed: response.failureCount,
+      errors: response.responses.filter((r) => !r.success).map((r) => r.error?.message || String(r.error)),
+    });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
 });
 
 module.exports = router;
