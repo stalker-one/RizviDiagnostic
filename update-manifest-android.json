@@ -10,12 +10,12 @@
   },
   "superadmin": {
     "tag": "android-superadmin-latest",
-    "versionCode": 141,
-    "versionName": "1.0.141",
+    "versionCode": 142,
+    "versionName": "1.0.142",
     "apkUrl": "https://github.com/stalker-one/RizviDiagnostic/releases/download/android-superadmin-latest/RizviDiagnosticSuperadmin-latest.apk",
-    "sha256": "afd0687132daa5586d04ea60122f8c7d6c2531d93ece3e39813e87173a27b507",
+    "sha256": "8c4bcfe4ad02c42a3816e13f9e0dd6c2928e5b1ab34ee7fe56cb5bebf9b53d06",
     "sizeBytes": 6456666,
-    "releaseNotes": "- Fix: notifications never worked on a device that never saw an update prompt\n- Fix duplicate patient/invoice notifications; make update notifications push-based too\n- Real-time push notifications for patient/invoice creation (both apps)\n- Improve background update reliability; add patient/invoice notifications (both apps)\n- Instant Dashboard/Analytics revisits + consistent PageLoader (both apps)\n- Show update notification without opening the app; reduce Play Protect confusion\n- Restore developer credit in Android update modal (both apps)\n- Show a system notification when a new Android update is available\n- Show real code changes in Android What's New instead of placeholder text\n- Code-split page routes to speed up initial page load\n- Modernize PageLoader design (used by Superadmin Control and other pages)\n- Fix broken LATEST version chip text in Android update modal"
+    "releaseNotes": "- Pre-create notification channels at app startup (fixes gap from hybrid FCM payload)\n- Fix: notifications never worked on a device that never saw an update prompt\n- Fix duplicate patient/invoice notifications; make update notifications push-based too\n- Real-time push notifications for patient/invoice creation (both apps)\n- Improve background update reliability; add patient/invoice notifications (both apps)\n- Instant Dashboard/Analytics revisits + consistent PageLoader (both apps)\n- Show update notification without opening the app; reduce Play Protect confusion\n- Restore developer credit in Android update modal (both apps)\n- Show a system notification when a new Android update is available\n- Show real code changes in Android What's New instead of placeholder text\n- Code-split page routes to speed up initial page load\n- Modernize PageLoader design (used by Superadmin Control and other pages)"
   },
   "updatedAt": "d479717b50540ed5f9079cb2cbb0007ad46d223d"
 }
