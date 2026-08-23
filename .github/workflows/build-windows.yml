@@ -12,6 +12,7 @@ on:
       - '.github/workflows/update-android-release-notes.yml'
       - '.github/workflows/build-android-*.yml'
       - '.github/workflows/build-windows.yml'
+      - 'update-manifest-android.json'
   workflow_dispatch:
 
 permissions:
