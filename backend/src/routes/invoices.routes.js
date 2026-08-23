@@ -2,6 +2,7 @@ const express = require('express');
 const { readTable, writeTable, generateId, nextInvoiceNumber, applyDateRange, applyStaffEntryLimit, staffLimitInfo, paginate } = require('../db');
 const { authenticate, requireRole } = require('../middleware/auth');
 const { getFreshTable } = require('../mongo-table');
+const { sendPushToAll } = require('../services/push.service');
 
 const router = express.Router();
 router.use(authenticate);
@@ -66,6 +67,7 @@ router.post('/', (req, res) => {
   invoices.push(newInvoice);
   writeTable('invoices', invoices);
   res.status(201).json(newInvoice);
+  sendPushToAll('Invoice created', `Invoice ${newInvoice.invoiceNumber} for ${patient.name} — Rs. ${total.toLocaleString()}`, { type: 'invoice_created', invoiceId: newInvoice.id }).catch(() => {});
 });
 
 router.put('/:id', (req, res) => {

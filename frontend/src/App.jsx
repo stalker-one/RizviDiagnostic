@@ -5,6 +5,7 @@ import ProtectedRoute from './components/ProtectedRoute.jsx';
 import SiteLockGate from './components/SiteLockGate.jsx';
 import PageLoader from './components/PageLoader.jsx';
 import api from './api/axios';
+import { useAuth } from './context/AuthContext.jsx';
 // Every page used to be imported eagerly here, so visiting any single page
 // (even the login screen) downloaded the JS for the entire app in one
 // ~1.2MB bundle. Lazy-loading each page means the browser only fetches the
@@ -165,10 +166,19 @@ function AndroidUpdateModal({update,checking,onUpdate,onClose,busy,error,onRetry
 function StaffEntryRoute(){const token=localStorage.getItem('rdc_token');if(token)return <Navigate to="/dashboard" replace/>;return <Home/>;}
 
 export default function App(){
+ const{user}=useAuth();
  const[refreshKey,setRefreshKey]=useState(0);const[androidUpdate,setAndroidUpdate]=useState(null);const[androidUpdateBusy,setAndroidUpdateBusy]=useState(false);const[androidUpdateError,setAndroidUpdateError]=useState('');const[androidUpdateChecking,setAndroidUpdateChecking]=useState(false);const[androidUpdateProgress,setAndroidUpdateProgress]=useState({percent:0,downloadedBytes:0,totalBytes:0});
  const checkingAndroidUpdate=useRef(false);const retryCheckRef=useRef(null);const lastVersionRef=useRef(null);const dismissedUpdateCodeRef=useRef(null);
  const notifiedUpdateCodeRef=useRef((()=>{try{const stored=localStorage.getItem('rdc_notified_update_code');return stored?Number(stored):null;}catch{return null;}})());
  useEffect(()=>{let stopped=false;const checkVersion=async()=>{if(stopped)return;try{const response=await api.get('/sync/version',{params:{_:Date.now()},headers:{'Cache-Control':'no-cache'}});const version=Number(response.data?.version||0);if(lastVersionRef.current!==null&&version!==lastVersionRef.current)setRefreshKey(v=>v+1);lastVersionRef.current=version;}catch{}};checkVersion();const timer=window.setInterval(checkVersion,REALTIME_INTERVAL_MS);return()=>{stopped=true;window.clearInterval(timer);};},[]);
+ // Registers this device's FCM push token with the backend once logged in,
+ // so patient/invoice creation from *any* platform (web, Windows, either
+ // Android app) can push a real-time notification to this device -- even
+ // fully closed. Re-registers on every login (not just once ever), since
+ // the token or the logged-in user can change and the backend should track
+ // the freshest pairing; the backend route itself upserts by token, so
+ // calling this repeatedly is harmless.
+ useEffect(()=>{if(!user||!Capacitor.isNativePlatform()||Capacitor.getPlatform()!=='android')return undefined;let cancelled=false;(async()=>{try{if(typeof AndroidUpdate.getFcmToken!=='function')return;const{token}=await AndroidUpdate.getFcmToken();if(cancelled||!token)return;await api.post('/push/register-token',{token,appVariant:IS_SUPERADMIN_APP?'superadmin':'staff'});}catch{}})();return()=>{cancelled=true;};},[user]);
  useEffect(()=>{if(!Capacitor.isNativePlatform()||Capacitor.getPlatform()!=='android')return undefined;let cancelled=false;let progressListener;
   const checkAndroidUpdate=async()=>{if(cancelled||checkingAndroidUpdate.current)return;checkingAndroidUpdate.current=true;setAndroidUpdateChecking(true);setAndroidUpdateError('');try{if(typeof AndroidUpdate.checkForUpdate!=='function')throw new Error('Android update service is not available in this app version.');const result=await AndroidUpdate.checkForUpdate();if(cancelled)return;if(result?.available&&result?.url){const code=Number(result.versionCode);const versionName=result.versionName||`1.0.${Math.max(0,code)}`;if(dismissedUpdateCodeRef.current===code){setAndroidUpdate(null);}else{setAndroidUpdate({versionCode:code,versionName,url:result.url,packageName:result.packageName,releaseName:result.releaseName,releaseNotes:result.releaseNotes||'',installedVersionCode:Number(result.installedVersionCode),installedVersionName:result.installedVersionName||'',sizeBytes:Number(result.sizeBytes||0),sizeMB:Number(result.sizeMB||0)});}
    // Post a system notification (visible even if the app is backgrounded)

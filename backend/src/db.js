@@ -7,7 +7,7 @@ const { MongoClient } = require('mongodb');
 const DATA_DIR = process.env.RIZVI_DATA_DIR ? path.resolve(process.env.RIZVI_DATA_DIR) : path.join(__dirname, 'data');
 if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
 
-const TABLES = ['users', 'patients', 'procedures', 'referrals', 'doctors', 'invoices', 'settings', 'counters'];
+const TABLES = ['users', 'patients', 'procedures', 'referrals', 'doctors', 'invoices', 'settings', 'counters', 'pushTokens'];
 const DEPARTMENTS = ['X-Ray', 'Ultrasound', 'CT Scan', 'MRI', 'Procedure', 'General'];
 const DEFAULT_MORNING_START_HOUR = 8;
 const DEFAULT_EVENING_START_HOUR = 14;

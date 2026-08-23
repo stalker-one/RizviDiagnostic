@@ -21,6 +21,7 @@ const reportsRoutes = require('./routes/reports.routes');
 const settingsRoutes = require('./routes/settings.routes');
 const siteRoutes = require('./routes/site.routes');
 const syncRoutes = require('./routes/sync.routes');
+const pushRoutes = require('./routes/push.routes');
 
 const app = express();
 
@@ -96,6 +97,7 @@ app.use('/api/reports', reportsRoutes);
 app.use('/api/settings', settingsRoutes);
 app.use('/api/site', siteRoutes);
 app.use('/api/sync', syncRoutes);
+app.use('/api/push', pushRoutes);
 
 const FRONTEND_DIST = path.join(__dirname, '../../frontend/dist');
 if (fs.existsSync(path.join(FRONTEND_DIST, 'index.html'))) {
