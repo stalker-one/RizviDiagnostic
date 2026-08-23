@@ -34,6 +34,36 @@ final class NotificationHelper {
     private NotificationHelper() {}
 
     /**
+     * Creates both notification channels up front if they don't already
+     * exist. Needed because the backend now sends a hybrid
+     * notification+data FCM payload (not data-only): when the app is
+     * backgrounded or killed, Android auto-displays that notification
+     * payload directly using the channel ID the backend specifies, WITHOUT
+     * calling onMessageReceived at all -- so our own code never gets a
+     * chance to lazily create the channel on first post in that case. On a
+     * fresh install, that could otherwise silently fail to show anything
+     * the very first time a push arrives before the app has ever posted a
+     * notification itself.
+     */
+    static void ensureChannelsCreated(Context context) {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return;
+        try {
+            NotificationManager nm = (NotificationManager) context.getSystemService(Context.NOTIFICATION_SERVICE);
+            if (nm.getNotificationChannel(UPDATE_CHANNEL_ID) == null) {
+                NotificationChannel channel = new NotificationChannel(UPDATE_CHANNEL_ID, "App updates", NotificationManager.IMPORTANCE_HIGH);
+                channel.setDescription("Notifies when a new app update is available to install.");
+                nm.createNotificationChannel(channel);
+            }
+            if (nm.getNotificationChannel(ACTIVITY_CHANNEL_ID) == null) {
+                NotificationChannel channel = new NotificationChannel(ACTIVITY_CHANNEL_ID, "Activity", NotificationManager.IMPORTANCE_HIGH);
+                channel.setDescription("Notifies when a patient or invoice is created.");
+                nm.createNotificationChannel(channel);
+            }
+        } catch (Exception ignored) {
+        }
+    }
+
+    /**
      * Posts the update-available notification for {@code versionCode}
      * unless that version (or a newer one) was already announced. Returns
      * true if a notification was actually posted.

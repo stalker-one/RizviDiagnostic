@@ -47,6 +47,7 @@ public class MainActivity extends BridgeActivity {
         registerPlugin(UpdatePlugin.class);
         registerPlugin(ExportPlugin.class);
         super.onCreate(savedInstanceState);
+        NotificationHelper.ensureChannelsCreated(getApplicationContext());
         scheduleBackgroundUpdateCheck();
         getWindow().getDecorView().post(this::showStartupAnimation);
     }
