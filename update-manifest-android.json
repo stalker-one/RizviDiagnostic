@@ -6,7 +6,7 @@
     "apkUrl": "https://github.com/stalker-one/RizviDiagnostic/releases/download/android-latest/RizviDiagnosticCenter-latest.apk",
     "sha256": "b0c1c4712dd1d2e5d88461ad4735b417b3c1441e4adc1f2c5e0512998943ad13",
     "sizeBytes": 6457450,
-    "releaseNotes": "- Fix notification deep-link intent construction\n- Deep-link patient and invoice notifications to exact records\n- Register Android notification deep-link activity\n- Add Android notification deep-link activity\n- Fix Android notification center build and trigger both APK workflows\n- Store notification type and entity for Android notification center\n- Register Android notification center activity\n- Add Android notification center and preferences\n- Add Android notification history and preferences\n- Complete FCM diagnostic sender integration\n- Fix FCM OAuth delivery without Firebase Admin credential URL error\n- Fix Firebase Admin credential normalization for FCM"
+    "releaseNotes": "- Fix notification deep-link intent construction"
   },
   "superadmin": {
     "tag": "android-superadmin-latest",
@@ -15,7 +15,7 @@
     "apkUrl": "https://github.com/stalker-one/RizviDiagnostic/releases/download/android-superadmin-latest/RizviDiagnosticSuperadmin-latest.apk",
     "sha256": "0726f9ab2e48fe78e2fd784035f207abb1daeb77ebf7687cc1c833d2b422b529",
     "sizeBytes": 6456962,
-    "releaseNotes": "- Add Android notification deep-link activity\n- Fix Android notification center build and trigger both APK workflows\n- Store notification type and entity for Android notification center\n- Register Android notification center activity\n- Add Android notification center and preferences\n- Add Android notification history and preferences\n- Complete FCM diagnostic sender integration\n- Fix FCM OAuth delivery without Firebase Admin credential URL error\n- Fix Firebase Admin credential normalization for FCM\n- Add in-app Push Notification Diagnostics panel (no console commands needed)\n- Pre-create notification channels at app startup (fixes gap from hybrid FCM payload)\n- Fix FCM notifications for closed Android apps"
+    "releaseNotes": "- Add Android notification deep-link activity"
   },
   "updatedAt": "87af8ba6eaf6bc4702d84be550309c011edf58f9"
 }
