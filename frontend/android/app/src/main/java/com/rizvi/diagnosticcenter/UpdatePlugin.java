@@ -43,6 +43,22 @@ public class UpdatePlugin extends Plugin {
 
     @PluginMethod public void getVersion(PluginCall call){try{PackageInfo i=getContext().getPackageManager().getPackageInfo(getContext().getPackageName(),0);long c=Build.VERSION.SDK_INT>=Build.VERSION_CODES.P?i.getLongVersionCode():i.versionCode;JSObject r=new JSObject();r.put("versionCode",c);r.put("versionName",i.versionName==null?"":i.versionName);call.resolve(r);}catch(Exception e){call.reject("Unable to read installed Android app version: "+e.getMessage(),e);}}
 
+    // Proactively asks for the Android 13+ notification permission as soon
+    // as the app is opened and the user is logged in, regardless of
+    // whether an update happens to be available right now. Without this,
+    // a device that's already on the latest app version would never see
+    // any notification permission prompt at all (notifyUpdateAvailable is
+    // the only other place that requests it, and it's only called when an
+    // update actually exists) -- meaning patient/invoice push
+    // notifications would silently never be able to post on that device.
+    @PluginMethod public void ensureNotificationPermission(PluginCall call){
+        if(Build.VERSION.SDK_INT>=33&&getPermissionState("notifications")!=PermissionState.GRANTED){
+            requestPermissionForAlias("notifications",call,"notificationPermCallback");
+            return;
+        }
+        JSObject r=new JSObject();r.put("granted",true);call.resolve(r);
+    }
+
     // Posts a system notification (status bar / notification tray) telling
     // the user a new update is available, so they see it even if the app is
     // in the background or minimized -- not just the in-app modal, which
@@ -71,13 +87,16 @@ public class UpdatePlugin extends Plugin {
     private void notificationPermCallback(PluginCall call){
         boolean granted=Build.VERSION.SDK_INT<33||getPermissionState("notifications")==PermissionState.GRANTED;
         if(!granted){
-            JSObject r=new JSObject();r.put("posted",false);r.put("permissionDenied",true);call.resolve(r);
+            JSObject r=new JSObject();r.put("posted",false);r.put("granted",false);r.put("permissionDenied",true);call.resolve(r);
             return;
         }
-        if("notifyActivity".equals(call.getMethodName())){
+        String method=call.getMethodName();
+        if("notifyActivity".equals(method)){
             postActivityNotification(call);
-        }else{
+        }else if("notifyUpdateAvailable".equals(method)){
             postUpdateNotification(call);
+        }else{
+            JSObject r=new JSObject();r.put("granted",true);call.resolve(r);
         }
     }
 
