@@ -2,6 +2,12 @@
 // Uses FCM HTTP v1 with a short-lived OAuth2 access token created directly
 // from the Firebase service-account JSON. No Firebase Admin default app is
 // required, so diagnostics and normal pushes use exactly the same path.
+//
+// IMPORTANT: Android notifications are DATA-ONLY. This lets
+// RizviFirebaseMessagingService receive the message and create the PendingIntent
+// itself. If an FCM `notification` payload is included, Android may create the
+// tray notification automatically while the app is backgrounded, bypassing our
+// NotificationOpenActivity and therefore losing the patient/invoice deep link.
 const crypto = require('crypto');
 const { readTable, writeTable } = require('../db');
 const { getFreshTable } = require('../mongo-table');
@@ -73,22 +79,27 @@ async function getAccessToken() {
 
 async function sendToFcm(registrationToken, title, body, data, projectId) {
   const token = await getAccessToken();
+  const safeData = Object.fromEntries(
+    Object.entries(data || {}).map(([k, v]) => [k, String(v ?? '')])
+  );
+
+  // DATA-ONLY message by design. The native Android FirebaseMessagingService
+  // owns notification creation and its PendingIntent, including deep links.
+  // Keep every value a string as required by FCM data payloads.
   const response = await fetch(`https://fcm.googleapis.com/v1/projects/${encodeURIComponent(projectId)}/messages:send`, {
     method: 'POST',
     headers: { authorization: `Bearer ${token}`, 'content-type': 'application/json' },
     body: JSON.stringify({
       message: {
         token: registrationToken,
-        notification: { title: String(title), body: String(body) },
-        data: Object.fromEntries(Object.entries(data).map(([k, v]) => [k, String(v ?? '')])),
+        data: {
+          title: String(title ?? ''),
+          body: String(body ?? ''),
+          ...safeData,
+        },
         android: {
           priority: 'HIGH',
-          notification: {
-            channel_id: data.type === 'update_available' ? 'rizvi_update_channel' : 'rizvi_activity_channel',
-            sound: 'default',
-            default_vibrate_timings: true,
-            visibility: 'PUBLIC',
-          },
+          ttl: '86400s',
         },
       },
     }),
