@@ -10,12 +10,12 @@
   },
   "superadmin": {
     "tag": "android-superadmin-latest",
-    "versionCode": 148,
-    "versionName": "1.0.148",
+    "versionCode": 151,
+    "versionName": "1.0.151",
     "apkUrl": "https://github.com/stalker-one/RizviDiagnostic/releases/download/android-superadmin-latest/RizviDiagnosticSuperadmin-latest.apk",
-    "sha256": "2a2f121d9789c6112a0a4ccede2a92a38ec65b238be55e36827d2c5100ebc8d0",
-    "sizeBytes": 6457418,
-    "releaseNotes": "- Add Android notification center and preferences\n- Add Android notification history and preferences\n- Complete FCM diagnostic sender integration\n- Fix FCM OAuth delivery without Firebase Admin credential URL error\n- Fix Firebase Admin credential normalization for FCM\n- Add in-app Push Notification Diagnostics panel (no console commands needed)\n- Pre-create notification channels at app startup (fixes gap from hybrid FCM payload)\n- Fix FCM notifications for closed Android apps\n- Fix: notifications never worked on a device that never saw an update prompt\n- Fix duplicate patient/invoice notifications; make update notifications push-based too\n- Real-time push notifications for patient/invoice creation (both apps)\n- Improve background update reliability; add patient/invoice notifications (both apps)"
+    "sha256": "56d287cf8ad61f712ca2d43ce1c893a1c2e6aa80b4c2b852669cbf9d078774e9",
+    "sizeBytes": 6457462,
+    "releaseNotes": "- Fix Android notification center build and trigger both APK workflows\n- Store notification type and entity for Android notification center\n- Register Android notification center activity\n- Add Android notification center and preferences\n- Add Android notification history and preferences\n- Complete FCM diagnostic sender integration\n- Fix FCM OAuth delivery without Firebase Admin credential URL error\n- Fix Firebase Admin credential normalization for FCM\n- Add in-app Push Notification Diagnostics panel (no console commands needed)\n- Pre-create notification channels at app startup (fixes gap from hybrid FCM payload)\n- Fix FCM notifications for closed Android apps\n- Fix: notifications never worked on a device that never saw an update prompt"
   },
   "updatedAt": "08ec8b16b083964644734253390af00e4235cb13"
 }
