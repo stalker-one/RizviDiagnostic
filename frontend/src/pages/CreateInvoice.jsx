@@ -4,7 +4,6 @@ import Layout from '../components/Layout.jsx';
 import Button from '../components/Button.jsx';
 import { Plus, Save } from 'lucide-react';
 import api from '../api/axios';
-import { notifyAndroidActivity } from '../utils/androidNotify.js';
 
 export default function CreateInvoice() {
   const [searchParams] = useSearchParams();
@@ -118,8 +117,6 @@ export default function CreateInvoice() {
         amountPaid: amountPaid === '' ? total : Number(amountPaid),
         notes,
       });
-      const patientName = selectedPatient?.name ? ` for ${selectedPatient.name}` : '';
-      notifyAndroidActivity('Invoice created', `Invoice ${res.data.invoiceNumber || ''}${patientName} — Rs. ${Number(res.data.total ?? total).toLocaleString()}`.trim());
       navigate(`/invoices/${res.data.id}/print`);
     } catch (err) {
       setError(err.response?.data?.message || 'Could not save invoice.');

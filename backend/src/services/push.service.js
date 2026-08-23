@@ -40,15 +40,23 @@ function isEnabled() {
 
 /**
  * Sends a data-only push (title/body/extra fields all passed as string
- * "data", not FCM's built-in "notification" payload) to every registered
- * device. The Android apps render the notification themselves from this
- * data, which is what makes it work reliably whether the app is
- * foregrounded, backgrounded, or fully closed.
+ * "data", not FCM's built-in "notification" payload) to registered devices.
+ * The Android apps render the notification themselves from this data, which
+ * is what makes it work reliably whether the app is foregrounded,
+ * backgrounded, or fully closed.
+ *
+ * @param {string} [appVariant] - When set ('staff' or 'superadmin'), only
+ *   sends to devices registered for that variant -- used for update
+ *   notifications, since a Staff-app update isn't relevant to a Superadmin
+ *   device and vice versa. Left unset, sends to every registered device
+ *   regardless of variant -- used for patient/invoice notifications, which
+ *   both apps' users may want to see.
  */
-async function sendPushToAll(title, body, data = {}) {
+async function sendPush(title, body, data = {}, appVariant) {
   if (!isEnabled()) return;
   try {
-    const tokens = (await getFreshTable('pushTokens', readTable('pushTokens'))) || [];
+    const allTokens = (await getFreshTable('pushTokens', readTable('pushTokens'))) || [];
+    const tokens = appVariant ? allTokens.filter((t) => t.appVariant === appVariant) : allTokens;
     if (!tokens.length) return;
     const dataPayload = { title: String(title), body: String(body) };
     Object.keys(data).forEach((k) => { dataPayload[k] = String(data[k]); });
@@ -60,16 +68,27 @@ async function sendPushToAll(title, body, data = {}) {
     });
     // Prune tokens FCM reports as no-longer-valid (app uninstalled, token
     // rotated, etc.) so the list doesn't grow unbounded with dead entries.
-    const stillValid = tokens.filter((t, i) => {
+    // Operates against the full unfiltered list so an appVariant-scoped
+    // send doesn't accidentally drop unrelated tokens for the other app.
+    const invalidTokens = new Set();
+    tokens.forEach((t, i) => {
       const result = response.responses[i];
-      if (result.success) return true;
+      if (result.success) return;
       const code = result.error?.code || '';
-      return !(code.includes('registration-token-not-registered') || code.includes('invalid-argument'));
+      if (code.includes('registration-token-not-registered') || code.includes('invalid-argument')) invalidTokens.add(t.token);
     });
-    if (stillValid.length !== tokens.length) writeTable('pushTokens', stillValid);
+    if (invalidTokens.size) writeTable('pushTokens', allTokens.filter((t) => !invalidTokens.has(t.token)));
   } catch (err) {
     console.warn('[push] Failed to send push notification:', err.message);
   }
 }
 
-module.exports = { sendPushToAll, isEnabled };
+function sendPushToAll(title, body, data = {}) {
+  return sendPush(title, body, data);
+}
+
+function sendPushToVariant(appVariant, title, body, data = {}) {
+  return sendPush(title, body, data, appVariant);
+}
+
+module.exports = { sendPushToAll, sendPushToVariant, isEnabled };
