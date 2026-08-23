@@ -51,7 +51,7 @@ final class NotificationHelper {
         SharedPreferences prefs = context.getSharedPreferences(PREFS, 0);
         long lastNotified = prefs.getLong(LAST_NOTIFIED_KEY, 0);
         if (versionCode > 0 && versionCode <= lastNotified) return false;
-        boolean posted = post(context, UPDATE_CHANNEL_ID, "App updates", "Notifies when a new app update is available to install.", UPDATE_NOTIFICATION_ID, title, message, "update_available", "", "");
+        boolean posted = post(context, UPDATE_CHANNEL_ID, UPDATE_NOTIFICATION_ID, title, message, "update_available", "");
         if (posted && versionCode > 0) prefs.edit().putLong(LAST_NOTIFIED_KEY, versionCode).apply();
         return posted;
     }
@@ -62,21 +62,24 @@ final class NotificationHelper {
 
     static boolean postActivity(Context context, String title, String message, String type, String entityId) {
         if (!isEnabled(context, ACTIVITY_ENABLED_KEY, true)) return false;
-        return post(context, ACTIVITY_CHANNEL_ID, "Activity", "Notifies when a patient or invoice is created.", activityIdSeq.incrementAndGet(), title, message, type, entityId, entityId);
+        return post(context, ACTIVITY_CHANNEL_ID, activityIdSeq.incrementAndGet(), title, message, type, entityId);
     }
 
-    private static boolean post(Context context, String channelId, String channelName, String channelDescription, int notificationId, String title, String message, String type, String entityId, String targetId) {
+    private static boolean post(Context context, String channelId, int notificationId, String title, String message, String type, String targetId) {
         try {
             ensureChannelsCreated(context);
             saveHistory(context, title, message, type, targetId);
             NotificationManagerCompat manager = NotificationManagerCompat.from(context);
             if (!manager.areNotificationsEnabled()) return false;
-            Intent intent = new Intent(context, NotificationCenterActivity.class);
+
+            Intent intent = new Intent(context, "patient_created".equals(type) || "patient".equals(type) || "invoice_created".equals(type) || "invoice".equals(type)
+                    ? NotificationOpenActivity.class : NotificationCenterActivity.class);
             intent.putExtra("type", type == null ? "" : type);
             intent.putExtra("entityId", targetId == null ? "" : targetId);
             intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP);
             int piFlags = PendingIntent.FLAG_UPDATE_CURRENT | (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M ? PendingIntent.FLAG_IMMUTABLE : 0);
             PendingIntent pendingIntent = PendingIntent.getActivity(context, notificationId, intent, piFlags);
+
             NotificationCompat.Builder builder = new NotificationCompat.Builder(context, channelId)
                 .setSmallIcon(R.drawable.ic_stat_update)
                 .setContentTitle(title)
