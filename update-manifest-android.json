@@ -10,12 +10,12 @@
   },
   "superadmin": {
     "tag": "android-superadmin-latest",
-    "versionCode": 136,
-    "versionName": "1.0.136",
+    "versionCode": 137,
+    "versionName": "1.0.137",
     "apkUrl": "https://github.com/stalker-one/RizviDiagnostic/releases/download/android-superadmin-latest/RizviDiagnosticSuperadmin-latest.apk",
-    "sha256": "30192768987df57ac15ec06d3eff6927240948294fc4744e2dd2345989e4ef5c",
-    "sizeBytes": 5169280,
-    "releaseNotes": "- Show update notification without opening the app; reduce Play Protect confusion\n- Restore developer credit in Android update modal (both apps)\n- Show a system notification when a new Android update is available\n- Show real code changes in Android What's New instead of placeholder text\n- Code-split page routes to speed up initial page load\n- Modernize PageLoader design (used by Superadmin Control and other pages)\n- Fix broken LATEST version chip text in Android update modal\n- Improve update-check loader design\n- Modernize Android Update Required modal design\n- Reduce realtime update check latency\n- Fix realtime Android update checks and GitHub 403 handling\n- Sanitize Android update What's New metadata"
+    "sha256": "b2f689c5d439e6b44bd99bbba7e2809e6d1732b676b9595b7f0fc5c30d2f9f51",
+    "sizeBytes": 5169888,
+    "releaseNotes": "- Instant Dashboard/Analytics revisits + consistent PageLoader (both apps)\n- Show update notification without opening the app; reduce Play Protect confusion\n- Restore developer credit in Android update modal (both apps)\n- Show a system notification when a new Android update is available\n- Show real code changes in Android What's New instead of placeholder text\n- Code-split page routes to speed up initial page load\n- Modernize PageLoader design (used by Superadmin Control and other pages)\n- Fix broken LATEST version chip text in Android update modal\n- Improve update-check loader design\n- Modernize Android Update Required modal design\n- Reduce realtime update check latency\n- Fix realtime Android update checks and GitHub 403 handling"
   },
-  "updatedAt": "ed2b3e34c5b9942df08090fc054e7fcb6eeaba2c"
+  "updatedAt": "62f205d8d1bc510e64289e18740b9e72a77cdf9b"
 }
