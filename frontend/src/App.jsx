@@ -145,6 +145,7 @@ function AndroidUpdateModal({update,checking,onUpdate,onClose,busy,error,onRetry
       {!busy&&<svg width="17" height="17" viewBox="0 0 24 24" fill="none"><path d="M12 4v11m0 0 4-4m-4 4-4-4" stroke="#fff" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round"/><path d="M5 19h14" stroke="#fff" strokeWidth="2.4" strokeLinecap="round"/></svg>}
       {busy?`Updating… ${percent}%`:'Update now'}
      </button>
+     {!busy&&<p style={{margin:'8px 0 0',fontSize:11,lineHeight:1.4,color:'#94a3b8',textAlign:'center'}}>Android may show a "Play Protect" or "Unknown app" notice since this app isn't installed via the Play Store — this is expected. Choose <strong>Install anyway</strong> to continue; this update is verified against Rizvi Diagnostic Center's official release.</p>}
     </div>
    </>
    :<div style={{position:'relative',padding:28}}>
@@ -177,7 +178,7 @@ export default function App(){
     notifiedUpdateCodeRef.current=code;
     try{localStorage.setItem('rdc_notified_update_code',String(code));}catch{}
     const appLabel=IS_SUPERADMIN_APP?'Rizvi Diagnostic Center Superadmin':'Rizvi Diagnostic Center';
-    AndroidUpdate.notifyUpdateAvailable({title:`${appLabel} update available`,message:`Version ${versionName} is ready to install.`}).catch(()=>{});
+    AndroidUpdate.notifyUpdateAvailable({title:`${appLabel} update available`,message:`Version ${versionName} is ready to install.`,versionCode:code}).catch(()=>{});
    }
   }else setAndroidUpdate(null);}catch(error){if(!cancelled)setAndroidUpdateError(error?.message||String(error)||'Unable to check the latest application version.');}finally{checkingAndroidUpdate.current=false;if(!cancelled)setAndroidUpdateChecking(false);}};
   retryCheckRef.current=checkAndroidUpdate;AndroidUpdate.addListener('updateProgress',(event)=>{if(!cancelled)setAndroidUpdateProgress(event||{percent:0});}).then(listener=>{progressListener=listener;});checkAndroidUpdate();const onResume=()=>{if(document.visibilityState==='visible')checkAndroidUpdate();};document.addEventListener('visibilitychange',onResume);window.addEventListener('focus',onResume);const timer=window.setInterval(checkAndroidUpdate,ANDROID_UPDATE_INTERVAL_MS);return()=>{cancelled=true;window.clearInterval(timer);document.removeEventListener('visibilitychange',onResume);window.removeEventListener('focus',onResume);retryCheckRef.current=null;progressListener?.remove?.();};

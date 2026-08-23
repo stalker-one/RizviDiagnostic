@@ -16,7 +16,13 @@ import android.view.WindowManager;
 import android.graphics.PixelFormat;
 import android.widget.FrameLayout;
 import com.getcapacitor.BridgeActivity;
+import androidx.work.Constraints;
+import androidx.work.ExistingPeriodicWorkPolicy;
+import androidx.work.NetworkType;
+import androidx.work.PeriodicWorkRequest;
+import androidx.work.WorkManager;
 import java.io.IOException;
+import java.util.concurrent.TimeUnit;
 
 public class MainActivity extends BridgeActivity {
     private SurfaceView startupVideo;
@@ -35,7 +41,29 @@ public class MainActivity extends BridgeActivity {
         registerPlugin(UpdatePlugin.class);
         registerPlugin(ExportPlugin.class);
         super.onCreate(savedInstanceState);
+        scheduleBackgroundUpdateCheck();
         getWindow().getDecorView().post(this::showStartupAnimation);
+    }
+
+    // Runs UpdateCheckWorker roughly every 6 hours so an update notification
+    // can appear even while the app isn't open. WorkManager persists this
+    // schedule (across app restarts and device reboots) once it has been
+    // enqueued -- KEEP means re-launching the app won't reset or duplicate
+    // an already-scheduled check. The interval is a minimum/best-effort
+    // under Android's battery optimization (Doze), not an exact timer.
+    private void scheduleBackgroundUpdateCheck() {
+        try {
+            PeriodicWorkRequest request = new PeriodicWorkRequest.Builder(
+                    com.rizvi.diagnosticcenter.UpdateCheckWorker.class, 6, TimeUnit.HOURS
+                )
+                .setConstraints(new Constraints.Builder().setRequiredNetworkType(NetworkType.CONNECTED).build())
+                .build();
+            WorkManager.getInstance(getApplicationContext())
+                .enqueueUniquePeriodicWork("rizvi_update_check", ExistingPeriodicWorkPolicy.KEEP, request);
+        } catch (Exception ignored) {
+            // Scheduling failing here shouldn't block the app from starting;
+            // the foreground, in-app check still runs normally either way.
+        }
     }
 
     private void showStartupAnimation() {
