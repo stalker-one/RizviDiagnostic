@@ -54,12 +54,29 @@ public class UpdatePlugin extends Plugin {
         postUpdateNotification(call);
     }
 
+    // Posts a one-off activity notification (patient created, invoice
+    // created, etc.) -- same permission flow as notifyUpdateAvailable, but
+    // on its own notification channel so it doesn't collide with or get
+    // replaced by an update notification.
+    @PluginMethod public void notifyActivity(PluginCall call){
+        if(Build.VERSION.SDK_INT>=33&&getPermissionState("notifications")!=PermissionState.GRANTED){
+            requestPermissionForAlias("notifications",call,"notificationPermCallback");
+            return;
+        }
+        postActivityNotification(call);
+    }
+
     @PermissionCallback
     private void notificationPermCallback(PluginCall call){
-        if(Build.VERSION.SDK_INT<33||getPermissionState("notifications")==PermissionState.GRANTED){
-            postUpdateNotification(call);
-        }else{
+        boolean granted=Build.VERSION.SDK_INT<33||getPermissionState("notifications")==PermissionState.GRANTED;
+        if(!granted){
             JSObject r=new JSObject();r.put("posted",false);r.put("permissionDenied",true);call.resolve(r);
+            return;
+        }
+        if("notifyActivity".equals(call.getMethodName())){
+            postActivityNotification(call);
+        }else{
+            postUpdateNotification(call);
         }
     }
 
@@ -68,6 +85,13 @@ public class UpdatePlugin extends Plugin {
         String message=call.getString("message","A new version is ready to install.");
         long versionCode=call.getInt("versionCode",0);
         boolean posted=NotificationHelper.postIfNewVersion(getContext(),versionCode,title,message);
+        JSObject r=new JSObject();r.put("posted",posted);call.resolve(r);
+    }
+
+    private void postActivityNotification(PluginCall call){
+        String title=call.getString("title","Notification");
+        String message=call.getString("message","");
+        boolean posted=NotificationHelper.postActivity(getContext(),title,message);
         JSObject r=new JSObject();r.put("posted",posted);call.resolve(r);
     }
 
