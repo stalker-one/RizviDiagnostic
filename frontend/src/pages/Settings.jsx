@@ -69,6 +69,10 @@ export default function Settings() {
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
+  const [pushStatus, setPushStatus] = useState(null);
+  const [pushStatusLoading, setPushStatusLoading] = useState(false);
+  const [pushTestResult, setPushTestResult] = useState(null);
+  const [pushTestLoading, setPushTestLoading] = useState(false);
   const fileInputRef = useRef(null);
 
   useEffect(() => {
@@ -630,6 +634,99 @@ export default function Settings() {
               >
                 Send test toast
               </Button>
+
+              <div className="mt-6 pt-5 border-t border-slate-200">
+                <h3 className="font-semibold text-slate-700 mb-1">Push Notification Diagnostics (Android)</h3>
+                <p className="text-sm text-slate-500 mb-3">
+                  Checks whether Android push notifications (update, patient created, invoice created) are
+                  actually reaching this account's device. Use this instead of guessing — it tells you exactly
+                  which step is broken.
+                </p>
+
+                <div className="flex flex-wrap gap-2 mb-3">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    disabled={pushStatusLoading}
+                    onClick={async () => {
+                      setPushStatusLoading(true);
+                      setPushStatus(null);
+                      try {
+                        const res = await api.get('/push/status');
+                        setPushStatus({ ok: true, data: res.data });
+                      } catch (e) {
+                        setPushStatus({ ok: false, error: e?.response?.data?.message || e.message });
+                      } finally {
+                        setPushStatusLoading(false);
+                      }
+                    }}
+                  >
+                    {pushStatusLoading ? 'Checking…' : 'Check status'}
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    disabled={pushTestLoading}
+                    onClick={async () => {
+                      setPushTestLoading(true);
+                      setPushTestResult(null);
+                      try {
+                        const res = await api.post('/push/test-send');
+                        setPushTestResult({ ok: true, data: res.data });
+                      } catch (e) {
+                        setPushTestResult({ ok: false, error: e?.response?.data?.message || e.message });
+                      } finally {
+                        setPushTestLoading(false);
+                      }
+                    }}
+                  >
+                    {pushTestLoading ? 'Sending…' : 'Send test push to my device'}
+                  </Button>
+                </div>
+
+                {pushStatus && (
+                  <div className={`text-sm rounded-lg px-3 py-2 mb-2 ${pushStatus.ok ? 'bg-slate-50 text-slate-700' : 'bg-red-50 text-red-600'}`}>
+                    {pushStatus.ok ? (
+                      <>
+                        <div>Firebase configured on server: <strong>{pushStatus.data.firebaseConfigured ? 'Yes' : 'No'}</strong></div>
+                        <div>Total registered devices (all accounts): <strong>{pushStatus.data.totalRegisteredDevices}</strong></div>
+                        <div>Your own registered device(s): <strong>{pushStatus.data.myRegisteredDevices.length}</strong></div>
+                        {pushStatus.data.myRegisteredDevices.length === 0 && (
+                          <div className="mt-1 text-amber-600">
+                            No device registered under your account — open the Android app and log in with this
+                            same account, wait a few seconds, then check again.
+                          </div>
+                        )}
+                      </>
+                    ) : (
+                      <div>Error: {pushStatus.error}</div>
+                    )}
+                  </div>
+                )}
+
+                {pushTestResult && (
+                  <div className={`text-sm rounded-lg px-3 py-2 ${pushTestResult.ok ? 'bg-slate-50 text-slate-700' : 'bg-red-50 text-red-600'}`}>
+                    {pushTestResult.ok ? (
+                      <>
+                        <div>Attempted: <strong>{pushTestResult.data.attempted}</strong>, Succeeded: <strong>{pushTestResult.data.succeeded}</strong>, Failed: <strong>{pushTestResult.data.failed}</strong></div>
+                        {pushTestResult.data.errors?.length > 0 && (
+                          <div className="mt-1">
+                            {pushTestResult.data.errors.map((e, i) => <div key={i}>{e}</div>)}
+                          </div>
+                        )}
+                        {pushTestResult.data.succeeded > 0 && (
+                          <div className="mt-1 text-green-700">
+                            Firebase accepted the send. If nothing appeared on your phone, the issue is on-device
+                            (permission, battery optimization, or OEM restrictions) rather than the server.
+                          </div>
+                        )}
+                      </>
+                    ) : (
+                      <div>Error: {pushTestResult.error}</div>
+                    )}
+                  </div>
+                )}
+              </div>
             </>
           )}
 
