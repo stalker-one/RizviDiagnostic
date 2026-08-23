@@ -125,6 +125,12 @@ function AndroidUpdateModal({update,checking,onUpdate,onClose,busy,error,onRetry
       <span style={{fontSize:12.5,color:'#64748b'}}>Download size</span>
       <strong style={{fontSize:12.5,color:'#0f172a'}}>{formatBytes(update.sizeBytes)||`${update.sizeMB||'—'} MB`}</strong>
      </div>
+     <div style={{padding:'12px 14px',borderRadius:14,background:'linear-gradient(135deg,#f8fafc,#eff6ff)',border:'1px solid #dbeafe',textAlign:'center',marginBottom:4}}>
+      <div style={{fontSize:11,fontWeight:800,color:'#4f46e5',textTransform:'uppercase',letterSpacing:.8,marginBottom:4}}>Developed by</div>
+      <div style={{fontSize:16,fontWeight:850,color:'#0f172a'}}>Mian Bilal</div>
+      <div style={{fontSize:12,fontWeight:700,color:'#334155',marginTop:2}}>Full Stack Developer</div>
+      <div style={{fontSize:11,lineHeight:1.4,color:'#64748b',marginTop:3}}>Frontend, Backend, Web, Windows and Android Application</div>
+     </div>
     </div>
     <div style={{flex:'0 0 auto',padding:'14px 24px 20px',borderTop:'1px solid #e2e8f0',background:'#fff',boxShadow:'0 -8px 20px rgba(15,23,42,.06)'}}>
      {busy&&<div style={{marginBottom:12}}>
