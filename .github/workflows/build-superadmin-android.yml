@@ -5,6 +5,8 @@ on:
     branches: [main]
     paths:
       - 'frontend/**'
+      - 'backend/src/services/push.service.js'
+      - 'backend/src/services/firebaseAdmin.ts'
       - '.github/workflows/build-superadmin-android.yml'
       - '.github/android-signing/**'
   workflow_dispatch: {}
@@ -125,34 +127,12 @@ jobs:
           set -euo pipefail
           git fetch origin 'refs/tags/android-superadmin-latest:refs/tags/android-superadmin-latest' 2>/dev/null || true
           PREV_SHA="$(git rev-list -n1 android-superadmin-latest 2>/dev/null || true)"
-          if [ -n "$PREV_SHA" ] && git cat-file -e "${PREV_SHA}^{commit}" 2>/dev/null; then
-            RANGE="${PREV_SHA}..HEAD"
-          else
-            RANGE="HEAD"
-          fi
-          mapfile -t CHANGES < <(
-            git log $RANGE --no-merges --pretty=format:'%s' -- frontend/ \
-              | grep -viE '^(Update (Staff|Superadmin) Android update manifest)' \
-              | awk '!seen[$0]++' \
-              | head -n 12
-          )
-          if [ ${#CHANGES[@]} -eq 0 ]; then
-            CHANGES=("General improvements and bug fixes.")
-          fi
+          if [ -n "$PREV_SHA" ] && git cat-file -e "${PREV_SHA}^{commit}" 2>/dev/null; then RANGE="${PREV_SHA}..HEAD"; else RANGE="HEAD"; fi
+          mapfile -t CHANGES < <(git log $RANGE --no-merges --pretty=format:'%s' -- frontend/ backend/src/services/push.service.js backend/src/services/firebaseAdmin.ts | grep -viE '^(Update (Staff|Superadmin) Android update manifest)' | awk '!seen[$0]++' | head -n 12)
+          if [ ${#CHANGES[@]} -eq 0 ]; then CHANGES=("General improvements and bug fixes."); fi
           : > whats-new.md
-          for line in "${CHANGES[@]}"; do
-            echo "- $line" >> whats-new.md
-          done
-          {
-            echo "## What's New"
-            cat whats-new.md
-            echo
-            echo "## Build information"
-            echo "Version code: ${{ github.run_number }}"
-            echo "Version name: 1.0.${{ github.run_number }}"
-            echo "APK SHA-256: ${APK_SHA256}"
-            echo "APK size: ${APK_SIZE} bytes"
-          } > release-notes.md
+          for line in "${CHANGES[@]}"; do echo "- $line" >> whats-new.md; done
+          { echo "## What's New"; cat whats-new.md; echo; echo "## Build information"; echo "Version code: ${{ github.run_number }}"; echo "Version name: 1.0.${{ github.run_number }}"; echo "APK SHA-256: ${APK_SHA256}"; echo "APK size: ${APK_SIZE} bytes"; } > release-notes.md
       - name: Upload Superadmin APK
         uses: actions/upload-artifact@v4
         with:
@@ -192,15 +172,8 @@ jobs:
         continue-on-error: true
         run: |
           set -euo pipefail
-          if [ -z "${PUSH_TRIGGER_SECRET:-}" ]; then
-            echo "PUSH_TRIGGER_SECRET is not set -- skipping instant push (devices will still get the update on their next background check)."
-            exit 0
-          fi
-          curl -sf -X POST "https://stalker-one-rizvidiagnostic.vercel.app/api/push/notify-update" \
-            -H "Content-Type: application/json" \
-            -H "X-Push-Secret: ${PUSH_TRIGGER_SECRET}" \
-            -d "{\"appVariant\":\"superadmin\",\"versionName\":\"1.0.${{ github.run_number }}\",\"versionCode\":${{ github.run_number }}}" \
-            || echo "Push trigger failed (non-fatal) -- devices will still get the update on their next background check."
+          if [ -z "${PUSH_TRIGGER_SECRET:-}" ]; then exit 0; fi
+          curl -sf -X POST "https://stalker-one-rizvidiagnostic.vercel.app/api/push/notify-update" -H "Content-Type: application/json" -H "X-Push-Secret: ${PUSH_TRIGGER_SECRET}" -d "{\"appVariant\":\"superadmin\",\"versionName\":\"1.0.${{ github.run_number }}\",\"versionCode\":${{ github.run_number }}}" || echo "Push trigger failed (non-fatal)."
         env:
           PUSH_TRIGGER_SECRET: ${{ secrets.PUSH_TRIGGER_SECRET }}
       - name: Remove signing keystore
