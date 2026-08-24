@@ -10,12 +10,12 @@
   },
   "superadmin": {
     "tag": "android-superadmin-latest",
-    "versionCode": 166,
-    "versionName": "1.0.166",
+    "versionCode": 167,
+    "versionName": "1.0.167",
     "apkUrl": "https://github.com/stalker-one/RizviDiagnostic/releases/download/android-superadmin-latest/RizviDiagnosticSuperadmin-latest.apk",
-    "sha256": "798957be0372f22d19303e89ae47dc8d3f3ca3c603c7150e98839e5e27e68dbf",
+    "sha256": "d9bfa0f29b3ad2cee2ab46ad4fe8b4fa6c7dbba1f3d2f179a71724062d2629ca",
     "sizeBytes": 6461436,
     "releaseNotes": "- Add today's user closing to profile\n- Add polished animated dashboard card motion\n- Redesign dashboard statistic cards\n- Remove staff today-only filter banner from radiology reports\n- Hide revenue trend from staff dashboard\n- Show count for each test in Test Distribution\n- Update radiology reports filters with booked-by dropdown and patient/doctor search\n- Enable Booked By filter for staff radiology reports\n- Remove all-time patients card and improve mobile test distribution\n- Update Radiology Reports list, Booked By search and revenue design\n- Fix Android FCM deep-link delivery by using data-only messages\n- Fix notification deep-link intent construction"
   },
-  "updatedAt": "670001211dcc52fdccb4a292928d9d8bfdf31031"
+  "updatedAt": "a24e3d5b1211362ebe338a3911ad9e9b0d93329b"
 }
