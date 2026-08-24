@@ -5,6 +5,7 @@ on:
     branches: [main]
     paths:
       - 'frontend/**'
+      - 'backend/src/routes/closing.routes.js'
       - 'backend/src/services/push.service.js'
       - 'backend/src/services/firebaseAdmin.ts'
       - '.github/workflows/build-superadmin-android.yml'
