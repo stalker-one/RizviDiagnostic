@@ -8,8 +8,8 @@ def startupGeneratedResDir = layout.buildDirectory.dir('generated/res/startup').
 
 tasks.register('prepareStartupAnimationResource', Copy) {
     // CI workflows may create res/raw/startup_animation.mp4 for legacy builds.
-    // Remove that duplicate before adding the generated resource so Android's
-    // resource merger always has exactly one startup_animation resource.
+    // Always remove that duplicate before adding the generated resource.
+    outputs.upToDateWhen { false }
     doFirst {
         delete file('src/main/res/raw/startup_animation.mp4')
     }
