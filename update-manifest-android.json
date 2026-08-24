@@ -10,12 +10,12 @@
   },
   "superadmin": {
     "tag": "android-superadmin-latest",
-    "versionCode": 164,
-    "versionName": "1.0.164",
+    "versionCode": 165,
+    "versionName": "1.0.165",
     "apkUrl": "https://github.com/stalker-one/RizviDiagnostic/releases/download/android-superadmin-latest/RizviDiagnosticSuperadmin-latest.apk",
-    "sha256": "b03eea66e1e7b1de169616c9005296bfbdcb6c40635edee967c23ebb5c346da0",
-    "sizeBytes": 6458763,
-    "releaseNotes": "- Redesign dashboard statistic cards\n- Remove staff today-only filter banner from radiology reports\n- Hide revenue trend from staff dashboard\n- Show count for each test in Test Distribution\n- Update radiology reports filters with booked-by dropdown and patient/doctor search\n- Enable Booked By filter for staff radiology reports\n- Remove all-time patients card and improve mobile test distribution\n- Update Radiology Reports list, Booked By search and revenue design\n- Fix Android FCM deep-link delivery by using data-only messages\n- Fix notification deep-link intent construction\n- Deep-link patient and invoice notifications to exact records\n- Register Android notification deep-link activity"
+    "sha256": "d2705d92541dd309829aeabd9f154cdb5c507983206766d5f3be2be6348ab56b",
+    "sizeBytes": 6459751,
+    "releaseNotes": "- Add polished animated dashboard card motion\n- Redesign dashboard statistic cards\n- Remove staff today-only filter banner from radiology reports\n- Hide revenue trend from staff dashboard\n- Show count for each test in Test Distribution\n- Update radiology reports filters with booked-by dropdown and patient/doctor search\n- Enable Booked By filter for staff radiology reports\n- Remove all-time patients card and improve mobile test distribution\n- Update Radiology Reports list, Booked By search and revenue design\n- Fix Android FCM deep-link delivery by using data-only messages\n- Fix notification deep-link intent construction\n- Deep-link patient and invoice notifications to exact records"
   },
-  "updatedAt": "20e854ae232a50a2491ab1e6b7a2b5c274d25bea"
+  "updatedAt": "986ecd92ad11b8f32e587b3911405999bb073269"
 }
