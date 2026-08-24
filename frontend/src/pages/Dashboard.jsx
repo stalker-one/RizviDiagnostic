@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar, PieChart, Pie, Cell, Legend } from 'recharts';
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar, PieChart, Pie, Cell } from 'recharts';
 import Layout from '../components/Layout.jsx';
 import StatCard from '../components/StatCard.jsx';
 import Button from '../components/Button.jsx';
@@ -8,229 +8,29 @@ import { Filter } from 'lucide-react';
 import api from '../api/axios';
 import { useAuth } from '../context/AuthContext.jsx';
 
-// Module-scoped (not component state), so it survives navigating away and
-// back to the Dashboard within the same app session. Lets a revisit render
-// the last-known numbers immediately instead of showing a blank loading
-// screen again while the same data gets refetched in the background.
 let dashboardCache = null;
+const RANGE_OPTIONS=[{key:'today',label:'Today'},{key:'yesterday',label:'Yesterday'},{key:'last3',label:'Last 3 Days'},{key:'all',label:'All'}];
+const RANGE_LABELS={today:"Today's",yesterday:"Yesterday's",last3:'Last 3 Days',all:'All-Time'};
+const COLORS=['#0f6fde','#10b981','#f59e0b','#ef4444','#8b5cf6','#ec4899','#14b8a6','#f97316'];
 
-const RANGE_OPTIONS = [
-  { key: 'today', label: 'Today' },
-  { key: 'yesterday', label: 'Yesterday' },
-  { key: 'last3', label: 'Last 3 Days' },
-  { key: 'all', label: 'All' },
-];
-
-const RANGE_LABELS = {
-  today: "Today's",
-  yesterday: "Yesterday's",
-  last3: 'Last 3 Days',
-  all: 'All-Time',
-};
-
-const COLORS = ['#0f6fde', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899', '#14b8a6', '#f97316'];
-
-export default function Dashboard() {
-  const { isAdmin } = useAuth();
-  const [summary, setSummary] = useState(dashboardCache?.summary ?? null);
-  const [trend, setTrend] = useState(dashboardCache?.trend ?? []);
-  const [testDistribution, setTestDistribution] = useState(dashboardCache?.testDistribution ?? []);
-  const [dailyRevenue, setDailyRevenue] = useState(dashboardCache?.dailyRevenue ?? []);
-  const [range, setRange] = useState(dashboardCache?.range ?? 'today');
-  const [from, setFrom] = useState('');
-  const [to, setTo] = useState('');
-  // Only block the whole page behind a loading screen when there is
-  // nothing cached yet to show in the meantime.
-  const [loading, setLoading] = useState(!dashboardCache);
-
-  const load = (opts = {}) => {
-    const r = opts.range ?? range;
-    const f = opts.from ?? from;
-    const t = opts.to ?? to;
-    // If we already have something on screen (from cache or a prior load),
-    // keep showing it while this refresh runs instead of blanking the page.
-    if (!summary) setLoading(true);
-    
-    const params = {
-      range: f || t ? undefined : r,
-      from: f || undefined,
-      to: t || undefined,
-    };
-
-    Promise.all([
-      api.get('/reports/summary', { params }),
-      api.get('/reports/revenue-trend', { params: { ...params, days: 14 } }),
-      api.get('/reports/test-distribution', { params }),
-      api.get('/reports/daily-revenue', { params }),
-    ])
-      .then(([s, t2, td, dr]) => {
-        setSummary(s.data);
-        setTrend(t2.data || []);
-        setTestDistribution(td.data || []);
-        setDailyRevenue(dr.data || []);
-        if (s.data.range) setRange(s.data.range);
-        // Only cache the default "today" view (no custom date range), since
-        // that's the one shown on a fresh revisit to this page.
-        if (!f && !t) {
-          dashboardCache = { summary: s.data, trend: t2.data || [], testDistribution: td.data || [], dailyRevenue: dr.data || [], range: s.data.range || r };
-        }
-      })
-      .catch((error) => {
-        console.error('Error loading dashboard data:', error);
-        // Set fallback data for demonstration
-        setTestDistribution([
-          { name: 'Blood Test', value: 45 },
-          { name: 'X-Ray', value: 30 },
-          { name: 'MRI', value: 15 },
-          { name: 'CT Scan', value: 10 },
-        ]);
-        setDailyRevenue([
-          { day: 'Mon', revenue: 4500 },
-          { day: 'Tue', revenue: 6200 },
-          { day: 'Wed', revenue: 3800 },
-          { day: 'Thu', revenue: 7100 },
-          { day: 'Fri', revenue: 5600 },
-          { day: 'Sat', revenue: 4300 },
-          { day: 'Sun', revenue: 2900 },
-        ]);
-      })
-      .finally(() => setLoading(false));
-  };
-
-  useEffect(() => { load(); }, []);
-
-  const selectRange = (key) => {
-    setRange(key);
-    setFrom('');
-    setTo('');
-    load({ range: key, from: '', to: '' });
-  };
-
-  const applyDateFilter = () => {
-    load({});
-  };
-
-  const rangeLabel = from || to ? 'Selected Range' : (RANGE_LABELS[range] || "Today's");
-
-  const formatCurrency = (value) => {
-    return `Rs. ${value.toLocaleString()}`;
-  };
-
-  return (
-    <Layout title="Dashboard">
-      {isAdmin && (
-        <div className="flex flex-wrap items-center gap-2 mb-4">
-          {RANGE_OPTIONS.map((opt) => (
-            <button
-              key={opt.key}
-              onClick={() => selectRange(opt.key)}
-              className={`px-3 sm:px-4 py-2 rounded-lg text-xs sm:text-sm font-medium transition ${
-                range === opt.key && !from && !to ? 'bg-brand-600 text-white' : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-50'
-              }`}
-            >
-              {opt.label}
-            </button>
-          ))}
-        </div>
-      )}
-
-      {isAdmin && (
-        <div className="flex flex-wrap items-end gap-3 mb-6 bg-white rounded-xl border border-slate-100 shadow-sm p-4">
-          <div>
-            <label className="block text-xs font-medium text-slate-500 mb-1">From</label>
-            <input 
-              type="date" 
-              value={from} 
-              onChange={(e) => setFrom(e.target.value)} 
-              className="border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500" 
-            />
-          </div>
-          <div>
-            <label className="block text-xs font-medium text-slate-500 mb-1">To</label>
-            <input 
-              type="date" 
-              value={to} 
-              onChange={(e) => setTo(e.target.value)} 
-              className="border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500" 
-            />
-          </div>
-          <Button onClick={applyDateFilter} icon={Filter}>Filter by Date</Button>
-        </div>
-      )}
-
-      {loading || !summary ? (
-        <PageLoader message="Loading dashboard..." />
-      ) : (
-        <>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-            <StatCard label={`${rangeLabel} Sales`} value={summary.totalSales} prefix="Rs. " />
-            <StatCard label={`${rangeLabel} Revenue`} value={summary.totalRevenue} prefix="Rs. " accent="green" />
-            <StatCard label={`${rangeLabel} Tests Performed`} value={summary.testsPerformed} />
-            <StatCard label={`${rangeLabel} Invoices`} value={summary.totalInvoices} />
-            <StatCard label="Today's Revenue" value={summary.todaysRevenue} prefix="Rs. " accent="green" />
-            <StatCard label="Today's Invoices" value={summary.todaysInvoicesCount} />
-            <StatCard label="Total Patients (All-Time)" value={summary.totalPatients} />
-            <StatCard label={`${rangeLabel} Pending Dues`} value={summary.pendingDues} prefix="Rs. " accent="red" />
-          </div>
-
-          {/* Charts Grid */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
-            {/* Revenue Trend - Line Chart */}
-            <div className="bg-white rounded-xl border border-slate-100 shadow-sm p-5">
-              <h3 className="font-semibold text-slate-700 mb-4">Revenue Trend (Last 14 Days)</h3>
-              <ResponsiveContainer width="100%" height={300}>
-                <LineChart data={trend}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#eef1f5" />
-                  <XAxis dataKey="date" tick={{ fontSize: 11 }} />
-                  <YAxis tick={{ fontSize: 11 }} tickFormatter={formatCurrency} />
-                  <Tooltip formatter={(value) => formatCurrency(value)} />
-                  <Line type="monotone" dataKey="revenue" stroke="#0f6fde" strokeWidth={2} dot={false} />
-                </LineChart>
-              </ResponsiveContainer>
-            </div>
-
-            {/* Daily Revenue - Bar Chart */}
-            <div className="bg-white rounded-xl border border-slate-100 shadow-sm p-5">
-              <h3 className="font-semibold text-slate-700 mb-4">Daily Revenue (This Week)</h3>
-              <ResponsiveContainer width="100%" height={300}>
-                <BarChart data={dailyRevenue}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#eef1f5" />
-                  <XAxis dataKey="day" tick={{ fontSize: 11 }} />
-                  <YAxis tick={{ fontSize: 11 }} tickFormatter={formatCurrency} />
-                  <Tooltip formatter={(value) => formatCurrency(value)} />
-                  <Bar dataKey="revenue" fill="#10b981" radius={[4, 4, 0, 0]} />
-                </BarChart>
-              </ResponsiveContainer>
-            </div>
-          </div>
-
-          {/* Test Distribution - Pie Chart */}
-          <div className="bg-white rounded-xl border border-slate-100 shadow-sm p-5">
-            <h3 className="font-semibold text-slate-700 mb-4">Test Distribution</h3>
-            <ResponsiveContainer width="100%" height={300}>
-              <PieChart>
-                <Pie
-                  data={testDistribution}
-                  cx="50%"
-                  cy="50%"
-                  innerRadius={60}
-                  outerRadius={90}
-                  paddingAngle={5}
-                  dataKey="value"
-                  label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
-                  labelLine={true}
-                >
-                  {testDistribution.map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                  ))}
-                </Pie>
-                <Tooltip formatter={(value, name) => [`${value} tests`, name]} />
-                <Legend />
-              </PieChart>
-            </ResponsiveContainer>
-          </div>
-        </>
-      )}
-    </Layout>
-  );
+export default function Dashboard(){
+ const {isAdmin}=useAuth();
+ const [summary,setSummary]=useState(dashboardCache?.summary??null),[trend,setTrend]=useState(dashboardCache?.trend??[]),[testDistribution,setTestDistribution]=useState(dashboardCache?.testDistribution??[]),[dailyRevenue,setDailyRevenue]=useState(dashboardCache?.dailyRevenue??[]);
+ const [range,setRange]=useState(dashboardCache?.range??'today'),[from,setFrom]=useState(''),[to,setTo]=useState(''),[loading,setLoading]=useState(!dashboardCache);
+ const load=(opts={})=>{const r=opts.range??range,f=opts.from??from,t=opts.to??to;if(!summary)setLoading(true);const params={range:f||t?undefined:r,from:f||undefined,to:t||undefined};Promise.all([api.get('/reports/summary',{params}),api.get('/reports/revenue-trend',{params:{...params,days:14}}),api.get('/reports/test-distribution',{params}),api.get('/reports/daily-revenue',{params})]).then(([s,t2,td,dr])=>{setSummary(s.data);setTrend(t2.data||[]);setTestDistribution(td.data||[]);setDailyRevenue(dr.data||[]);if(s.data.range)setRange(s.data.range);if(!f&&!t)dashboardCache={summary:s.data,trend:t2.data||[],testDistribution:td.data||[],dailyRevenue:dr.data||[],range:s.data.range||r};}).catch(e=>console.error('Error loading dashboard data:',e)).finally(()=>setLoading(false));};
+ useEffect(()=>{load();},[]);
+ const selectRange=key=>{setRange(key);setFrom('');setTo('');load({range:key,from:'',to:''});};
+ const applyDateFilter=()=>load({});
+ const rangeLabel=from||to?'Selected Range':(RANGE_LABELS[range]||"Today's");
+ const formatCurrency=value=>`Rs. ${Number(value||0).toLocaleString()}`;
+ const distributionTotal=testDistribution.reduce((s,x)=>s+Number(x.value||0),0);
+ return <Layout title="Dashboard">
+  {isAdmin&&<div className="flex flex-wrap items-center gap-2 mb-4">{RANGE_OPTIONS.map(opt=><button key={opt.key} onClick={()=>selectRange(opt.key)} className={`px-3 sm:px-4 py-2 rounded-lg text-xs sm:text-sm font-medium transition ${range===opt.key&&!from&&!to?'bg-brand-600 text-white':'bg-white border border-slate-200 text-slate-600 hover:bg-slate-50'}`}>{opt.label}</button>)}</div>}
+  {isAdmin&&<div className="flex flex-wrap items-end gap-3 mb-6 bg-white rounded-xl border border-slate-100 shadow-sm p-4"><div><label className="block text-xs font-medium text-slate-500 mb-1">From</label><input type="date" value={from} onChange={e=>setFrom(e.target.value)} className="border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"/></div><div><label className="block text-xs font-medium text-slate-500 mb-1">To</label><input type="date" value={to} onChange={e=>setTo(e.target.value)} className="border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"/></div><Button onClick={applyDateFilter} icon={Filter}>Filter by Date</Button></div>}
+  {loading||!summary?<PageLoader message="Loading dashboard..."/>:<>
+   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6"><StatCard label={`${rangeLabel} Sales`} value={summary.totalSales} prefix="Rs. "/><StatCard label={`${rangeLabel} Revenue`} value={summary.totalRevenue} prefix="Rs. " accent="green"/><StatCard label={`${rangeLabel} Tests Performed`} value={summary.testsPerformed}/><StatCard label={`${rangeLabel} Invoices`} value={summary.totalInvoices}/><StatCard label="Today's Revenue" value={summary.todaysRevenue} prefix="Rs. " accent="green"/><StatCard label="Today's Invoices" value={summary.todaysInvoicesCount}/><StatCard label={`${rangeLabel} Pending Dues`} value={summary.pendingDues} prefix="Rs. " accent="red"/></div>
+   <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6"><div className="bg-white rounded-xl border border-slate-100 shadow-sm p-4 sm:p-5"><h3 className="font-semibold text-slate-700 mb-4">Revenue Trend (Last 14 Days)</h3><ResponsiveContainer width="100%" height={300}><LineChart data={trend}><CartesianGrid strokeDasharray="3 3" stroke="#eef1f5"/><XAxis dataKey="date" tick={{fontSize:11}}/><YAxis tick={{fontSize:11}} tickFormatter={formatCurrency}/><Tooltip formatter={value=>formatCurrency(value)}/><Line type="monotone" dataKey="revenue" stroke="#0f6fde" strokeWidth={2} dot={false}/></LineChart></ResponsiveContainer></div><div className="bg-white rounded-xl border border-slate-100 shadow-sm p-4 sm:p-5"><h3 className="font-semibold text-slate-700 mb-4">Daily Revenue (This Week)</h3><ResponsiveContainer width="100%" height={300}><BarChart data={dailyRevenue}><CartesianGrid strokeDasharray="3 3" stroke="#eef1f5"/><XAxis dataKey="day" tick={{fontSize:11}}/><YAxis tick={{fontSize:11}} tickFormatter={formatCurrency}/><Tooltip formatter={value=>formatCurrency(value)}/><Bar dataKey="revenue" fill="#10b981" radius={[4,4,0,0]}/></BarChart></ResponsiveContainer></div></div>
+   <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-4 sm:p-6"><div className="flex items-center justify-between gap-3 mb-4"><div><h3 className="font-semibold text-slate-800">Test Distribution</h3><p className="text-xs text-slate-500 mt-1">Top tests in the selected period</p></div><div className="rounded-full bg-slate-50 px-3 py-1 text-xs font-semibold text-slate-600">{distributionTotal.toLocaleString()} tests</div></div>{!testDistribution.length?<div className="h-40 flex items-center justify-center text-sm text-slate-400">No test data for this period.</div>:<div className="grid grid-cols-1 md:grid-cols-[minmax(240px,360px)_1fr] gap-5 md:gap-8 items-center"><div className="h-[240px] sm:h-[290px] w-full"><ResponsiveContainer width="100%" height="100%"><PieChart><Pie data={testDistribution} cx="50%" cy="50%" innerRadius="48%" outerRadius="72%" paddingAngle={3} dataKey="value" strokeWidth={2}>{testDistribution.map((entry,index)=><Cell key={`cell-${index}`} fill={COLORS[index%COLORS.length]}/>)}</Pie><Tooltip formatter={(value,name)=>[`${value} tests`,name]}/></PieChart></ResponsiveContainer></div><div className="grid grid-cols-1 sm:grid-cols-2 gap-2">{testDistribution.map((entry,index)=>{const pct=distributionTotal?Math.round((Number(entry.value)/distributionTotal)*100):0;return <div key={entry.name} className="flex items-center justify-between gap-3 rounded-xl border border-slate-100 bg-slate-50/60 px-3 py-2.5"><div className="flex min-w-0 items-center gap-2"><span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{backgroundColor:COLORS[index%COLORS.length]}}/><span className="truncate text-sm text-slate-700" title={entry.name}>{entry.name}</span></div><span className="shrink-0 text-xs font-semibold text-slate-500">{pct}%</span></div>})}</div></div>}</div>
+  </>}
+ </Layout>;
 }
