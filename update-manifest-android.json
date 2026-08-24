@@ -10,12 +10,12 @@
   },
   "superadmin": {
     "tag": "android-superadmin-latest",
-    "versionCode": 160,
-    "versionName": "1.0.160",
+    "versionCode": 161,
+    "versionName": "1.0.161",
     "apkUrl": "https://github.com/stalker-one/RizviDiagnostic/releases/download/android-superadmin-latest/RizviDiagnosticSuperadmin-latest.apk",
-    "sha256": "df2172cdf0ae5d291d0f359100557afbdf105cc5b963a006c04721095a75b0e1",
-    "sizeBytes": 6458251,
-    "releaseNotes": "- Update radiology reports filters with booked-by dropdown and patient/doctor search\n- Enable Booked By filter for staff radiology reports\n- Remove all-time patients card and improve mobile test distribution\n- Update Radiology Reports list, Booked By search and revenue design\n- Fix Android FCM deep-link delivery by using data-only messages\n- Fix notification deep-link intent construction\n- Deep-link patient and invoice notifications to exact records\n- Register Android notification deep-link activity\n- Add Android notification deep-link activity\n- Fix Android notification center build and trigger both APK workflows\n- Store notification type and entity for Android notification center\n- Register Android notification center activity"
+    "sha256": "c37d09e9685f5a66ca0054a13aa82b4b02029e1bf38693dd81dae1c7b25d249f",
+    "sizeBytes": 6458727,
+    "releaseNotes": "- Show count for each test in Test Distribution\n- Update radiology reports filters with booked-by dropdown and patient/doctor search\n- Enable Booked By filter for staff radiology reports\n- Remove all-time patients card and improve mobile test distribution\n- Update Radiology Reports list, Booked By search and revenue design\n- Fix Android FCM deep-link delivery by using data-only messages\n- Fix notification deep-link intent construction\n- Deep-link patient and invoice notifications to exact records\n- Register Android notification deep-link activity\n- Add Android notification deep-link activity\n- Fix Android notification center build and trigger both APK workflows\n- Store notification type and entity for Android notification center"
   },
   "updatedAt": "5ea865a6536165501e33f736e28ea40624191d44"
 }
