@@ -1,12 +1,12 @@
 {
   "staff": {
     "tag": "android-latest",
-    "versionCode": 235,
-    "versionName": "1.0.235",
+    "versionCode": 236,
+    "versionName": "1.0.236",
     "apkUrl": "https://github.com/stalker-one/RizviDiagnostic/releases/download/android-latest/RizviDiagnosticCenter-latest.apk",
-    "sha256": "b796fd8fc240a0f221c1a0745d3b55f1cebac26f28497f7f279a23ed6358a3b1",
-    "sizeBytes": 6459755,
-    "releaseNotes": "- Add polished animated dashboard card motion\n- Redesign dashboard statistic cards\n- Remove staff today-only filter banner from radiology reports\n- Hide revenue trend from staff dashboard\n- Show count for each test in Test Distribution\n- Update radiology reports filters with booked-by dropdown and patient/doctor search\n- Enable Booked By filter for staff radiology reports\n- Remove all-time patients card and improve mobile test distribution\n- Update Radiology Reports list, Booked By search and revenue design\n- Fix Android FCM deep-link delivery by using data-only messages\n- Fix notification deep-link intent construction\n- Deep-link patient and invoice notifications to exact records"
+    "sha256": "55dac15400935574c9dece56381268d66e5c032b4124325c5522f2a463cd1de6",
+    "sizeBytes": 6461416,
+    "releaseNotes": "- Add today's user closing to profile\n- Add polished animated dashboard card motion\n- Redesign dashboard statistic cards\n- Remove staff today-only filter banner from radiology reports\n- Hide revenue trend from staff dashboard\n- Show count for each test in Test Distribution\n- Update radiology reports filters with booked-by dropdown and patient/doctor search\n- Enable Booked By filter for staff radiology reports\n- Remove all-time patients card and improve mobile test distribution\n- Update Radiology Reports list, Booked By search and revenue design\n- Fix Android FCM deep-link delivery by using data-only messages\n- Fix notification deep-link intent construction"
   },
   "superadmin": {
     "tag": "android-superadmin-latest",
