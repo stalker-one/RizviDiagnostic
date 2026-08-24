@@ -25,6 +25,7 @@ concurrency:
 env:
   MONGODB_DB_NAME: rizvi_diagnostic_center
   WINDOWS_RELEASE_TAG: v1.1.0
+  PRODUCTION_API_BASE_URL: https://stalker-one-rizvidiagnostic.vercel.app/api
 
 jobs:
   build-windows:
@@ -101,7 +102,7 @@ jobs:
       - name: Build frontend
         working-directory: frontend
         env:
-          VITE_API_BASE_URL: http://localhost:5000/api
+          VITE_API_BASE_URL: ${{ env.PRODUCTION_API_BASE_URL }}
         run: npm run build
       - name: Prepare shared Rizvi application icon
         shell: pwsh
