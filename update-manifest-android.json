@@ -1,12 +1,12 @@
 {
   "staff": {
     "tag": "android-latest",
-    "versionCode": 231,
-    "versionName": "1.0.231",
+    "versionCode": 232,
+    "versionName": "1.0.232",
     "apkUrl": "https://github.com/stalker-one/RizviDiagnostic/releases/download/android-latest/RizviDiagnosticCenter-latest.apk",
-    "sha256": "43a412745d45178f35d487a86c0a7f9a7ff9bad7086c5f03a16e8e000f06af66",
-    "sizeBytes": 6458763,
-    "releaseNotes": "- Show count for each test in Test Distribution\n- Update radiology reports filters with booked-by dropdown and patient/doctor search\n- Enable Booked By filter for staff radiology reports\n- Remove all-time patients card and improve mobile test distribution\n- Update Radiology Reports list, Booked By search and revenue design\n- Fix Android FCM deep-link delivery by using data-only messages\n- Fix notification deep-link intent construction\n- Deep-link patient and invoice notifications to exact records\n- Register Android notification deep-link activity\n- Add Android notification deep-link activity\n- Fix Android notification center build and trigger both APK workflows\n- Store notification type and entity for Android notification center"
+    "sha256": "8a0783e6ab07d0694cae5a6943d21a65929374f881b75557281ba295e099dd47",
+    "sizeBytes": 6458679,
+    "releaseNotes": "- Hide revenue trend from staff dashboard\n- Show count for each test in Test Distribution\n- Update radiology reports filters with booked-by dropdown and patient/doctor search\n- Enable Booked By filter for staff radiology reports\n- Remove all-time patients card and improve mobile test distribution\n- Update Radiology Reports list, Booked By search and revenue design\n- Fix Android FCM deep-link delivery by using data-only messages\n- Fix notification deep-link intent construction\n- Deep-link patient and invoice notifications to exact records\n- Register Android notification deep-link activity\n- Add Android notification deep-link activity\n- Fix Android notification center build and trigger both APK workflows"
   },
   "superadmin": {
     "tag": "android-superadmin-latest",
@@ -17,5 +17,5 @@
     "sizeBytes": 6458227,
     "releaseNotes": "- Show count for each test in Test Distribution\n- Update radiology reports filters with booked-by dropdown and patient/doctor search\n- Enable Booked By filter for staff radiology reports\n- Remove all-time patients card and improve mobile test distribution\n- Update Radiology Reports list, Booked By search and revenue design\n- Fix Android FCM deep-link delivery by using data-only messages\n- Fix notification deep-link intent construction\n- Deep-link patient and invoice notifications to exact records\n- Register Android notification deep-link activity\n- Add Android notification deep-link activity\n- Fix Android notification center build and trigger both APK workflows\n- Store notification type and entity for Android notification center"
   },
-  "updatedAt": "5ea865a6536165501e33f736e28ea40624191d44"
+  "updatedAt": "ad59d9dab7ccdef1bba3b27f2da0fce6b8497ada"
 }
