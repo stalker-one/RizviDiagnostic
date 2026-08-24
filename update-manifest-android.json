@@ -10,12 +10,12 @@
   },
   "superadmin": {
     "tag": "android-superadmin-latest",
-    "versionCode": 156,
-    "versionName": "1.0.156",
+    "versionCode": 157,
+    "versionName": "1.0.157",
     "apkUrl": "https://github.com/stalker-one/RizviDiagnostic/releases/download/android-superadmin-latest/RizviDiagnosticSuperadmin-latest.apk",
-    "sha256": "37d3957ded8a1d60c082776dac3577ce83b4ff0c3acba140b8aa40d1f6ab4070",
-    "sizeBytes": 6457002,
-    "releaseNotes": "- Fix Android FCM deep-link delivery by using data-only messages\n- Fix notification deep-link intent construction\n- Deep-link patient and invoice notifications to exact records\n- Register Android notification deep-link activity\n- Add Android notification deep-link activity\n- Fix Android notification center build and trigger both APK workflows\n- Store notification type and entity for Android notification center\n- Register Android notification center activity\n- Add Android notification center and preferences\n- Add Android notification history and preferences\n- Complete FCM diagnostic sender integration\n- Fix FCM OAuth delivery without Firebase Admin credential URL error"
+    "sha256": "43363c0404675fd0000b93f2b850a6dc6e0c7bcb15740477ffdd3101cb9bd16e",
+    "sizeBytes": 6457871,
+    "releaseNotes": "- Update Radiology Reports list, Booked By search and revenue design\n- Fix Android FCM deep-link delivery by using data-only messages\n- Fix notification deep-link intent construction\n- Deep-link patient and invoice notifications to exact records\n- Register Android notification deep-link activity\n- Add Android notification deep-link activity\n- Fix Android notification center build and trigger both APK workflows\n- Store notification type and entity for Android notification center\n- Register Android notification center activity\n- Add Android notification center and preferences\n- Add Android notification history and preferences\n- Complete FCM diagnostic sender integration"
   },
   "updatedAt": "e12c141f2526b6be1782fea5103a58074665d26e"
 }
