@@ -6,14 +6,25 @@ const { getFreshTable } = require('../mongo-table');
 const router = express.Router();
 router.use(authenticate);
 
-function dayBounds(value) {
-  const date = value ? new Date(value) : new Date();
-  if (Number.isNaN(date.getTime())) return null;
-  const start = new Date(date);
-  start.setHours(0, 0, 0, 0);
-  const end = new Date(start);
-  end.setDate(end.getDate() + 1);
-  return { start, end };
+const PAKISTAN_TZ = 'Asia/Karachi';
+
+function pakistanDateParts(date = new Date()) {
+  const parts = new Intl.DateTimeFormat('en-CA', {
+    timeZone: PAKISTAN_TZ,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).formatToParts(date);
+  return Object.fromEntries(parts.filter((p) => p.type !== 'literal').map((p) => [p.type, p.value]));
+}
+
+function dayBounds() {
+  const { year, month, day } = pakistanDateParts();
+  // Build UTC instants for Pakistan midnight. Asia/Karachi is UTC+05:00 and has
+  // no DST, so these bounds are stable throughout the year.
+  const start = new Date(`${year}-${month}-${day}T00:00:00+05:00`);
+  const end = new Date(start.getTime() + 24 * 60 * 60 * 1000);
+  return { start, end, dateKey: `${year}-${month}-${day}` };
 }
 
 router.get('/today', async (req, res) => {
@@ -36,7 +47,10 @@ router.get('/today', async (req, res) => {
   const totalDiscount = userInvoices.reduce((sum, i) => sum + Number(i.discountAmount || 0), 0);
 
   res.json({
-    date: bounds.start.toISOString(),
+    date: bounds.dateKey,
+    timezone: PAKISTAN_TZ,
+    startAt: bounds.start.toISOString(),
+    endAt: bounds.end.toISOString(),
     user: { id: req.user.id, name: req.user.name, role: req.user.role },
     invoices: userInvoices.length,
     patients: userPatients.length,
