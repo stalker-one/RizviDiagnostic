@@ -1,10 +1,10 @@
 {
   "staff": {
     "tag": "android-latest",
-    "versionCode": 236,
-    "versionName": "1.0.236",
+    "versionCode": 237,
+    "versionName": "1.0.237",
     "apkUrl": "https://github.com/stalker-one/RizviDiagnostic/releases/download/android-latest/RizviDiagnosticCenter-latest.apk",
-    "sha256": "55dac15400935574c9dece56381268d66e5c032b4124325c5522f2a463cd1de6",
+    "sha256": "27f4cdcdeb9b32634f435cd015b7bb24dc69819fc23882b483d24d52e33c5c13",
     "sizeBytes": 6461416,
     "releaseNotes": "- Add today's user closing to profile\n- Add polished animated dashboard card motion\n- Redesign dashboard statistic cards\n- Remove staff today-only filter banner from radiology reports\n- Hide revenue trend from staff dashboard\n- Show count for each test in Test Distribution\n- Update radiology reports filters with booked-by dropdown and patient/doctor search\n- Enable Booked By filter for staff radiology reports\n- Remove all-time patients card and improve mobile test distribution\n- Update Radiology Reports list, Booked By search and revenue design\n- Fix Android FCM deep-link delivery by using data-only messages\n- Fix notification deep-link intent construction"
   },
@@ -17,5 +17,5 @@
     "sizeBytes": 6461436,
     "releaseNotes": "- Add today's user closing to profile\n- Add polished animated dashboard card motion\n- Redesign dashboard statistic cards\n- Remove staff today-only filter banner from radiology reports\n- Hide revenue trend from staff dashboard\n- Show count for each test in Test Distribution\n- Update radiology reports filters with booked-by dropdown and patient/doctor search\n- Enable Booked By filter for staff radiology reports\n- Remove all-time patients card and improve mobile test distribution\n- Update Radiology Reports list, Booked By search and revenue design\n- Fix Android FCM deep-link delivery by using data-only messages\n- Fix notification deep-link intent construction"
   },
-  "updatedAt": "b2957a27d78674bbbe2b89335317d2709e442865"
+  "updatedAt": "670001211dcc52fdccb4a292928d9d8bfdf31031"
 }
