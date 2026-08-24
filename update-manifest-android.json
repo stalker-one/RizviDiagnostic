@@ -1,12 +1,12 @@
 {
   "staff": {
     "tag": "android-latest",
-    "versionCode": 228,
-    "versionName": "1.0.228",
+    "versionCode": 229,
+    "versionName": "1.0.229",
     "apkUrl": "https://github.com/stalker-one/RizviDiagnostic/releases/download/android-latest/RizviDiagnosticCenter-latest.apk",
-    "sha256": "569774ff7520bc31ac81bca0ec9cc8e4f12aca5738f4cf7691191cb5c7233bdb",
-    "sizeBytes": 6458595,
-    "releaseNotes": "- Remove all-time patients card and improve mobile test distribution\n- Update Radiology Reports list, Booked By search and revenue design\n- Fix Android FCM deep-link delivery by using data-only messages\n- Fix notification deep-link intent construction\n- Deep-link patient and invoice notifications to exact records\n- Register Android notification deep-link activity\n- Add Android notification deep-link activity\n- Fix Android notification center build and trigger both APK workflows\n- Store notification type and entity for Android notification center\n- Register Android notification center activity\n- Add Android notification center and preferences\n- Add Android notification history and preferences"
+    "sha256": "ae0c34d8114508b4cf87a72ee3efec9bc0c08fde490c7a3c48089fbe766e50f1",
+    "sizeBytes": 6458603,
+    "releaseNotes": "- Enable Booked By filter for staff radiology reports\n- Remove all-time patients card and improve mobile test distribution\n- Update Radiology Reports list, Booked By search and revenue design\n- Fix Android FCM deep-link delivery by using data-only messages\n- Fix notification deep-link intent construction\n- Deep-link patient and invoice notifications to exact records\n- Register Android notification deep-link activity\n- Add Android notification deep-link activity\n- Fix Android notification center build and trigger both APK workflows\n- Store notification type and entity for Android notification center\n- Register Android notification center activity\n- Add Android notification center and preferences"
   },
   "superadmin": {
     "tag": "android-superadmin-latest",
@@ -17,5 +17,5 @@
     "sizeBytes": 6457871,
     "releaseNotes": "- Update Radiology Reports list, Booked By search and revenue design\n- Fix Android FCM deep-link delivery by using data-only messages\n- Fix notification deep-link intent construction\n- Deep-link patient and invoice notifications to exact records\n- Register Android notification deep-link activity\n- Add Android notification deep-link activity\n- Fix Android notification center build and trigger both APK workflows\n- Store notification type and entity for Android notification center\n- Register Android notification center activity\n- Add Android notification center and preferences\n- Add Android notification history and preferences\n- Complete FCM diagnostic sender integration"
   },
-  "updatedAt": "0b2e7444ec4e14cbd4221089e6c43635830ce833"
+  "updatedAt": "f30b4c985b2701ec8e19470936470f25c656b087"
 }
