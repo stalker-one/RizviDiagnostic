@@ -1,8 +1,26 @@
 apply plugin: 'com.android.application'
 
+// The startup MP4 is kept at src/main/res for compatibility with the existing
+// repository layout. Android resource generation requires media resources to
+// live under a typed directory such as res/raw, so copy it into a generated
+// raw resource directory before Android resource processing.
+def startupGeneratedResDir = layout.buildDirectory.dir('generated/res/startup').get().asFile
+
+tasks.register('prepareStartupAnimationResource', Copy) {
+    from file('src/main/res/Rizvi_Android_Startup_2x.mp4')
+    into new File(startupGeneratedResDir, 'raw')
+    rename { 'startup_animation.mp4' }
+}
+
 android {
     namespace = "com.rizvi.diagnosticcenter"
     compileSdk = rootProject.ext.compileSdkVersion
+
+    sourceSets {
+        main {
+            res.srcDir(startupGeneratedResDir)
+        }
+    }
 
     defaultConfig {
         applicationId "com.rizvi.diagnosticcenter"
@@ -58,6 +76,10 @@ android {
             signingConfig signingConfigs.release
         }
     }
+}
+
+tasks.named('preBuild').configure {
+    dependsOn 'prepareStartupAnimationResource'
 }
 
 repositories {
