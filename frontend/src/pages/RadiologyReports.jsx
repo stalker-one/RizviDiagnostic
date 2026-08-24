@@ -1,6 +1,6 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Capacitor, registerPlugin } from '@capacitor/core';
-import { Filter, Download, Printer, FileSpreadsheet } from 'lucide-react';
+import { Filter, Download, Printer, FileSpreadsheet, Search, TrendingUp } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import Layout from '../components/Layout.jsx';
 import Button from '../components/Button.jsx';
@@ -11,9 +11,11 @@ import { useAuth } from '../context/AuthContext.jsx';
 const NativePrint = registerPlugin('Print');
 const NativeExport = registerPlugin('Export');
 
-const REPORT_HEADER = ['Invoice#', 'MR#', 'Patient', 'Referred By', 'Total', 'Paid', 'Discount', 'Due', 'Doctor', 'Department', 'Performed By (Dr.)', 'Shift', 'Booked By', 'Date'];
-const reportRowValues = (r) => [r.invoiceNumber, r.mrNumber, r.patientName, r.referredBy, r.total, r.paid, r.discount, r.due, r.appointedDoctor, r.department, r.performedBy, r.shift, r.bookedBy, r.createdAt];
-const summaryRowValues = (rows) => ['', '', '', 'TOTAL', rows.reduce((s, r) => s + r.total, 0), rows.reduce((s, r) => s + r.paid, 0), rows.reduce((s, r) => s + r.discount, 0), '', '', '', '', '', '', ''];
+// Keep the report list focused on booking, payment and revenue information.
+// Department and Performed By are intentionally excluded from the list/export.
+const REPORT_HEADER = ['Invoice#', 'MR#', 'Patient', 'Referred By', 'Total', 'Paid', 'Discount', 'Due', 'Doctor', 'Shift', 'Booked By', 'Date'];
+const reportRowValues = (r) => [r.invoiceNumber, r.mrNumber, r.patientName, r.referredBy, r.total, r.paid, r.discount, r.due, r.appointedDoctor, r.shift, r.bookedBy, r.createdAt];
+const summaryRowValues = (rows) => ['', '', '', 'TOTAL', rows.reduce((s, r) => s + r.total, 0), rows.reduce((s, r) => s + r.paid, 0), rows.reduce((s, r) => s + r.discount, 0), '', '', '', '', ''];
 
 function bytesToBase64(bytes) {
   let binary = '';
@@ -41,27 +43,42 @@ export default function RadiologyReports() {
   const [from, setFrom] = useState('');
   const [to, setTo] = useState('');
   const [shift, setShift] = useState('');
-  const [doctor, setDoctor] = useState('');
-  const [doctors, setDoctors] = useState([]);
+  const [bookedBy, setBookedBy] = useState('');
   const [loading, setLoading] = useState(true);
   const [exporting, setExporting] = useState('');
 
-  useEffect(() => { api.get('/doctors').then((res) => setDoctors(res.data)).catch(() => {}); }, []);
-
   const load = (opts = {}) => {
-    const r = opts.range ?? range, f = opts.from ?? from, t = opts.to ?? to, s = opts.shift ?? shift, d = opts.doctor ?? doctor;
+    const r = opts.range ?? range;
+    const f = opts.from ?? from;
+    const t = opts.to ?? to;
+    const s = opts.shift ?? shift;
+    const b = opts.bookedBy ?? bookedBy;
     setLoading(true);
-    api.get('/reports/radiology-reports', { params: { range: f || t ? undefined : r, from: f || undefined, to: t || undefined, shift: s || undefined, doctor: d || undefined } })
-      .then((res) => { setRows(res.data.rows); setLimits(res.data.limits); if (res.data.range && res.data.range !== r) setRange(res.data.range); })
+    api.get('/reports/radiology-reports', {
+      params: {
+        range: f || t ? undefined : r,
+        from: f || undefined,
+        to: t || undefined,
+        shift: s || undefined,
+        bookedBy: b.trim() || undefined,
+      },
+    })
+      .then((res) => {
+        setRows(res.data.rows);
+        setLimits(res.data.limits);
+        if (res.data.range && res.data.range !== r) setRange(res.data.range);
+      })
       .finally(() => setLoading(false));
   };
+
   useEffect(() => { load(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const selectRange = (key) => { setRange(key); setFrom(''); setTo(''); load({ range: key, from: '', to: '' }); };
   const applyDateFilter = () => load({ from, to });
   const selectShift = (key) => { const next = shift === key ? '' : key; setShift(next); load({ shift: next }); };
-  const selectDoctor = (name) => { setDoctor(name); load({ doctor: name }); };
-  const totalRevenue = rows.reduce((s, r) => s + r.paid, 0);
+  const applyBookedBy = () => load({ bookedBy });
+  const clearBookedBy = () => { setBookedBy(''); load({ bookedBy: '' }); };
+  const totalRevenue = rows.reduce((s, r) => s + Number(r.paid || 0), 0);
 
   const exportCsv = async () => {
     if (exporting) return;
@@ -105,21 +122,64 @@ export default function RadiologyReports() {
   };
 
   const rangeOptions = isAdmin ? [{ key: 'today', label: 'Today' }, { key: 'yesterday', label: 'Yesterday' }, { key: 'last3', label: 'Last 3 Days' }, { key: 'all', label: 'All / Date Range' }] : [];
-  const doctorOptions = useMemo(() => {
-    const fromDoctors = doctors.map((d) => d.name);
-    const fromRows = rows.flatMap((r) => (r.performedBy ? r.performedBy.split(', ') : []));
-    return [...new Set([...fromDoctors, ...fromRows])].filter(Boolean).sort((a, b) => a.localeCompare(b));
-  }, [doctors, rows]);
 
   return (
     <Layout title="Radiology Reports">
       <div className="flex flex-wrap items-center gap-2 mb-4">
         {isAdmin ? rangeOptions.map((opt) => <button key={opt.key} onClick={() => selectRange(opt.key)} className={`px-3 sm:px-4 py-2 rounded-lg text-xs sm:text-sm font-medium transition ${range === opt.key && !from && !to ? 'bg-brand-600 text-white' : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-50'}`}>{opt.label}</button>) : <span className="px-3 py-2 rounded-lg text-xs sm:text-sm font-medium bg-brand-600 text-white">Today's Data Only</span>}
       </div>
-      <div className="flex flex-wrap items-center gap-2 mb-4"><span className="text-xs font-medium text-slate-500 mr-1">Shift:</span>{['Morning', 'Evening'].map((key) => <button key={key} onClick={() => selectShift(key)} className={`px-3 sm:px-4 py-2 rounded-lg text-xs sm:text-sm font-medium transition ${shift === key ? 'bg-brand-600 text-white' : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-50'}`}>{key} Shift</button>)}</div>
-      {isAdmin && <div className="flex flex-wrap items-end gap-3 mb-4 bg-white rounded-xl border border-slate-100 shadow-sm p-4"><div><label className="block text-xs font-medium text-slate-500 mb-1">From</label><input type="date" value={from} onChange={(e) => setFrom(e.target.value)} className="border border-slate-200 rounded-lg px-3 py-2 text-sm" /></div><div><label className="block text-xs font-medium text-slate-500 mb-1">To</label><input type="date" value={to} onChange={(e) => setTo(e.target.value)} className="border border-slate-200 rounded-lg px-3 py-2 text-sm" /></div><Button onClick={applyDateFilter} icon={Filter}>Filter by Date</Button><div><label className="block text-xs font-medium text-slate-500 mb-1">Doctor (Performed By)</label><select value={doctor} onChange={(e) => selectDoctor(e.target.value)} className="border border-slate-200 rounded-lg px-3 py-2 text-sm min-w-[180px]"><option value="">All Doctors</option>{doctorOptions.map((name) => <option key={name} value={name}>{name}</option>)}</select></div></div>}
-      <div className="flex flex-wrap items-center gap-2 mb-4"><Button variant="secondary" icon={Download} onClick={exportCsv} disabled={!!exporting} size="sm">{exporting === 'csv' ? 'Exporting…' : 'Export CSV'}</Button><Button variant="secondary" icon={FileSpreadsheet} onClick={exportXlsx} disabled={!!exporting} size="sm">{exporting === 'xlsx' ? 'Exporting…' : 'Export Excel (.xlsx)'}</Button><Button variant="secondary" icon={Printer} onClick={printReport} disabled={!!exporting} size="sm">Print</Button><div className="sm:ml-auto text-sm text-slate-500 w-full sm:w-auto mt-1 sm:mt-0">Total Revenue: <span className="font-bold text-green-700">Rs. {totalRevenue.toLocaleString()}</span><span className="text-slate-400"> ({rows.length} {rows.length === 1 ? 'entry' : 'entries'})</span></div></div>
-      <div id="printable-area" className="bg-white rounded-xl border border-slate-100 shadow-sm overflow-x-auto"><table className="w-full text-sm min-w-[1050px]"><thead className="bg-slate-50 text-slate-500 text-left"><tr>{REPORT_HEADER.map((h) => <th key={h} className="p-3">{h}</th>)}</tr></thead><tbody>{loading ? <TableLoadingRow colSpan={14} /> : rows.length === 0 ? <tr><td colSpan={14} className="p-6 text-center text-slate-400">There is no radiology report to show.</td></tr> : rows.map((r) => <tr key={r.invoiceNumber} className="border-t border-slate-50"><td className="p-3 font-mono text-xs">{r.invoiceNumber}</td><td className="p-3 font-mono text-xs">{r.mrNumber}</td><td className="p-3">{r.patientName}</td><td className="p-3">{r.referredBy || '-'}</td><td className="p-3">Rs. {r.total.toLocaleString()}</td><td className="p-3">Rs. {r.paid.toLocaleString()}</td><td className="p-3">Rs. {r.discount.toLocaleString()}</td><td className="p-3 text-red-600">Rs. {r.due.toLocaleString()}</td><td className="p-3">{r.appointedDoctor || '-'}</td><td className="p-3">{r.department}</td><td className="p-3">{r.performedBy || '-'}</td><td className="p-3">{r.shift || '-'}</td><td className="p-3">{r.bookedBy || '-'}</td><td className="p-3">{new Date(r.createdAt).toLocaleString()}</td></tr>)}</tbody></table></div>
+
+      <div className="flex flex-wrap items-center gap-2 mb-4">
+        <span className="text-xs font-medium text-slate-500 mr-1">Shift:</span>
+        {['Morning', 'Evening'].map((key) => <button key={key} onClick={() => selectShift(key)} className={`px-3 sm:px-4 py-2 rounded-lg text-xs sm:text-sm font-medium transition ${shift === key ? 'bg-brand-600 text-white' : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-50'}`}>{key} Shift</button>)}
+      </div>
+
+      {isAdmin && <div className="flex flex-wrap items-end gap-3 mb-4 bg-white rounded-xl border border-slate-100 shadow-sm p-4">
+        <div><label className="block text-xs font-medium text-slate-500 mb-1">From</label><input type="date" value={from} onChange={(e) => setFrom(e.target.value)} className="border border-slate-200 rounded-lg px-3 py-2 text-sm" /></div>
+        <div><label className="block text-xs font-medium text-slate-500 mb-1">To</label><input type="date" value={to} onChange={(e) => setTo(e.target.value)} className="border border-slate-200 rounded-lg px-3 py-2 text-sm" /></div>
+        <Button onClick={applyDateFilter} icon={Filter}>Filter by Date</Button>
+        <div className="min-w-[240px] flex-1 max-w-[360px]">
+          <label className="block text-xs font-medium text-slate-500 mb-1">Booked By</label>
+          <div className="flex gap-2">
+            <div className="relative flex-1">
+              <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+              <input value={bookedBy} onChange={(e) => setBookedBy(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') applyBookedBy(); }} placeholder="Search booked by..." className="w-full border border-slate-200 rounded-lg pl-9 pr-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-100" />
+            </div>
+            <Button onClick={applyBookedBy} icon={Search} size="sm">Search</Button>
+            {bookedBy && <button type="button" onClick={clearBookedBy} className="px-3 py-2 rounded-lg text-sm text-slate-500 border border-slate-200 hover:bg-slate-50">Clear</button>}
+          </div>
+        </div>
+      </div>}
+
+      <div className="flex flex-col lg:flex-row gap-3 mb-5">
+        <div className="flex flex-wrap items-center gap-2">
+          <Button variant="secondary" icon={Download} onClick={exportCsv} disabled={!!exporting} size="sm">{exporting === 'csv' ? 'Exporting…' : 'Export CSV'}</Button>
+          <Button variant="secondary" icon={FileSpreadsheet} onClick={exportXlsx} disabled={!!exporting} size="sm">{exporting === 'xlsx' ? 'Exporting…' : 'Export Excel (.xlsx)'}</Button>
+          <Button variant="secondary" icon={Printer} onClick={printReport} disabled={!!exporting} size="sm">Print</Button>
+        </div>
+
+        <div className="lg:ml-auto w-full lg:w-[360px] rounded-2xl border border-emerald-100 bg-gradient-to-br from-emerald-50 via-white to-slate-50 px-5 py-4 shadow-sm">
+          <div className="flex items-start justify-between gap-4">
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-wider text-emerald-700">Total Revenue</p>
+              <p className="mt-1 text-2xl sm:text-3xl font-bold tracking-tight text-slate-900">Rs. {totalRevenue.toLocaleString()}</p>
+              <p className="mt-1 text-xs text-slate-500">Collected from {rows.length.toLocaleString()} {rows.length === 1 ? 'entry' : 'entries'}</p>
+            </div>
+            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-emerald-100 text-emerald-700">
+              <TrendingUp size={21} />
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div id="printable-area" className="bg-white rounded-xl border border-slate-100 shadow-sm overflow-x-auto">
+        <table className="w-full text-sm min-w-[980px]">
+          <thead className="bg-slate-50 text-slate-500 text-left"><tr>{REPORT_HEADER.map((h) => <th key={h} className="p-3">{h}</th>)}</tr></thead>
+          <tbody>
+            {loading ? <TableLoadingRow colSpan={12} /> : rows.length === 0 ? <tr><td colSpan={12} className="p-6 text-center text-slate-400">There is no radiology report to show.</td></tr> : rows.map((r) => <tr key={r.invoiceNumber} className="border-t border-slate-50 hover:bg-slate-50/60"><td className="p-3 font-mono text-xs">{r.invoiceNumber}</td><td className="p-3 font-mono text-xs">{r.mrNumber}</td><td className="p-3">{r.patientName}</td><td className="p-3">{r.referredBy || '-'}</td><td className="p-3">Rs. {Number(r.total || 0).toLocaleString()}</td><td className="p-3 font-semibold text-emerald-700">Rs. {Number(r.paid || 0).toLocaleString()}</td><td className="p-3">Rs. {Number(r.discount || 0).toLocaleString()}</td><td className="p-3 text-red-600">Rs. {Number(r.due || 0).toLocaleString()}</td><td className="p-3">{r.appointedDoctor || '-'}</td><td className="p-3">{r.shift || '-'}</td><td className="p-3 font-medium">{r.bookedBy || '-'}</td><td className="p-3">{new Date(r.createdAt).toLocaleString()}</td></tr>)}
+          </tbody>
+        </table>
+      </div>
     </Layout>
   );
 }
