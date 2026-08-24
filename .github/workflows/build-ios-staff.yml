@@ -6,6 +6,7 @@ on:
     branches: [main]
     paths:
       - 'frontend/**'
+      - 'backend/src/routes/closing.routes.js'
       - '.github/workflows/build-ios-staff.yml'
 
 jobs:
