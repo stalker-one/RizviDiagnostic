@@ -4,7 +4,7 @@
     "versionCode": 233,
     "versionName": "1.0.233",
     "apkUrl": "https://github.com/stalker-one/RizviDiagnostic/releases/download/android-latest/RizviDiagnosticCenter-latest.apk",
-    "sha256": "3af97a148708844ca47c3474009721803745063781053f56f44250ba5bf8abee",
+    "sha256": "db6c0d1aacd44a5d92469518d232cdd87198c4e8e2829de1f0356c7267b8d292",
     "sizeBytes": 6458635,
     "releaseNotes": "- Remove staff today-only filter banner from radiology reports\n- Hide revenue trend from staff dashboard\n- Show count for each test in Test Distribution\n- Update radiology reports filters with booked-by dropdown and patient/doctor search\n- Enable Booked By filter for staff radiology reports\n- Remove all-time patients card and improve mobile test distribution\n- Update Radiology Reports list, Booked By search and revenue design\n- Fix Android FCM deep-link delivery by using data-only messages\n- Fix notification deep-link intent construction\n- Deep-link patient and invoice notifications to exact records\n- Register Android notification deep-link activity\n- Add Android notification deep-link activity"
   },
