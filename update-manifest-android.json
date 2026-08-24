@@ -1,12 +1,12 @@
 {
   "staff": {
     "tag": "android-latest",
-    "versionCode": 233,
-    "versionName": "1.0.233",
+    "versionCode": 234,
+    "versionName": "1.0.234",
     "apkUrl": "https://github.com/stalker-one/RizviDiagnostic/releases/download/android-latest/RizviDiagnosticCenter-latest.apk",
-    "sha256": "db6c0d1aacd44a5d92469518d232cdd87198c4e8e2829de1f0356c7267b8d292",
-    "sizeBytes": 6458635,
-    "releaseNotes": "- Remove staff today-only filter banner from radiology reports\n- Hide revenue trend from staff dashboard\n- Show count for each test in Test Distribution\n- Update radiology reports filters with booked-by dropdown and patient/doctor search\n- Enable Booked By filter for staff radiology reports\n- Remove all-time patients card and improve mobile test distribution\n- Update Radiology Reports list, Booked By search and revenue design\n- Fix Android FCM deep-link delivery by using data-only messages\n- Fix notification deep-link intent construction\n- Deep-link patient and invoice notifications to exact records\n- Register Android notification deep-link activity\n- Add Android notification deep-link activity"
+    "sha256": "7da2f1484bb57f0d9140669b053fd5bb6f30a4b43bddd6b77c24cab99e15e4f9",
+    "sizeBytes": 6459155,
+    "releaseNotes": "- Redesign dashboard statistic cards\n- Remove staff today-only filter banner from radiology reports\n- Hide revenue trend from staff dashboard\n- Show count for each test in Test Distribution\n- Update radiology reports filters with booked-by dropdown and patient/doctor search\n- Enable Booked By filter for staff radiology reports\n- Remove all-time patients card and improve mobile test distribution\n- Update Radiology Reports list, Booked By search and revenue design\n- Fix Android FCM deep-link delivery by using data-only messages\n- Fix notification deep-link intent construction\n- Deep-link patient and invoice notifications to exact records\n- Register Android notification deep-link activity"
   },
   "superadmin": {
     "tag": "android-superadmin-latest",
