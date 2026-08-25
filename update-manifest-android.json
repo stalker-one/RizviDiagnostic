@@ -1,12 +1,12 @@
 {
   "staff": {
     "tag": "android-latest",
-    "versionCode": 237,
-    "versionName": "1.0.237",
+    "versionCode": 239,
+    "versionName": "1.0.239",
     "apkUrl": "https://github.com/stalker-one/RizviDiagnostic/releases/download/android-latest/RizviDiagnosticCenter-latest.apk",
-    "sha256": "27f4cdcdeb9b32634f435cd015b7bb24dc69819fc23882b483d24d52e33c5c13",
-    "sizeBytes": 6461416,
-    "releaseNotes": "- Add today's user closing to profile\n- Add polished animated dashboard card motion\n- Redesign dashboard statistic cards\n- Remove staff today-only filter banner from radiology reports\n- Hide revenue trend from staff dashboard\n- Show count for each test in Test Distribution\n- Update radiology reports filters with booked-by dropdown and patient/doctor search\n- Enable Booked By filter for staff radiology reports\n- Remove all-time patients card and improve mobile test distribution\n- Update Radiology Reports list, Booked By search and revenue design\n- Fix Android FCM deep-link delivery by using data-only messages\n- Fix notification deep-link intent construction"
+    "sha256": "f02d5062e38b1c7350f7a63fa2c88f8752f3d6b92a4219a4f5b14a42a4ee4413",
+    "sizeBytes": 6816336,
+    "releaseNotes": "- Fix duplicate Android startup video resource\n- Fix Android Play AAB startup animation resource\n- Add today's user closing to profile\n- Add polished animated dashboard card motion\n- Redesign dashboard statistic cards\n- Remove staff today-only filter banner from radiology reports\n- Hide revenue trend from staff dashboard\n- Show count for each test in Test Distribution\n- Update radiology reports filters with booked-by dropdown and patient/doctor search\n- Enable Booked By filter for staff radiology reports\n- Remove all-time patients card and improve mobile test distribution\n- Update Radiology Reports list, Booked By search and revenue design"
   },
   "superadmin": {
     "tag": "android-superadmin-latest",
@@ -17,5 +17,5 @@
     "sizeBytes": 6816356,
     "releaseNotes": "- Make startup resource preparation deterministic\n- Fix duplicate Android startup video resource\n- Fix Android Play AAB startup animation resource\n- Add today's user closing to profile\n- Add polished animated dashboard card motion\n- Redesign dashboard statistic cards\n- Remove staff today-only filter banner from radiology reports\n- Hide revenue trend from staff dashboard\n- Show count for each test in Test Distribution\n- Update radiology reports filters with booked-by dropdown and patient/doctor search\n- Enable Booked By filter for staff radiology reports\n- Remove all-time patients card and improve mobile test distribution"
   },
-  "updatedAt": "3f5dab70a4904851ab5b81a45682e6d35eb41b96"
+  "updatedAt": "d9914eea457718ccf73c44da6a592f52345d4596"
 }
