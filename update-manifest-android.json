@@ -10,12 +10,12 @@
   },
   "superadmin": {
     "tag": "android-superadmin-latest",
-    "versionCode": 171,
-    "versionName": "1.0.171",
+    "versionCode": 172,
+    "versionName": "1.0.172",
     "apkUrl": "https://github.com/stalker-one/RizviDiagnostic/releases/download/android-superadmin-latest/RizviDiagnosticSuperadmin-latest.apk",
-    "sha256": "acaf3972a990fdc208b92041a4ffc5b7da4db75a731fd2894bc25050706813ee",
-    "sizeBytes": 6816356,
-    "releaseNotes": "- Exclude CI startup raw duplicate from Android resources\n- Make startup resource preparation deterministic\n- Fix duplicate Android startup video resource\n- Fix Android Play AAB startup animation resource\n- Add today's user closing to profile\n- Add polished animated dashboard card motion\n- Redesign dashboard statistic cards\n- Remove staff today-only filter banner from radiology reports\n- Hide revenue trend from staff dashboard\n- Show count for each test in Test Distribution\n- Update radiology reports filters with booked-by dropdown and patient/doctor search\n- Enable Booked By filter for staff radiology reports"
+    "sha256": "4e6e518df64072f81bb4bf2a0e7dd1b2a0b3e1c97efe04c792f56177123d27b3",
+    "sizeBytes": 6816452,
+    "releaseNotes": "- Update RadiologyReports.jsx\n- Exclude CI startup raw duplicate from Android resources\n- Make startup resource preparation deterministic\n- Fix duplicate Android startup video resource\n- Fix Android Play AAB startup animation resource\n- Add today's user closing to profile\n- Add polished animated dashboard card motion\n- Redesign dashboard statistic cards\n- Remove staff today-only filter banner from radiology reports\n- Hide revenue trend from staff dashboard\n- Show count for each test in Test Distribution\n- Update radiology reports filters with booked-by dropdown and patient/doctor search"
   },
   "updatedAt": "eba3e75756834ea0f9362f1f81729286af7589de"
 }
