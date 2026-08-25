@@ -25,6 +25,10 @@ android {
     sourceSets {
         main {
             res.srcDir(startupGeneratedResDir)
+            // Some legacy CI workflows materialize startup_animation.mp4 in
+            // src/main/res/raw. The generated resource above is authoritative;
+            // exclude the legacy copy so both locations can never collide.
+            res.exclude('raw/startup_animation.mp4')
         }
     }
 
@@ -38,7 +42,7 @@ android {
         versionName "1.0.${releaseVersionCode}"
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         aaptOptions {
-            ignoreAssetsPattern = '!.svn:!.git:!.ds_store:!*.scc:.*:!CVS:!thumbs.db:!picasa.ini:!*~'
+            ignoreAssetsPattern = '!.svn:!.git:!.ds_store:!.scc:.*:!CVS:!thumbs.db:!picasa.ini:!*~'
         }
     }
 
