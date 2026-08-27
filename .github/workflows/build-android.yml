@@ -16,7 +16,7 @@ permissions:
   contents: write
 
 concurrency:
-  group: android-build
+  group: android-staff-build
   cancel-in-progress: false
 
 env:
