@@ -1,18 +1,10 @@
 apply plugin: 'com.android.application'
 
-// The startup MP4 is kept at src/main/res for compatibility with the existing
-// repository layout. Android resource generation requires media resources to
-// live under a typed directory such as res/raw, so copy it into a generated
-// raw resource directory before Android resource processing.
 def startupGeneratedResDir = layout.buildDirectory.dir('generated/res/startup').get().asFile
 
 tasks.register('prepareStartupAnimationResource', Copy) {
-    // CI workflows may create res/raw/startup_animation.mp4 for legacy builds.
-    // Always remove that duplicate before adding the generated resource.
     outputs.upToDateWhen { false }
-    doFirst {
-        delete file('src/main/res/raw/startup_animation.mp4')
-    }
+    doFirst { delete file('src/main/res/raw/startup_animation.mp4') }
     from file('src/main/res/Rizvi_Android_Startup_2x.mp4')
     into new File(startupGeneratedResDir, 'raw')
     rename { 'startup_animation.mp4' }
@@ -21,17 +13,7 @@ tasks.register('prepareStartupAnimationResource', Copy) {
 android {
     namespace = "com.rizvi.diagnosticcenter"
     compileSdk = rootProject.ext.compileSdkVersion
-
-    sourceSets {
-        main {
-            res.srcDir(startupGeneratedResDir)
-            // Some legacy CI workflows materialize startup_animation.mp4 in
-            // src/main/res/raw. The generated resource above is authoritative;
-            // exclude the legacy copy so both locations can never collide.
-            res.exclude('raw/startup_animation.mp4')
-        }
-    }
-
+    sourceSets { main { res.srcDir(startupGeneratedResDir); res.exclude('raw/startup_animation.mp4') } }
     defaultConfig {
         applicationId "com.rizvi.diagnosticcenter"
         minSdkVersion rootProject.ext.minSdkVersion
@@ -41,59 +23,26 @@ android {
         versionCode releaseVersionCode
         versionName "1.0.${releaseVersionCode}"
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
-        aaptOptions {
-            ignoreAssetsPattern = '!.svn:!.git:!.ds_store:!.scc:.*:!CVS:!thumbs.db:!picasa.ini:!*~'
-        }
+        aaptOptions { ignoreAssetsPattern = '!.svn:!.git:!.ds_store:!.scc:.*:!CVS:!thumbs.db:!picasa.ini:!*~' }
     }
-
     flavorDimensions += "app"
     productFlavors {
-        regular {
-            dimension "app"
-            applicationId "com.rizvi.diagnosticcenter"
-            resValue "string", "app_name", "Rizvi Diagnostic Center"
-        }
-        superadmin {
-            dimension "app"
-            applicationId "com.rizvi.diagnosticcenter.superadmin"
-            resValue "string", "app_name", "Rizvi Diagnostic Center Superadmin"
-        }
+        regular { dimension "app"; applicationId "com.rizvi.diagnosticcenter"; resValue "string", "app_name", "Rizvi Diagnostic Center" }
+        superadmin { dimension "app"; applicationId "com.rizvi.diagnosticcenter.superadmin"; resValue "string", "app_name", "Rizvi Diagnostic Center Superadmin" }
     }
-
-    signingConfigs {
-        release {
-            def keystorePath = System.getenv('ANDROID_KEYSTORE_PATH')
-            def keystorePassword = System.getenv('ANDROID_KEYSTORE_PASSWORD')
-            def keyAliasValue = System.getenv('ANDROID_KEY_ALIAS')
-            def keyPasswordValue = System.getenv('ANDROID_KEY_PASSWORD')
-
-            if (keystorePath && keystorePassword && keyAliasValue && keyPasswordValue) {
-                storeFile file(keystorePath)
-                storePassword keystorePassword
-                keyAlias keyAliasValue
-                keyPassword keyPasswordValue
-            }
-        }
-    }
-
-    buildTypes {
-        release {
-            minifyEnabled false
-            proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
-            signingConfig signingConfigs.release
-        }
-    }
+    signingConfigs { release {
+        def keystorePath = System.getenv('ANDROID_KEYSTORE_PATH')
+        def keystorePassword = System.getenv('ANDROID_KEYSTORE_PASSWORD')
+        def keyAliasValue = System.getenv('ANDROID_KEY_ALIAS')
+        def keyPasswordValue = System.getenv('ANDROID_KEY_PASSWORD')
+        if (keystorePath && keystorePassword && keyAliasValue && keyPasswordValue) { storeFile file(keystorePath); storePassword keystorePassword; keyAlias keyAliasValue; keyPassword keyPasswordValue }
+    } }
+    buildTypes { release { minifyEnabled false; proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'; signingConfig signingConfigs.release } }
 }
 
-tasks.named('preBuild').configure {
-    dependsOn 'prepareStartupAnimationResource'
-}
+tasks.named('preBuild').configure { dependsOn 'prepareStartupAnimationResource' }
 
-repositories {
-    flatDir {
-        dirs '../capacitor-cordova-android-plugins/src/main/libs', 'libs'
-    }
-}
+repositories { flatDir { dirs '../capacitor-cordova-android-plugins/src/main/libs', 'libs' } }
 
 dependencies {
     implementation fileTree(include: ['*.jar'], dir: 'libs')
@@ -101,6 +50,7 @@ dependencies {
     implementation "androidx.coordinatorlayout:coordinatorlayout:$androidxCoordinatorLayoutVersion"
     implementation "androidx.core:core-splashscreen:$coreSplashScreenVersion"
     implementation "androidx.work:work-runtime:2.10.1"
+    implementation "androidx.biometric:biometric:1.1.0"
     implementation platform("com.google.firebase:firebase-bom:34.9.0")
     implementation "com.google.firebase:firebase-messaging"
     implementation project(':capacitor-android')
@@ -111,12 +61,4 @@ dependencies {
 }
 
 apply from: 'capacitor.build.gradle'
-
-try {
-    def servicesJSON = file('google-services.json')
-    if (servicesJSON.text) {
-        apply plugin: 'com.google.gms.google-services'
-    }
-} catch(Exception e) {
-    logger.info("google-services.json not found, google-services plugin not applied. Push Notifications won't work")
-}
+try { def servicesJSON = file('google-services.json'); if (servicesJSON.text) apply plugin: 'com.google.gms.google-services' } catch(Exception e) { logger.info("google-services.json not found, google-services plugin not applied. Push Notifications won't work") }
