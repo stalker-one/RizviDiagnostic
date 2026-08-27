@@ -10,12 +10,12 @@
   },
   "superadmin": {
     "tag": "android-superadmin-latest",
-    "versionCode": 182,
-    "versionName": "1.0.182",
+    "versionCode": 185,
+    "versionName": "1.0.185",
     "apkUrl": "https://github.com/stalker-one/RizviDiagnostic/releases/download/android-superadmin-latest/RizviDiagnosticSuperadmin-latest.apk",
-    "sha256": "300b5cd97104f5c24c8e070c97a94bb9cb3de058f57ad6328f79d9374e5519d4",
-    "sizeBytes": 6951909,
-    "releaseNotes": "- Fix biometric verification and bind login key to biometric auth\n- Enable fingerprint login UI in both Android apps\n- Add fingerprint settings and login UI\n- Fix secure biometric key creation\n- Register biometric plugin without changing existing startup activity\n- Use biometric-enabled Android activity\n- Declare Android biometric permission\n- Add Android biometric dependency\n- Add Android biometric login bridge\n- Add native Android biometric authentication plugin\n- Update RadiologyReports.jsx\n- Exclude CI startup raw duplicate from Android resources"
+    "sha256": "617fe7833a725f925e0655354829ecbf26636fc15c5904c6b59f8e06563643a4",
+    "sizeBytes": 6952153,
+    "releaseNotes": "- Require verified biometric result before enabling login\n- Secure biometric session on password login and logout\n- Fix biometric verification and bind login key to biometric auth\n- Enable fingerprint login UI in both Android apps\n- Add fingerprint settings and login UI\n- Fix secure biometric key creation\n- Register biometric plugin without changing existing startup activity\n- Use biometric-enabled Android activity\n- Declare Android biometric permission\n- Add Android biometric dependency\n- Add Android biometric login bridge\n- Add native Android biometric authentication plugin"
   },
-  "updatedAt": "5951f9436591035ad003cf6e2b28b367ae190a20"
+  "updatedAt": "51ce2bc4b384a6b0a8ccf0f7c5c0f1677d7ed481"
 }
