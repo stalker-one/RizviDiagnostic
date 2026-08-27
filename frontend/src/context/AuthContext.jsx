@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import api from '../api/axios';
-import { disableBiometricLogin } from '../utils/biometricAuth.js';
+import { syncBiometricToken } from '../utils/biometricAuth.js';
 
 const AuthContext = createContext(null);
 
@@ -52,19 +52,21 @@ export function AuthProvider({ children }) {
 
   const login = async (email, password, portal) => {
     const res = await api.post('/auth/login', { email, password, portal });
-    // A password login creates a fresh server session. Never leave the old
-    // account's biometric session available on this Android device.
-    try { await disableBiometricLogin(); } catch (_) {}
     localStorage.setItem('rdc_token', res.data.token);
     localStorage.setItem('rdc_user', JSON.stringify(res.data.user));
     setUser(res.data.user);
+
+    // Password login remains a valid fallback. If biometric login is already
+    // enabled, replace its encrypted session with this newly authenticated
+    // account instead of disabling the feature.
+    await syncBiometricToken(res.data.token);
     return res.data.user;
   };
 
   const logout = () => {
-    // Prevent another person using the same device from opening the previous
-    // account through fingerprint after logout.
-    disableBiometricLogin().catch(() => {});
+    // Keep the enrolled biometric credential available so the next login can
+    // use Android fingerprint authentication. Disabling is an explicit action
+    // in Profile, not a side effect of ordinary logout.
     localStorage.removeItem('rdc_token');
     localStorage.removeItem('rdc_user');
     setUser(null);
@@ -72,19 +74,19 @@ export function AuthProvider({ children }) {
 
   const impersonate = async (userId) => {
     const res = await api.post(`/auth/impersonate/${userId}`);
-    try { await disableBiometricLogin(); } catch (_) {}
     localStorage.setItem('rdc_token', res.data.token);
     localStorage.setItem('rdc_user', JSON.stringify(res.data.user));
     setUser(res.data.user);
+    await syncBiometricToken(res.data.token);
     return res.data.user;
   };
 
   const stopImpersonating = async () => {
     const res = await api.post('/auth/stop-impersonate');
-    try { await disableBiometricLogin(); } catch (_) {}
     localStorage.setItem('rdc_token', res.data.token);
     localStorage.setItem('rdc_user', JSON.stringify(res.data.user));
     setUser(res.data.user);
+    await syncBiometricToken(res.data.token);
     return res.data.user;
   };
 
