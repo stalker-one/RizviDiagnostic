@@ -1,12 +1,12 @@
 {
   "staff": {
     "tag": "android-latest",
-    "versionCode": 242,
-    "versionName": "1.0.242",
+    "versionCode": 249,
+    "versionName": "1.0.249",
     "apkUrl": "https://github.com/stalker-one/RizviDiagnostic/releases/download/android-latest/RizviDiagnosticCenter-latest.apk",
-    "sha256": "bf45ce6e21af1234eef6bd31f422da0a3a1712d831977338891ce7bee25a3093",
-    "sizeBytes": 6816396,
-    "releaseNotes": "- Update RadiologyReports.jsx\n- Exclude CI startup raw duplicate from Android resources\n- Make startup resource preparation deterministic\n- Fix duplicate Android startup video resource\n- Fix Android Play AAB startup animation resource\n- Add today's user closing to profile\n- Add polished animated dashboard card motion\n- Redesign dashboard statistic cards\n- Remove staff today-only filter banner from radiology reports\n- Hide revenue trend from staff dashboard\n- Show count for each test in Test Distribution\n- Update radiology reports filters with booked-by dropdown and patient/doctor search"
+    "sha256": "f9f388c809d7ceb9dcfb69f1164c422edda3cbdbdd79d0439d61a0c3908e703c",
+    "sizeBytes": 6951140,
+    "releaseNotes": "- Fix secure biometric key creation\n- Register biometric plugin without changing existing startup activity\n- Use biometric-enabled Android activity\n- Declare Android biometric permission\n- Add Android biometric dependency\n- Add Android biometric login bridge\n- Add native Android biometric authentication plugin\n- Update RadiologyReports.jsx\n- Exclude CI startup raw duplicate from Android resources\n- Make startup resource preparation deterministic\n- Fix duplicate Android startup video resource\n- Fix Android Play AAB startup animation resource"
   },
   "superadmin": {
     "tag": "android-superadmin-latest",
@@ -17,5 +17,5 @@
     "sizeBytes": 6816452,
     "releaseNotes": "- Update RadiologyReports.jsx\n- Exclude CI startup raw duplicate from Android resources\n- Make startup resource preparation deterministic\n- Fix duplicate Android startup video resource\n- Fix Android Play AAB startup animation resource\n- Add today's user closing to profile\n- Add polished animated dashboard card motion\n- Redesign dashboard statistic cards\n- Remove staff today-only filter banner from radiology reports\n- Hide revenue trend from staff dashboard\n- Show count for each test in Test Distribution\n- Update radiology reports filters with booked-by dropdown and patient/doctor search"
   },
-  "updatedAt": "eba3e75756834ea0f9362f1f81729286af7589de"
+  "updatedAt": "2d6aa8c669f378a4a38374b646720a9794162a4d"
 }
