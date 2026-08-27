@@ -2,6 +2,7 @@ package com.rizvi.diagnosticcenter;
 
 import android.content.Context;
 import android.content.SharedPreferences;
+import android.security.keystore.KeyProperties;
 import android.util.Base64;
 import androidx.annotation.NonNull;
 import androidx.biometric.BiometricManager;
@@ -18,6 +19,7 @@ import java.util.concurrent.Executor;
 import javax.crypto.Cipher;
 import javax.crypto.KeyGenerator;
 import javax.crypto.SecretKey;
+import javax.crypto.spec.GCMParameterSpec;
 
 @CapacitorPlugin(name = "BiometricAuth")
 public class BiometricAuthPlugin extends Plugin {
@@ -53,8 +55,6 @@ public class BiometricAuthPlugin extends Plugin {
         if (token == null || token.trim().isEmpty()) { call.reject("Please sign in with your password before enabling fingerprint login."); return; }
         int result = biometricResult();
         if (result != BiometricManager.BIOMETRIC_SUCCESS) { call.reject(biometricMessage(result)); return; }
-        // The Android biometric prompt itself decides where the sensor is located.
-        // This works with under-display, side/power-button and rear fingerprint sensors.
         try {
             deleteKey(OLD_KEY_ALIAS_V3); deleteKey(OLD_KEY_ALIAS_V2); deleteKey(OLD_KEY_ALIAS_V1); deleteKey(KEY_ALIAS);
             ensureKey();
@@ -66,7 +66,8 @@ public class BiometricAuthPlugin extends Plugin {
     public void setToken(PluginCall call) {
         String token = call.getString("token", "");
         if (!prefs().getBoolean(ENABLED, false)) { call.resolve(); return; }
-        try { encryptAndStore(token); call.resolve(); } catch (Exception e) { clearBiometricState(); call.reject("The fingerprint login session could not be updated. Please enable fingerprint login again.", e); }
+        try { encryptAndStore(token); call.resolve(); }
+        catch (Exception e) { clearBiometricState(); call.reject("The fingerprint login session could not be updated. Please enable fingerprint login again.", e); }
     }
 
     @PluginMethod public void disable(PluginCall call) { clearBiometricState(); call.resolve(); }
@@ -80,9 +81,7 @@ public class BiometricAuthPlugin extends Plugin {
         authenticate(call, false, null);
     }
 
-    private int biometricResult() {
-        return BiometricManager.from(getContext()).canAuthenticate(BiometricManager.Authenticators.BIOMETRIC_WEAK);
-    }
+    private int biometricResult() { return BiometricManager.from(getContext()).canAuthenticate(BiometricManager.Authenticators.BIOMETRIC_WEAK); }
 
     private String biometricMessage(int result) {
         switch (result) {
@@ -114,10 +113,7 @@ public class BiometricAuthPlugin extends Plugin {
                     call.reject("Biometric verification succeeded, but the secure login session could not be opened. Please enable fingerprint login again.", e);
                 }
             }
-            @Override public void onAuthenticationError(int errorCode, @NonNull CharSequence errString) {
-                super.onAuthenticationError(errorCode, errString);
-                call.reject("Biometric verification failed (" + errorCode + "): " + errString);
-            }
+            @Override public void onAuthenticationError(int errorCode, @NonNull CharSequence errString) { super.onAuthenticationError(errorCode, errString); call.reject("Biometric verification failed (" + errorCode + "): " + errString); }
             @Override public void onAuthenticationFailed() { super.onAuthenticationFailed(); }
         };
         BiometricPrompt prompt = new BiometricPrompt(getActivity(), executor, callback);
@@ -157,7 +153,8 @@ public class BiometricAuthPlugin extends Plugin {
 
     private void encryptAndStore(String token) throws Exception {
         if (token == null || token.trim().isEmpty()) throw new IllegalArgumentException("Empty token");
-        ensureKey(); Cipher cipher = Cipher.getInstance("AES/GCM/NoPadding"); cipher.init(Cipher.ENCRYPT_MODE, getKey());
+        ensureKey();
+        Cipher cipher = Cipher.getInstance("AES/GCM/NoPadding"); cipher.init(Cipher.ENCRYPT_MODE, getKey());
         byte[] encrypted = cipher.doFinal(token.getBytes(StandardCharsets.UTF_8));
         prefs().edit().putBoolean(ENABLED, true).putString(TOKEN, Base64.encodeToString(encrypted, Base64.NO_WRAP)).putString(IV, Base64.encodeToString(cipher.getIV(), Base64.NO_WRAP)).apply();
     }
@@ -165,7 +162,7 @@ public class BiometricAuthPlugin extends Plugin {
     private String decryptToken() throws Exception {
         String encoded = prefs().getString(TOKEN, ""); String encodedIv = prefs().getString(IV, "");
         if (encoded.isEmpty() || encodedIv.isEmpty()) return null;
-        Cipher cipher = Cipher.getInstance("AES/GCM/NoPadding"); cipher.init(Cipher.DECRYPT_MODE, getKey(), new javax.crypto.spec.GCMParameterSpec(128, Base64.decode(encodedIv, Base64.NO_WRAP)));
+        Cipher cipher = Cipher.getInstance("AES/GCM/NoPadding"); cipher.init(Cipher.DECRYPT_MODE, getKey(), new GCMParameterSpec(128, Base64.decode(encodedIv, Base64.NO_WRAP)));
         return new String(cipher.doFinal(Base64.decode(encoded, Base64.NO_WRAP)), StandardCharsets.UTF_8);
     }
 
