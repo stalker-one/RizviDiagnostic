@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import api from '../api/axios';
-import { disableBiometricLogin } from '../utils/biometricAuth.js';
+import { syncBiometricToken } from '../utils/biometricAuth.js';
 
 const AuthContext = createContext(null);
 
@@ -25,7 +25,6 @@ export function AuthProvider({ children }) {
       if (mounted) setLoading(false);
       return () => { mounted = false; };
     }
-
     api.get('/auth/me')
       .then((res) => {
         if (!mounted) return;
@@ -43,28 +42,25 @@ export function AuthProvider({ children }) {
         localStorage.removeItem('rdc_user');
         setUser(null);
       })
-      .finally(() => {
-        if (mounted) setLoading(false);
-      });
-
+      .finally(() => { if (mounted) setLoading(false); });
     return () => { mounted = false; };
   }, []);
 
   const login = async (email, password, portal) => {
     const res = await api.post('/auth/login', { email, password, portal });
-    // A password login creates a fresh server session. Never leave the old
-    // account's biometric session available on this Android device.
-    try { await disableBiometricLogin(); } catch (_) {}
     localStorage.setItem('rdc_token', res.data.token);
     localStorage.setItem('rdc_user', JSON.stringify(res.data.user));
     setUser(res.data.user);
+    // Password login is the fallback when fingerprint verification fails.
+    // If biometric login is enabled, refresh its encrypted session instead of
+    // disabling the feature so it remains available on the next login.
+    await syncBiometricToken(res.data.token);
     return res.data.user;
   };
 
   const logout = () => {
-    // Prevent another person using the same device from opening the previous
-    // account through fingerprint after logout.
-    disableBiometricLogin().catch(() => {});
+    // Normal logout clears the active web session only. Fingerprint login is
+    // disabled explicitly from Profile, not as a side effect of logout.
     localStorage.removeItem('rdc_token');
     localStorage.removeItem('rdc_user');
     setUser(null);
@@ -72,19 +68,19 @@ export function AuthProvider({ children }) {
 
   const impersonate = async (userId) => {
     const res = await api.post(`/auth/impersonate/${userId}`);
-    try { await disableBiometricLogin(); } catch (_) {}
     localStorage.setItem('rdc_token', res.data.token);
     localStorage.setItem('rdc_user', JSON.stringify(res.data.user));
     setUser(res.data.user);
+    await syncBiometricToken(res.data.token);
     return res.data.user;
   };
 
   const stopImpersonating = async () => {
     const res = await api.post('/auth/stop-impersonate');
-    try { await disableBiometricLogin(); } catch (_) {}
     localStorage.setItem('rdc_token', res.data.token);
     localStorage.setItem('rdc_user', JSON.stringify(res.data.user));
     setUser(res.data.user);
+    await syncBiometricToken(res.data.token);
     return res.data.user;
   };
 
@@ -97,25 +93,21 @@ export function AuthProvider({ children }) {
   };
 
   return (
-    <AuthContext.Provider
-      value={{
-        user,
-        login,
-        logout,
-        updateProfile,
-        loading,
-        isAdmin: user?.role === 'admin' || user?.role === 'superadmin',
-        isSuperadmin: user?.role === 'superadmin',
-        isImpersonating: !!user?.impersonatedBy,
-        impersonate,
-        stopImpersonating,
-      }}
-    >
+    <AuthContext.Provider value={{
+      user,
+      login,
+      logout,
+      updateProfile,
+      loading,
+      isAdmin: user?.role === 'admin' || user?.role === 'superadmin',
+      isSuperadmin: user?.role === 'superadmin',
+      isImpersonating: !!user?.impersonatedBy,
+      impersonate,
+      stopImpersonating,
+    }}>
       {children}
     </AuthContext.Provider>
   );
 }
 
-export function useAuth() {
-  return useContext(AuthContext);
-}
+export function useAuth() { return useContext(AuthContext); }
