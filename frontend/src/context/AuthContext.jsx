@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import api from '../api/axios';
+import { disableBiometricLogin } from '../utils/biometricAuth.js';
 
 const AuthContext = createContext(null);
 
@@ -14,48 +15,30 @@ function readStoredUser() {
 }
 
 export function AuthProvider({ children }) {
-  // localStorage is deliberately used for the authenticated Android session,
-  // not sessionStorage. Capacitor WebView storage survives normal app closes
-  // and Android app updates, so staff users do not have to log in every time.
   const [user, setUser] = useState(readStoredUser);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     let mounted = true;
     const token = localStorage.getItem('rdc_token');
-
     if (!token) {
       if (mounted) setLoading(false);
       return () => { mounted = false; };
     }
 
-    api
-      .get('/auth/me')
+    api.get('/auth/me')
       .then((res) => {
         if (!mounted) return;
-        // Refresh the cached user from the server while retaining the token.
         setUser(res.data);
         localStorage.setItem('rdc_user', JSON.stringify(res.data));
       })
       .catch((err) => {
         if (!mounted) return;
-
-        // IMPORTANT: Do not log a staff user out because the device is
-        // temporarily offline, the API is unreachable, DNS is unavailable,
-        // or another non-authentication request failed. The previous code
-        // cleared the persistent token for ANY /auth/me error, which made the
-        // Android app ask for credentials again after a normal restart or
-        // transient network failure.
-        //
-        // The axios interceptor is responsible for clearing the token on a
-        // confirmed HTTP 401. For every other error keep the cached session
-        // and let the app continue using the saved login.
         if (err?.response?.status !== 401) {
           const cachedUser = readStoredUser();
           if (cachedUser) setUser(cachedUser);
           return;
         }
-
         localStorage.removeItem('rdc_token');
         localStorage.removeItem('rdc_user');
         setUser(null);
@@ -69,6 +52,9 @@ export function AuthProvider({ children }) {
 
   const login = async (email, password, portal) => {
     const res = await api.post('/auth/login', { email, password, portal });
+    // A password login creates a fresh server session. Never leave the old
+    // account's biometric session available on this Android device.
+    try { await disableBiometricLogin(); } catch (_) {}
     localStorage.setItem('rdc_token', res.data.token);
     localStorage.setItem('rdc_user', JSON.stringify(res.data.user));
     setUser(res.data.user);
@@ -76,17 +62,17 @@ export function AuthProvider({ children }) {
   };
 
   const logout = () => {
+    // Prevent another person using the same device from opening the previous
+    // account through fingerprint after logout.
+    disableBiometricLogin().catch(() => {});
     localStorage.removeItem('rdc_token');
     localStorage.removeItem('rdc_user');
     setUser(null);
   };
 
-  // Superadmin: log in as any admin/staff account to book, create invoices,
-  // or add patients exactly as that user would. The new (impersonated)
-  // session's token carries `impersonatedBy` so a banner can be shown and
-  // the superadmin can hand the session back with stopImpersonating().
   const impersonate = async (userId) => {
     const res = await api.post(`/auth/impersonate/${userId}`);
+    try { await disableBiometricLogin(); } catch (_) {}
     localStorage.setItem('rdc_token', res.data.token);
     localStorage.setItem('rdc_user', JSON.stringify(res.data.user));
     setUser(res.data.user);
@@ -95,6 +81,7 @@ export function AuthProvider({ children }) {
 
   const stopImpersonating = async () => {
     const res = await api.post('/auth/stop-impersonate');
+    try { await disableBiometricLogin(); } catch (_) {}
     localStorage.setItem('rdc_token', res.data.token);
     localStorage.setItem('rdc_user', JSON.stringify(res.data.user));
     setUser(res.data.user);
