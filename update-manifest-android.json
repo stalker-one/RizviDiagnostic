@@ -10,12 +10,12 @@
   },
   "superadmin": {
     "tag": "android-superadmin-latest",
-    "versionCode": 191,
-    "versionName": "1.0.191",
+    "versionCode": 192,
+    "versionName": "1.0.192",
     "apkUrl": "https://github.com/stalker-one/RizviDiagnostic/releases/download/android-superadmin-latest/RizviDiagnosticSuperadmin-latest.apk",
-    "sha256": "9dc1c2888ff681a871d6206f1d9ad4bbc69fb3d8535c576459bba25bd5cedaeb",
-    "sizeBytes": 6952233,
-    "releaseNotes": "- Harden Android biometric prompt and prevent app crash\n- Improve fingerprint enable guidance for all Android sensor locations\n- Fix Android biometric plugin compilation\n- Fix fingerprint enrollment across Android sensor types\n- Fix biometric enable flow for fingerprint sensor variants\n- Rotate biometric key after security hardening\n- Require verified biometric result before enabling login\n- Secure biometric session on password login and logout\n- Fix biometric verification and bind login key to biometric auth\n- Enable fingerprint login UI in both Android apps\n- Add fingerprint settings and login UI\n- Fix secure biometric key creation"
+    "sha256": "513c12b9bca42b038c4078a97848a078cbf66cab5b821ef33ff8541316345cac",
+    "sizeBytes": 6952381,
+    "releaseNotes": "- Complete fingerprint enrollment with automatic logout and re-login\n- Harden Android biometric prompt and prevent app crash\n- Improve fingerprint enable guidance for all Android sensor locations\n- Fix Android biometric plugin compilation\n- Fix fingerprint enrollment across Android sensor types\n- Fix biometric enable flow for fingerprint sensor variants\n- Rotate biometric key after security hardening\n- Require verified biometric result before enabling login\n- Secure biometric session on password login and logout\n- Fix biometric verification and bind login key to biometric auth\n- Enable fingerprint login UI in both Android apps\n- Add fingerprint settings and login UI"
   },
-  "updatedAt": "802579d1ec41cbc0eaf526259d5df6b143cd218b"
+  "updatedAt": "4e3fbc70388c80078bf56b410b25dcbeb96be0fe"
 }
