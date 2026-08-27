@@ -10,12 +10,12 @@
   },
   "superadmin": {
     "tag": "android-superadmin-latest",
-    "versionCode": 172,
-    "versionName": "1.0.172",
+    "versionCode": 181,
+    "versionName": "1.0.181",
     "apkUrl": "https://github.com/stalker-one/RizviDiagnostic/releases/download/android-superadmin-latest/RizviDiagnosticSuperadmin-latest.apk",
-    "sha256": "4e6e518df64072f81bb4bf2a0e7dd1b2a0b3e1c97efe04c792f56177123d27b3",
-    "sizeBytes": 6816452,
-    "releaseNotes": "- Update RadiologyReports.jsx\n- Exclude CI startup raw duplicate from Android resources\n- Make startup resource preparation deterministic\n- Fix duplicate Android startup video resource\n- Fix Android Play AAB startup animation resource\n- Add today's user closing to profile\n- Add polished animated dashboard card motion\n- Redesign dashboard statistic cards\n- Remove staff today-only filter banner from radiology reports\n- Hide revenue trend from staff dashboard\n- Show count for each test in Test Distribution\n- Update radiology reports filters with booked-by dropdown and patient/doctor search"
+    "sha256": "5ea3c93ea410cf1da6e3a7a841d9585c3aa52d534d7e2a565ccb809c76779245",
+    "sizeBytes": 6951909,
+    "releaseNotes": "- Enable fingerprint login UI in both Android apps\n- Add fingerprint settings and login UI\n- Fix secure biometric key creation\n- Register biometric plugin without changing existing startup activity\n- Use biometric-enabled Android activity\n- Declare Android biometric permission\n- Add Android biometric dependency\n- Add Android biometric login bridge\n- Add native Android biometric authentication plugin\n- Update RadiologyReports.jsx\n- Exclude CI startup raw duplicate from Android resources\n- Make startup resource preparation deterministic"
   },
   "updatedAt": "ba2f0c9c246cf1f6698f3fbd25093c4e7465a35d"
 }
