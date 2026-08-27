@@ -4,7 +4,7 @@
     "versionCode": 251,
     "versionName": "1.0.251",
     "apkUrl": "https://github.com/stalker-one/RizviDiagnostic/releases/download/android-latest/RizviDiagnosticCenter-latest.apk",
-    "sha256": "1f9f31f91c1a57280d94f4f9169f099e3bb7af1281dc36b28a87bb42e46322eb",
+    "sha256": "c36204bd94ad53637bd1469f7ee12b81a963c23f36a2f47f746ff6ba9f8c7bed",
     "sizeBytes": 6951869,
     "releaseNotes": "- Enable fingerprint login UI in both Android apps\n- Add fingerprint settings and login UI\n- Fix secure biometric key creation\n- Register biometric plugin without changing existing startup activity\n- Use biometric-enabled Android activity\n- Declare Android biometric permission\n- Add Android biometric dependency\n- Add Android biometric login bridge\n- Add native Android biometric authentication plugin\n- Update RadiologyReports.jsx\n- Exclude CI startup raw duplicate from Android resources\n- Make startup resource preparation deterministic"
   },
