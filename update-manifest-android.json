@@ -1,10 +1,10 @@
 {
   "staff": {
     "tag": "android-latest",
-    "versionCode": 255,
-    "versionName": "1.0.255",
+    "versionCode": 254,
+    "versionName": "1.0.254",
     "apkUrl": "https://github.com/stalker-one/RizviDiagnostic/releases/download/android-latest/RizviDiagnosticCenter-latest.apk",
-    "sha256": "4605305cdcacff66a555a21532d8995695f7db377d682da834d0cfe742cdf5bb",
+    "sha256": "1af1fd522162dd0bfe221a1a2cf691ef7e6272d7462c5f95093a368c99c43cc2",
     "sizeBytes": 6952105,
     "releaseNotes": "- Require verified biometric result before enabling login\n- Secure biometric session on password login and logout\n- Fix biometric verification and bind login key to biometric auth\n- Enable fingerprint login UI in both Android apps\n- Add fingerprint settings and login UI\n- Fix secure biometric key creation\n- Register biometric plugin without changing existing startup activity\n- Use biometric-enabled Android activity\n- Declare Android biometric permission\n- Add Android biometric dependency\n- Add Android biometric login bridge\n- Add native Android biometric authentication plugin"
   },
@@ -17,5 +17,5 @@
     "sizeBytes": 6952153,
     "releaseNotes": "- Require verified biometric result before enabling login\n- Secure biometric session on password login and logout\n- Fix biometric verification and bind login key to biometric auth\n- Enable fingerprint login UI in both Android apps\n- Add fingerprint settings and login UI\n- Fix secure biometric key creation\n- Register biometric plugin without changing existing startup activity\n- Use biometric-enabled Android activity\n- Declare Android biometric permission\n- Add Android biometric dependency\n- Add Android biometric login bridge\n- Add native Android biometric authentication plugin"
   },
-  "updatedAt": "51ce2bc4b384a6b0a8ccf0f7c5c0f1677d7ed481"
+  "updatedAt": "fbfa67adc4d1a018fd8444401638385438316911"
 }
