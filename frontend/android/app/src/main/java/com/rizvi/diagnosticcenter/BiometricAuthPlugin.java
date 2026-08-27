@@ -6,22 +6,18 @@ import android.os.Build;
 import android.security.keystore.KeyGenParameterSpec;
 import android.security.keystore.KeyProperties;
 import android.util.Base64;
-
 import androidx.annotation.NonNull;
 import androidx.biometric.BiometricManager;
 import androidx.biometric.BiometricPrompt;
 import androidx.core.content.ContextCompat;
-
 import com.getcapacitor.JSObject;
 import com.getcapacitor.Plugin;
 import com.getcapacitor.PluginCall;
 import com.getcapacitor.PluginMethod;
 import com.getcapacitor.annotation.CapacitorPlugin;
-
 import java.nio.charset.StandardCharsets;
 import java.security.KeyStore;
 import java.util.concurrent.Executor;
-
 import javax.crypto.Cipher;
 import javax.crypto.KeyGenerator;
 import javax.crypto.SecretKey;
@@ -30,8 +26,9 @@ import javax.crypto.spec.GCMParameterSpec;
 @CapacitorPlugin(name = "BiometricAuth")
 public class BiometricAuthPlugin extends Plugin {
     private static final String PREFS = "rizvi_biometric_auth";
-    private static final String KEY_ALIAS = "rizvi_biometric_key_v2";
-    private static final String OLD_KEY_ALIAS = "rizvi_biometric_key";
+    private static final String KEY_ALIAS = "rizvi_biometric_key_v3";
+    private static final String OLD_KEY_ALIAS_V2 = "rizvi_biometric_key_v2";
+    private static final String OLD_KEY_ALIAS_V1 = "rizvi_biometric_key";
     private static final String ENABLED = "enabled";
     private static final String TOKEN = "token";
     private static final String IV = "iv";
@@ -46,7 +43,7 @@ public class BiometricAuthPlugin extends Plugin {
         boolean enabled = prefs().getBoolean(ENABLED, false);
         if (enabled && !hasUsableKey()) { clearBiometricState(); enabled = false; }
         JSObject ret = new JSObject();
-        ret.put("available", result == BiometricManager.BIOMETRIC_SUCCESS);
+        ret.put("available", isSupportedResult(result));
         ret.put("enabled", enabled);
         ret.put("code", result);
         ret.put("message", biometricMessage(result));
@@ -56,14 +53,12 @@ public class BiometricAuthPlugin extends Plugin {
     @PluginMethod
     public void enable(PluginCall call) {
         String token = call.getString("token", "");
-        if (token == null || token.trim().isEmpty()) { call.reject("A valid login session is required before enabling fingerprint login."); return; }
+        if (token == null || token.trim().isEmpty()) { call.reject("Please sign in with your password before enabling fingerprint login."); return; }
         int result = biometricResult();
-        if (result != BiometricManager.BIOMETRIC_SUCCESS) { call.reject(biometricMessage(result)); return; }
+        if (!isSupportedResult(result)) { call.reject(biometricMessage(result)); return; }
         try {
-            // Always rotate to the protected v2 key when enabling. This also
-            // guarantees installations that used the original unprotected
-            // key are migrated to biometric-bound storage.
-            deleteKey(OLD_KEY_ALIAS);
+            deleteKey(OLD_KEY_ALIAS_V2);
+            deleteKey(OLD_KEY_ALIAS_V1);
             deleteKey(KEY_ALIAS);
             ensureKey();
         } catch (Exception e) { call.reject("Unable to prepare secure fingerprint storage.", e); return; }
@@ -80,25 +75,31 @@ public class BiometricAuthPlugin extends Plugin {
     public void authenticate(PluginCall call) {
         if (!prefs().getBoolean(ENABLED, false)) { call.reject("Fingerprint login is not enabled for this device."); return; }
         int result = biometricResult();
-        if (result != BiometricManager.BIOMETRIC_SUCCESS) { call.reject(biometricMessage(result)); return; }
-        if (!hasUsableKey()) {
-            clearBiometricState();
-            call.reject("Your fingerprint security setup changed. Please sign in with your password and enable fingerprint login again.");
-            return;
-        }
+        if (!isSupportedResult(result)) { call.reject(biometricMessage(result)); return; }
+        if (!hasUsableKey()) { clearBiometricState(); call.reject("Your fingerprint security setup changed. Please sign in with your password and enable fingerprint login again."); return; }
         authenticate(call, false, null);
     }
 
-    private int biometricResult() { return BiometricManager.from(getContext()).canAuthenticate(BiometricManager.Authenticators.BIOMETRIC_STRONG); }
+    private int biometricResult() {
+        BiometricManager manager = BiometricManager.from(getContext());
+        int strong = manager.canAuthenticate(BiometricManager.Authenticators.BIOMETRIC_STRONG);
+        if (strong == BiometricManager.BIOMETRIC_SUCCESS || strong == BiometricManager.BIOMETRIC_ERROR_NONE_ENROLLED) return strong;
+        // Some phones expose a fingerprint sensor that is only classified as weak by
+        // the Android biometric stack. The system prompt is still the correct UI and
+        // handles under-display, side/power-button and rear sensors automatically.
+        return manager.canAuthenticate(BiometricManager.Authenticators.BIOMETRIC_WEAK);
+    }
+
+    private boolean isSupportedResult(int result) { return result == BiometricManager.BIOMETRIC_SUCCESS || result == BiometricManager.BIOMETRIC_ERROR_NONE_ENROLLED; }
 
     private String biometricMessage(int result) {
         switch (result) {
             case BiometricManager.BIOMETRIC_ERROR_NO_HARDWARE: return "This device has no supported biometric sensor.";
             case BiometricManager.BIOMETRIC_ERROR_HW_UNAVAILABLE: return "The biometric sensor is temporarily unavailable. Please try again.";
-            case BiometricManager.BIOMETRIC_ERROR_NONE_ENROLLED: return "No fingerprint/strong biometric is enrolled. Add a fingerprint in Android Settings first.";
+            case BiometricManager.BIOMETRIC_ERROR_NONE_ENROLLED: return "No supported biometric is enrolled. Add your fingerprint in Android Settings first.";
             case BiometricManager.BIOMETRIC_ERROR_SECURITY_UPDATE_REQUIRED: return "Android requires a security update before biometric login can be used.";
-            case BiometricManager.BIOMETRIC_ERROR_UNSUPPORTED: return "This Android device does not support the required biometric authentication.";
-            default: return "Fingerprint/biometric authentication is not available on this device.";
+            case BiometricManager.BIOMETRIC_ERROR_UNSUPPORTED: return "This Android device does not support biometric authentication.";
+            default: return "Biometric authentication is not available on this device.";
         }
     }
 
@@ -121,18 +122,20 @@ public class BiometricAuthPlugin extends Plugin {
                     call.reject("Fingerprint verification succeeded, but the secure login session could not be opened. Please enable fingerprint login again.", e);
                 }
             }
-            @Override public void onAuthenticationError(int errorCode, @NonNull CharSequence errString) { super.onAuthenticationError(errorCode, errString); call.reject("Fingerprint verification failed (" + errorCode + "): " + errString); }
+            @Override public void onAuthenticationError(int errorCode, @NonNull CharSequence errString) {
+                super.onAuthenticationError(errorCode, errString);
+                call.reject("Biometric verification failed (" + errorCode + "): " + errString);
+            }
             @Override public void onAuthenticationFailed() { super.onAuthenticationFailed(); }
         };
         BiometricPrompt prompt = new BiometricPrompt(getActivity(), executor, callback);
-        BiometricPrompt.PromptInfo info = new BiometricPrompt.PromptInfo.Builder()
+        BiometricPrompt.PromptInfo.Builder builder = new BiometricPrompt.PromptInfo.Builder()
             .setTitle(enrollment ? "Enable Fingerprint Login" : "Fingerprint Login")
-            .setSubtitle(enrollment ? "Verify your fingerprint to enable secure login" : "Verify your fingerprint to sign in")
-            .setDescription("Rizvi Diagnostic Center")
+            .setSubtitle(enrollment ? "Confirm your fingerprint to enable secure login" : "Confirm your identity to sign in")
+            .setDescription("Use the fingerprint sensor on your phone. It may be under the display, on the side/power button, or on the rear of the device.")
             .setNegativeButtonText("Use password")
-            .setAllowedAuthenticators(BiometricManager.Authenticators.BIOMETRIC_STRONG)
-            .build();
-        prompt.authenticate(info);
+            .setAllowedAuthenticators(BiometricManager.Authenticators.BIOMETRIC_WEAK);
+        prompt.authenticate(builder.build());
     }
 
     private void ensureKey() throws Exception {
@@ -146,8 +149,7 @@ public class BiometricAuthPlugin extends Plugin {
             .setUserAuthenticationRequired(true);
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) builder.setUserAuthenticationParameters(0, KeyProperties.AUTH_BIOMETRIC_STRONG);
         else builder.setUserAuthenticationValidityDurationSeconds(-1);
-        generator.init(builder.build());
-        generator.generateKey();
+        generator.init(builder.build()); generator.generateKey();
     }
 
     private SecretKey getKey() throws Exception {
@@ -158,16 +160,13 @@ public class BiometricAuthPlugin extends Plugin {
     }
 
     private boolean hasUsableKey() {
-        try {
-            KeyStore keyStore = KeyStore.getInstance("AndroidKeyStore"); keyStore.load(null);
-            return keyStore.containsAlias(KEY_ALIAS) && keyStore.getEntry(KEY_ALIAS, null) instanceof KeyStore.SecretKeyEntry;
-        } catch (Exception e) { return false; }
+        try { KeyStore keyStore = KeyStore.getInstance("AndroidKeyStore"); keyStore.load(null); return keyStore.containsAlias(KEY_ALIAS) && keyStore.getEntry(KEY_ALIAS, null) instanceof KeyStore.SecretKeyEntry; }
+        catch (Exception e) { return false; }
     }
 
     private void encryptAndStore(String token) throws Exception {
         if (token == null || token.trim().isEmpty()) throw new IllegalArgumentException("Empty token");
-        ensureKey();
-        Cipher cipher = Cipher.getInstance("AES/GCM/NoPadding"); cipher.init(Cipher.ENCRYPT_MODE, getKey());
+        ensureKey(); Cipher cipher = Cipher.getInstance("AES/GCM/NoPadding"); cipher.init(Cipher.ENCRYPT_MODE, getKey());
         byte[] encrypted = cipher.doFinal(token.getBytes(StandardCharsets.UTF_8));
         prefs().edit().putBoolean(ENABLED, true).putString(TOKEN, Base64.encodeToString(encrypted, Base64.NO_WRAP)).putString(IV, Base64.encodeToString(cipher.getIV(), Base64.NO_WRAP)).apply();
     }
@@ -179,16 +178,6 @@ public class BiometricAuthPlugin extends Plugin {
         return new String(cipher.doFinal(Base64.decode(encoded, Base64.NO_WRAP)), StandardCharsets.UTF_8);
     }
 
-    private void clearBiometricState() {
-        prefs().edit().clear().apply();
-        deleteKey(OLD_KEY_ALIAS);
-        deleteKey(KEY_ALIAS);
-    }
-
-    private void deleteKey(String alias) {
-        try {
-            KeyStore keyStore = KeyStore.getInstance("AndroidKeyStore"); keyStore.load(null);
-            if (keyStore.containsAlias(alias)) keyStore.deleteEntry(alias);
-        } catch (Exception ignored) { }
-    }
+    private void clearBiometricState() { prefs().edit().clear().apply(); deleteKey(OLD_KEY_ALIAS_V2); deleteKey(OLD_KEY_ALIAS_V1); deleteKey(KEY_ALIAS); }
+    private void deleteKey(String alias) { try { KeyStore keyStore = KeyStore.getInstance("AndroidKeyStore"); keyStore.load(null); if (keyStore.containsAlias(alias)) keyStore.deleteEntry(alias); } catch (Exception ignored) { } }
 }
