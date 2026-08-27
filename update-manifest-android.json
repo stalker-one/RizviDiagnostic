@@ -1,12 +1,12 @@
 {
   "staff": {
     "tag": "android-latest",
-    "versionCode": 256,
-    "versionName": "1.0.256",
+    "versionCode": 257,
+    "versionName": "1.0.257",
     "apkUrl": "https://github.com/stalker-one/RizviDiagnostic/releases/download/android-latest/RizviDiagnosticCenter-latest.apk",
-    "sha256": "e0b2287b2e963373cf7290f512dd9d090f6241f2242d5e0831af52df5f9dda2a",
-    "sizeBytes": 6952109,
-    "releaseNotes": "- Rotate biometric key after security hardening\n- Require verified biometric result before enabling login\n- Secure biometric session on password login and logout\n- Fix biometric verification and bind login key to biometric auth\n- Enable fingerprint login UI in both Android apps\n- Add fingerprint settings and login UI\n- Fix secure biometric key creation\n- Register biometric plugin without changing existing startup activity\n- Use biometric-enabled Android activity\n- Declare Android biometric permission\n- Add Android biometric dependency\n- Add Android biometric login bridge"
+    "sha256": "c08129ba3341736740387ccf52d10baf946ad55febd5f6ba09b83d910c57f5b1",
+    "sizeBytes": 6952105,
+    "releaseNotes": "- Fix biometric enable flow for fingerprint sensor variants\n- Rotate biometric key after security hardening\n- Require verified biometric result before enabling login\n- Secure biometric session on password login and logout\n- Fix biometric verification and bind login key to biometric auth\n- Enable fingerprint login UI in both Android apps\n- Add fingerprint settings and login UI\n- Fix secure biometric key creation\n- Register biometric plugin without changing existing startup activity\n- Use biometric-enabled Android activity\n- Declare Android biometric permission\n- Add Android biometric dependency"
   },
   "superadmin": {
     "tag": "android-superadmin-latest",
