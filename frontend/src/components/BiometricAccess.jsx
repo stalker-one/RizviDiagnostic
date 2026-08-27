@@ -27,72 +27,48 @@ export default function BiometricAccess() {
   }, [location.pathname]);
 
   const biometricLogin = async () => {
-    setBusy(true);
-    setMessage('');
+    setBusy(true); setMessage('');
     try {
       const result = await loginWithBiometric();
-      if (!result?.verified || !result?.token) {
-        throw new Error('Fingerprint verification did not complete. Please try again.');
-      }
+      if (!result?.verified || !result?.token) throw new Error('Biometric verification did not complete. Please try again.');
       localStorage.setItem('rdc_token', result.token);
       const me = await api.get('/auth/me');
       localStorage.setItem('rdc_user', JSON.stringify(me.data));
       window.location.href = me.data.role === 'superadmin' ? '/site-control' : '/dashboard';
     } catch (err) {
-      const statusCode = err?.response?.status;
-      if (statusCode === 401) {
-        await disableBiometricLogin().catch(() => {});
-        await refresh();
+      if (err?.response?.status === 401) {
+        await disableBiometricLogin().catch(() => {}); await refresh();
         setMessage('Your saved login session has expired. Sign in with your password and enable fingerprint login again.');
       } else {
-        const text = err?.message || 'Fingerprint verification failed. Please try again.';
+        const text = err?.message || 'Biometric verification failed. Please try again.';
         if (!/cancel|negative|use password/i.test(text)) setMessage(text);
       }
-    } finally {
-      setBusy(false);
-    }
+    } finally { setBusy(false); }
   };
 
   const enable = async () => {
     const token = localStorage.getItem('rdc_token');
-    if (!token) {
-      setMessage('Please sign in with your password first.');
-      return;
-    }
-
+    if (!token) { setMessage('Please sign in with your password first.'); return; }
     setBusy(true);
-    setMessage('Place your enrolled fingerprint on the sensor and wait for Android to confirm verification.');
+    setMessage('Android will open its biometric prompt. Follow the prompt and use your enrolled fingerprint wherever your phone sensor is located.');
     try {
       const result = await enableBiometricLogin(token);
-      if (!result?.verified || !result?.enabled) {
-        throw new Error('Fingerprint verification was not completed. Fingerprint login was not enabled.');
-      }
+      if (!result?.verified || !result?.enabled) throw new Error('Biometric verification was not completed. Fingerprint login was not enabled.');
       const next = await getBiometricStatus();
       setStatus(next || { available: true, enabled: true });
-      if (!next?.enabled) {
-        throw new Error('Android did not confirm the secure biometric key. Fingerprint login was not enabled.');
-      }
+      if (!next?.enabled) throw new Error('Android did not confirm the secure biometric setup. Fingerprint login was not enabled.');
       setMessage('Fingerprint verified successfully. Fingerprint login is now enabled on this device.');
     } catch (err) {
-      setMessage(err?.message || 'Fingerprint verification failed. Fingerprint login was not enabled.');
+      setMessage(err?.message || 'Biometric verification failed. Fingerprint login was not enabled.');
       await refresh();
-    } finally {
-      setBusy(false);
-    }
+    } finally { setBusy(false); }
   };
 
   const disable = async () => {
-    setBusy(true);
-    setMessage('');
-    try {
-      await disableBiometricLogin();
-      await refresh();
-      setMessage('Fingerprint login has been disabled.');
-    } catch (err) {
-      setMessage(err?.message || 'Could not disable fingerprint login.');
-    } finally {
-      setBusy(false);
-    }
+    setBusy(true); setMessage('');
+    try { await disableBiometricLogin(); await refresh(); setMessage('Fingerprint login has been disabled.'); }
+    catch (err) { setMessage(err?.message || 'Could not disable fingerprint login.'); }
+    finally { setBusy(false); }
   };
 
   if ((!isLogin && !isProfile) || !status.available) return null;
@@ -125,13 +101,12 @@ export default function BiometricAccess() {
               <button type="button" onClick={status.enabled ? disable : enable} disabled={busy} className={`w-full rounded-xl py-3 text-sm font-bold text-white ${status.enabled ? 'bg-red-600 hover:bg-red-700' : 'bg-blue-600 hover:bg-blue-700'} disabled:opacity-50`}>{busy ? 'Verifying...' : status.enabled ? 'Disable Fingerprint Login' : 'Enable Fingerprint Login'}</button>
               {message && <div className={`mt-3 text-xs rounded-lg px-3 py-2 ${/successfully|enabled|disabled/i.test(message) ? 'text-emerald-700 bg-emerald-50' : 'text-red-700 bg-red-50'}`}>{message}</div>}
               {status.code && status.code !== 0 && <div className="mt-2 text-[11px] text-slate-400">Android biometric status: {status.message || `code ${status.code}`}</div>}
-              <p className="mt-3 text-[11px] text-slate-400">The app never stores your password. The Android Keystore protects the saved login session and requires a successful biometric verification before it can be used.</p>
+              <p className="mt-3 text-[11px] text-slate-400">The app never stores your password. The Android application uses the system biometric prompt; the phone decides whether the sensor is under the display, on the side/power button, or elsewhere.</p>
             </div>
           </div>
         )}
       </div>
     );
   }
-
   return null;
 }
