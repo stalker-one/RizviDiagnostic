@@ -1,0 +1,87 @@
+name: Validate Android Biometric
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'frontend/**'
+      - '.github/workflows/validate-android-biometric.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  android-biometric-build:
+    name: Build Android biometric variants
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        shell: bash
+    env:
+      ANDROID_HOME: /usr/local/lib/android/sdk
+      ANDROID_SDK_ROOT: /usr/local/lib/android/sdk
+      VITE_API_BASE_URL: https://stalker-one-rizvidiagnostic.vercel.app/api
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install frontend dependencies
+        working-directory: frontend
+        run: npm ci --ignore-scripts
+
+      - name: Build frontend
+        working-directory: frontend
+        run: npm run build
+
+      - name: Sync Capacitor Android
+        working-directory: frontend
+        run: npx cap sync android
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+          cache: gradle
+
+      - name: Prepare Android SDK
+        run: |
+          set -euo pipefail
+          SDKMANAGER=""
+          for candidate in "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "$ANDROID_HOME/cmdline-tools/16.0/bin/sdkmanager" "$ANDROID_HOME/cmdline-tools/bin/sdkmanager"; do
+            if [ -x "$candidate" ]; then SDKMANAGER="$candidate"; break; fi
+          done
+          if [ -z "$SDKMANAGER" ]; then SDKMANAGER="$(find "$ANDROID_HOME/cmdline-tools" -type f -path '*/bin/sdkmanager' -print -quit 2>/dev/null || true)"; fi
+          test -n "$SDKMANAGER" && test -x "$SDKMANAGER"
+          yes | "$SDKMANAGER" --licenses >/dev/null 2>&1 || true
+          "$SDKMANAGER" platform-tools 'platforms;android-36' 'build-tools;36.0.0'
+
+      - name: Build regular debug APK
+        working-directory: frontend/android
+        run: |
+          set -euo pipefail
+          chmod +x gradlew
+          ./gradlew clean assembleRegularDebug --stacktrace
+
+      - name: Build superadmin debug APK
+        working-directory: frontend/android
+        run: |
+          set -euo pipefail
+          ./gradlew assembleSuperadminDebug --stacktrace
+
+      - name: Verify generated APKs
+        working-directory: frontend/android
+        run: |
+          set -euo pipefail
+          test -s app/build/outputs/apk/regular/debug/app-regular-debug.apk
+          test -s app/build/outputs/apk/superadmin/debug/app-superadmin-debug.apk
+          echo "Regular APK: OK"
+          echo "Superadmin APK: OK"
