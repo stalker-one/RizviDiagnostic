@@ -10,12 +10,12 @@
   },
   "superadmin": {
     "tag": "android-superadmin-latest",
-    "versionCode": 181,
-    "versionName": "1.0.181",
+    "versionCode": 182,
+    "versionName": "1.0.182",
     "apkUrl": "https://github.com/stalker-one/RizviDiagnostic/releases/download/android-superadmin-latest/RizviDiagnosticSuperadmin-latest.apk",
-    "sha256": "5ea3c93ea410cf1da6e3a7a841d9585c3aa52d534d7e2a565ccb809c76779245",
+    "sha256": "300b5cd97104f5c24c8e070c97a94bb9cb3de058f57ad6328f79d9374e5519d4",
     "sizeBytes": 6951909,
-    "releaseNotes": "- Enable fingerprint login UI in both Android apps\n- Add fingerprint settings and login UI\n- Fix secure biometric key creation\n- Register biometric plugin without changing existing startup activity\n- Use biometric-enabled Android activity\n- Declare Android biometric permission\n- Add Android biometric dependency\n- Add Android biometric login bridge\n- Add native Android biometric authentication plugin\n- Update RadiologyReports.jsx\n- Exclude CI startup raw duplicate from Android resources\n- Make startup resource preparation deterministic"
+    "releaseNotes": "- Fix biometric verification and bind login key to biometric auth\n- Enable fingerprint login UI in both Android apps\n- Add fingerprint settings and login UI\n- Fix secure biometric key creation\n- Register biometric plugin without changing existing startup activity\n- Use biometric-enabled Android activity\n- Declare Android biometric permission\n- Add Android biometric dependency\n- Add Android biometric login bridge\n- Add native Android biometric authentication plugin\n- Update RadiologyReports.jsx\n- Exclude CI startup raw duplicate from Android resources"
   },
-  "updatedAt": "ba2f0c9c246cf1f6698f3fbd25093c4e7465a35d"
+  "updatedAt": "2b7dff2f1a69abf946aabf868228bf539d67956d"
 }
