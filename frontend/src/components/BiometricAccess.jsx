@@ -37,21 +37,21 @@ export default function BiometricAccess() {
 
   const biometricLogin = async () => {
     if (busy) return;
-    setBusy(true); setMessage('');
+    setBusy(true); setMessage(''); setSuccess(false);
     try {
       const result = await loginWithBiometric();
-      if (!result?.verified || !result?.token) throw new Error('Fingerprint verification did not complete. Please try again.');
+      if (!result?.verified || !result?.token) throw new Error('Fingerprint verification did not complete.');
       localStorage.setItem('rdc_token', result.token);
       const me = await api.get('/auth/me');
       localStorage.setItem('rdc_user', JSON.stringify(me.data));
       window.location.replace(me.data.role === 'superadmin' ? '/site-control' : '/dashboard');
     } catch (err) {
       if (err?.response?.status === 401) {
-        await disableBiometricLogin().catch(() => {}); await refresh();
-        setMessage('Your saved login session has expired. Sign in with your password and enable fingerprint login again.');
+        await disableBiometricLogin().catch(() => {});
+        await refresh();
+        setMessage('Fingerprint login session expired. Please continue with your email and password.');
       } else {
-        const text = err?.message || 'Fingerprint verification failed. Please try again.';
-        if (!/cancel|negative|use password/i.test(text)) setMessage(text);
+        setMessage('Fingerprint was not verified. Please continue with your email and password.');
       }
     } finally { setBusy(false); }
   };
@@ -66,26 +66,12 @@ export default function BiometricAccess() {
       if (!result?.verified || !result?.enabled) throw new Error('Fingerprint verification was not completed. Fingerprint login was not enabled.');
       const next = await getBiometricStatus();
       if (!next?.enabled) throw new Error('Android did not confirm the secure fingerprint setup. Fingerprint login was not enabled.');
-
-      setStatus(next);
-      setSuccess(true);
-      setMessage('Fingerprint added successfully.');
-
-      // Keep the biometric vault while removing only the current normal session.
-      // This gives the user a real logout -> biometric login handoff instead of
-      // leaving the account silently signed in.
-      await sleep(1200);
-      setMessage('Fingerprint added successfully. Signing you out securely...');
-      await sleep(700);
-      localStorage.removeItem('rdc_token');
-      localStorage.removeItem('rdc_user');
-      sessionStorage.clear();
+      setStatus(next); setSuccess(true); setMessage('Fingerprint added successfully.');
+      await sleep(1200); setMessage('Fingerprint added successfully. Signing you out securely...'); await sleep(700);
+      localStorage.removeItem('rdc_token'); localStorage.removeItem('rdc_user'); sessionStorage.clear();
       window.location.replace('/login?biometric=ready');
-    } catch (err) {
-      setSuccess(false);
-      setMessage(err?.message || 'Fingerprint verification failed. Fingerprint login was not enabled.');
-      await refresh();
-    } finally { setBusy(false); }
+    } catch (err) { setSuccess(false); setMessage(err?.message || 'Fingerprint verification failed. Fingerprint login was not enabled.'); await refresh(); }
+    finally { setBusy(false); }
   };
 
   const disable = async () => {
@@ -101,28 +87,28 @@ export default function BiometricAccess() {
     const params = new URLSearchParams(location.search);
     if (params.get('biometric') !== 'ready' || !status.available || !status.enabled) return;
     autoLoginStarted.current = true;
-    setSuccess(true);
-    setMessage('Fingerprint added successfully. Sign in with your added fingerprint.');
+    setSuccess(true); setMessage('Fingerprint added successfully. Sign in with your added fingerprint.');
     const timer = setTimeout(() => biometricLogin(), 700);
     return () => clearTimeout(timer);
   }, [isLogin, location.search, status.available, status.enabled]);
 
   if ((!isLogin && !isProfile) || !status.available) return null;
 
-  if (isLogin && status.enabled) return (
-    <div className="fixed left-4 right-4 bottom-4 z-[100000] sm:left-auto sm:right-6 sm:w-[360px]">
+  if (isLogin) return (
+    <div className="fixed left-4 right-4 bottom-4 z-[100000] sm:left-auto sm:right-6 sm:w-[380px]">
       <div className="rounded-2xl border border-blue-100 bg-white/95 backdrop-blur shadow-2xl p-4">
         <div className="flex items-center gap-3">
           <div className="w-11 h-11 rounded-full bg-blue-50 text-blue-600 flex items-center justify-center"><Fingerprint size={25} /></div>
-          <div className="flex-1 min-w-0"><div className="font-bold text-slate-800 text-sm">Fingerprint Login</div><div className="text-xs text-slate-500">Verify your fingerprint to sign in securely.</div></div>
-          <button type="button" onClick={biometricLogin} disabled={busy} className="shrink-0 rounded-xl bg-blue-600 text-white px-4 py-2 text-sm font-semibold disabled:opacity-50">{busy ? 'Verifying...' : 'Use Fingerprint'}</button>
+          <div className="flex-1 min-w-0"><div className="font-bold text-slate-800 text-sm">Fingerprint Login</div><div className="text-xs text-slate-500">{status.enabled ? 'Use your enrolled fingerprint to sign in securely.' : 'Fingerprint login is not enabled on this device.'}</div></div>
         </div>
-        {message && <div className={`mt-3 text-xs rounded-lg px-3 py-2 ${success ? 'text-emerald-700 bg-emerald-50' : 'text-slate-700 bg-slate-50'}`}>{message}</div>}
+        {status.enabled && <button type="button" onClick={biometricLogin} disabled={busy} className="w-full mt-3 rounded-xl bg-blue-600 hover:bg-blue-700 text-white px-4 py-3 text-sm font-semibold disabled:opacity-50">{busy ? 'Verifying fingerprint...' : 'Use Fingerprint'}</button>}
+        {message && <div className={`mt-3 text-xs rounded-lg px-3 py-2 ${success ? 'text-emerald-700 bg-emerald-50' : 'text-amber-800 bg-amber-50'}`}>{message}</div>}
+        {!status.enabled && <div className="mt-2 text-xs text-slate-500">You can continue below with your email and password.</div>}
       </div>
     </div>
   );
 
-  if (isProfile) return (
+  return (
     <div className="fixed left-4 right-4 bottom-4 z-[100000] sm:left-auto sm:right-6 sm:w-[390px]">
       {!visible ? (
         <button type="button" onClick={() => setVisible(true)} className="ml-auto flex items-center gap-2 rounded-full bg-slate-900 text-white shadow-2xl px-4 py-3 text-sm font-semibold hover:bg-slate-800"><Fingerprint size={18} /> Fingerprint Login</button>
@@ -139,5 +125,4 @@ export default function BiometricAccess() {
       )}
     </div>
   );
-  return null;
 }
