@@ -10,12 +10,12 @@
   },
   "superadmin": {
     "tag": "android-superadmin-latest",
-    "versionCode": 192,
-    "versionName": "1.0.192",
+    "versionCode": 193,
+    "versionName": "1.0.193",
     "apkUrl": "https://github.com/stalker-one/RizviDiagnostic/releases/download/android-superadmin-latest/RizviDiagnosticSuperadmin-latest.apk",
-    "sha256": "513c12b9bca42b038c4078a97848a078cbf66cab5b821ef33ff8541316345cac",
-    "sizeBytes": 6952381,
-    "releaseNotes": "- Complete fingerprint enrollment with automatic logout and re-login\n- Harden Android biometric prompt and prevent app crash\n- Improve fingerprint enable guidance for all Android sensor locations\n- Fix Android biometric plugin compilation\n- Fix fingerprint enrollment across Android sensor types\n- Fix biometric enable flow for fingerprint sensor variants\n- Rotate biometric key after security hardening\n- Require verified biometric result before enabling login\n- Secure biometric session on password login and logout\n- Fix biometric verification and bind login key to biometric auth\n- Enable fingerprint login UI in both Android apps\n- Add fingerprint settings and login UI"
+    "sha256": "839460ac1127702a0a98af4de8629a975c27f6a7614445de67bd119f777050b4",
+    "sizeBytes": 6952405,
+    "releaseNotes": "- Show fingerprint option on staff and superadmin login pages\n- Keep fingerprint login available after password fallback\n- Complete fingerprint enrollment with automatic logout and re-login\n- Harden Android biometric prompt and prevent app crash\n- Improve fingerprint enable guidance for all Android sensor locations\n- Fix Android biometric plugin compilation\n- Fix fingerprint enrollment across Android sensor types\n- Fix biometric enable flow for fingerprint sensor variants\n- Rotate biometric key after security hardening\n- Require verified biometric result before enabling login\n- Secure biometric session on password login and logout\n- Fix biometric verification and bind login key to biometric auth"
   },
   "updatedAt": "a063e84f0f2c473ff0c5d9c312be9612c372e1ef"
 }
