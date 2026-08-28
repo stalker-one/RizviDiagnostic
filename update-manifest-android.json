@@ -1,12 +1,12 @@
 {
   "staff": {
     "tag": "android-latest",
-    "versionCode": 266,
-    "versionName": "1.0.266",
+    "versionCode": 267,
+    "versionName": "1.0.267",
     "apkUrl": "https://github.com/stalker-one/RizviDiagnostic/releases/download/android-latest/RizviDiagnosticCenter-latest.apk",
-    "sha256": "22fb35ad675fa06f08aebc5d3b86b227a0d8484c46329058ffb8360a2cb210b7",
-    "sizeBytes": 6953405,
-    "releaseNotes": "- Show platform-specific biometric wording\n- Add Windows Hello WebAuthn biometric login\n- Delete frontend/android/app/src/main/res/startup_animation.mp4\n- Show fingerprint option on staff and superadmin login pages\n- Keep fingerprint login available after password fallback\n- Complete fingerprint enrollment with automatic logout and re-login\n- Harden Android biometric prompt and prevent app crash\n- Improve fingerprint enable guidance for all Android sensor locations\n- Fix Android biometric plugin compilation\n- Fix fingerprint enrollment across Android sensor types\n- Fix biometric enable flow for fingerprint sensor variants\n- Rotate biometric key after security hardening"
+    "sha256": "4033682d46fe4239362dd4eb12bc713603c7d05118fc644341c3905ca94d7ed7",
+    "sizeBytes": 6952229,
+    "releaseNotes": "- Optimize Vite production output\n- Show platform-specific biometric wording\n- Add Windows Hello WebAuthn biometric login\n- Delete frontend/android/app/src/main/res/startup_animation.mp4\n- Show fingerprint option on staff and superadmin login pages\n- Keep fingerprint login available after password fallback\n- Complete fingerprint enrollment with automatic logout and re-login\n- Harden Android biometric prompt and prevent app crash\n- Improve fingerprint enable guidance for all Android sensor locations\n- Fix Android biometric plugin compilation\n- Fix fingerprint enrollment across Android sensor types\n- Fix biometric enable flow for fingerprint sensor variants"
   },
   "superadmin": {
     "tag": "android-superadmin-latest",
