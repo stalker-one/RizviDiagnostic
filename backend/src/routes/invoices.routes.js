@@ -14,10 +14,12 @@ function computeTotals(items, discount) {
   return { subTotal, discountAmount, total };
 }
 
-router.get('/', async (req, res) => {
+router.get('/', (req, res) => {
   const { patientId, page, pageSize } = req.query;
   let { range, from, to } = req.query;
-  let invoices = await getFreshTable('invoices', readTable('invoices'));
+  // Reads are served from the hot in-memory table. server.js keeps that table
+  // synchronized with Atlas in the background instead of blocking this request.
+  let invoices = readTable('invoices');
   if (patientId) {
     invoices = invoices.filter((i) => i.patientId === patientId);
     return res.json({ rows: invoices.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt)), total: invoices.length, page: 1, pageSize: invoices.length, totalPages: 1 });
@@ -38,8 +40,8 @@ router.get('/', async (req, res) => {
   res.json({ ...result, range, staffLimit });
 });
 
-router.get('/:id', async (req, res) => {
-  const invoices = await getFreshTable('invoices', readTable('invoices'));
+router.get('/:id', (req, res) => {
+  const invoices = readTable('invoices');
   const invoice = invoices.find((i) => i.id === req.params.id);
   if (!invoice) return res.status(404).json({ message: 'Invoice not found.' });
   const patients = readTable('patients');
