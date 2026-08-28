@@ -25,19 +25,13 @@ const pushRoutes = require('./routes/push.routes');
 const app = express();
 app.use(cors());
 app.use(express.json({ limit: '5mb' }));
-// Morgan is useful during development but is synchronous console I/O on every
-// request. Keep production API requests free of that logging overhead.
 if (process.env.NODE_ENV !== 'production') app.use(morgan('dev'));
 
 app.get('/api/health', (req, res) => res.json({ status: 'ok', clinic: process.env.CLINIC_NAME }));
 
-// Atlas is the shared source of truth, while route handlers intentionally use
-// the synchronous in-memory tables for very fast reads. The old implementation
-// downloaded ALL tables from Atlas before EVERY API request. A dashboard load
-// could therefore perform 4 requests x 8 table reads before rendering.
-//
-// Instead, requests only start a non-blocking refresh when the shared change
-// token has changed. The current request is never held up by synchronization.
+// Atlas is the shared source of truth, while route handlers use hot in-memory
+// tables for fast reads. Synchronization is now non-blocking and only starts
+// after a lightweight change-token check instead of before every request.
 const SYNC_TABLES = ['users', 'patients', 'procedures', 'referrals', 'doctors', 'invoices', 'settings', 'counters'];
 let refreshPromise = null;
 let knownVersion = 0;
@@ -52,18 +46,15 @@ async function refreshRuntimeTables() {
       const fresh = await getFreshTable(table, null);
       if (fresh === null || fresh === undefined) return;
       const local = readTable(table);
-      if (Array.isArray(local) && Array.isArray(fresh)) {
-        local.splice(0, local.length, ...fresh);
-      } else if (local && typeof local === 'object' && fresh && typeof fresh === 'object') {
+      if (Array.isArray(local) && Array.isArray(fresh)) local.splice(0, local.length, ...fresh);
+      else if (local && typeof local === 'object' && fresh && typeof fresh === 'object') {
         Object.keys(local).forEach((key) => delete local[key]);
         Object.assign(local, fresh);
       }
     } catch (err) {
       console.warn(`[sync] Could not refresh ${table}:`, err.message);
     }
-  })).finally(() => {
-    refreshPromise = null;
-  });
+  })).finally(() => { refreshPromise = null; });
   return refreshPromise;
 }
 
@@ -85,12 +76,10 @@ function scheduleRuntimeRefresh() {
     .finally(() => { versionCheckPromise = null; });
 }
 
-// Do not await this middleware. It only schedules an occasional lightweight
-// version check, so CRUD/report responses can reach the UI immediately.
+// Never await synchronization here. CRUD/report requests reach the UI
+// immediately while cross-device refresh happens in the background.
 app.use((req, res, next) => {
-  if (req.path !== '/api/health' && req.path !== '/health' && !req.path.startsWith('/api/sync/version')) {
-    scheduleRuntimeRefresh();
-  }
+  if (req.path !== '/api/health' && req.path !== '/health' && !req.path.startsWith('/api/sync/version')) scheduleRuntimeRefresh();
   next();
 });
 
@@ -116,9 +105,9 @@ if (fs.existsSync(path.join(FRONTEND_DIST, 'index.html'))) {
     maxAge: process.env.NODE_ENV === 'production' ? '7d' : 0,
   }));
   app.get(/^(?!\/api\/).*/, (req, res) => {
-    res.sendFile(path.join(FRONTEND_DIST, 'index.html'), {
-      maxAge: process.env.NODE_ENV === 'production' ? '1h' : 0,
-    });
+    // Never long-cache index.html: it contains the current hashed JS/CSS
+    // filenames and must be revalidated after each deployment.
+    res.sendFile(path.join(FRONTEND_DIST, 'index.html'), { maxAge: 0 });
   });
 }
 
@@ -129,11 +118,8 @@ app.use((err, req, res, next) => {
 });
 
 const PORT = process.env.PORT || 5000;
-
 function start() {
   return initDb().finally(() => new Promise((resolve) => {
-    // Prime the version asynchronously after boot. It does not delay opening
-    // the server or the Electron window.
     scheduleRuntimeRefresh();
     app.listen(PORT, () => {
       console.log(`✔ ${process.env.CLINIC_NAME || 'Rizvi Diagnostic Center'} API running on http://localhost:${PORT}`);
@@ -143,5 +129,4 @@ function start() {
 }
 
 module.exports = { app, start, PORT };
-
 if (require.main === module) start();
