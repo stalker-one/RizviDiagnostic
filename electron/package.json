@@ -12,7 +12,8 @@
     "appId": "com.rizvi.diagnosticcenter",
     "productName": "Rizvi Diagnostic Center",
     "artifactName": "Rizvi-Diagnostic-Center-Setup-${version}.${ext}",
-    "asar": false,
+    "asar": true,
+    "compression": "maximum",
     "files": ["main.js", "preload.js", "build/**/*", "package.json"],
     "extraResources": [
       {"from": "../backend", "to": "backend", "filter": ["**/*", "!node_modules/.cache", "!.env.example", "!**/*.log"]},
