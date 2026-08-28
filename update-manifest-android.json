@@ -10,12 +10,12 @@
   },
   "superadmin": {
     "tag": "android-superadmin-latest",
-    "versionCode": 196,
-    "versionName": "1.0.196",
+    "versionCode": 197,
+    "versionName": "1.0.197",
     "apkUrl": "https://github.com/stalker-one/RizviDiagnostic/releases/download/android-superadmin-latest/RizviDiagnosticSuperadmin-latest.apk",
-    "sha256": "450024916e48ae152db95a1926a56cdb05b6cad90aabb3ba1ec3699c08d13477",
-    "sizeBytes": 6953489,
-    "releaseNotes": "- Show platform-specific biometric wording\n- Add Windows Hello WebAuthn biometric login\n- Delete frontend/android/app/src/main/res/startup_animation.mp4\n- Show fingerprint option on staff and superadmin login pages\n- Keep fingerprint login available after password fallback\n- Complete fingerprint enrollment with automatic logout and re-login\n- Harden Android biometric prompt and prevent app crash\n- Improve fingerprint enable guidance for all Android sensor locations\n- Fix Android biometric plugin compilation\n- Fix fingerprint enrollment across Android sensor types\n- Fix biometric enable flow for fingerprint sensor variants\n- Rotate biometric key after security hardening"
+    "sha256": "e2447bb58214903c285b6cd8618e3c0f77637471ad25d43caac10ddf73ad9077",
+    "sizeBytes": 6952341,
+    "releaseNotes": "- Optimize Vite production output\n- Show platform-specific biometric wording\n- Add Windows Hello WebAuthn biometric login\n- Delete frontend/android/app/src/main/res/startup_animation.mp4\n- Show fingerprint option on staff and superadmin login pages\n- Keep fingerprint login available after password fallback\n- Complete fingerprint enrollment with automatic logout and re-login\n- Harden Android biometric prompt and prevent app crash\n- Improve fingerprint enable guidance for all Android sensor locations\n- Fix Android biometric plugin compilation\n- Fix fingerprint enrollment across Android sensor types\n- Fix biometric enable flow for fingerprint sensor variants"
   },
-  "updatedAt": "0f09f972b54d0d9d1ea22f9013782a3b5fac193b"
+  "updatedAt": "e10b87abb0bbd5577fcbd17c8f3acd8afcb2c589"
 }
