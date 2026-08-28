@@ -1,12 +1,12 @@
 {
   "staff": {
     "tag": "android-latest",
-    "versionCode": 263,
-    "versionName": "1.0.263",
+    "versionCode": 264,
+    "versionName": "1.0.264",
     "apkUrl": "https://github.com/stalker-one/RizviDiagnostic/releases/download/android-latest/RizviDiagnosticCenter-latest.apk",
-    "sha256": "92a5309afb8da5b90c6398da6799d73808416de5910efbc305a1f1555935c427",
+    "sha256": "8ad8ad019c207a8e9008c68ba12115eb795a0e72593c1a83e847c3da773e3cf2",
     "sizeBytes": 6952365,
-    "releaseNotes": "- Show fingerprint option on staff and superadmin login pages\n- Keep fingerprint login available after password fallback\n- Complete fingerprint enrollment with automatic logout and re-login\n- Harden Android biometric prompt and prevent app crash\n- Improve fingerprint enable guidance for all Android sensor locations\n- Fix Android biometric plugin compilation\n- Fix fingerprint enrollment across Android sensor types\n- Fix biometric enable flow for fingerprint sensor variants\n- Rotate biometric key after security hardening\n- Require verified biometric result before enabling login\n- Secure biometric session on password login and logout\n- Fix biometric verification and bind login key to biometric auth"
+    "releaseNotes": "- Delete frontend/android/app/src/main/res/startup_animation.mp4\n- Show fingerprint option on staff and superadmin login pages\n- Keep fingerprint login available after password fallback\n- Complete fingerprint enrollment with automatic logout and re-login\n- Harden Android biometric prompt and prevent app crash\n- Improve fingerprint enable guidance for all Android sensor locations\n- Fix Android biometric plugin compilation\n- Fix fingerprint enrollment across Android sensor types\n- Fix biometric enable flow for fingerprint sensor variants\n- Rotate biometric key after security hardening\n- Require verified biometric result before enabling login\n- Secure biometric session on password login and logout"
   },
   "superadmin": {
     "tag": "android-superadmin-latest",
