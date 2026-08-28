@@ -1,6 +1,4 @@
-// Load & normalize environment (with safe fallbacks) BEFORE anything that
-// reads process.env — notably ./db, which resolves the MongoDB URI at require
-// time, and the auth routes, which sign JWTs with process.env.JWT_SECRET.
+// Load & normalize environment before anything that reads process.env.
 require('./env');
 const fs = require('fs');
 const path = require('path');
@@ -9,7 +7,7 @@ const cors = require('cors');
 const morgan = require('morgan');
 
 const { initDb, readTable } = require('./db');
-const { getFreshTable } = require('./mongo-table');
+const { getFreshTable, getLatestVersion } = require('./mongo-table');
 const authRoutes = require('./routes/auth.routes');
 const usersRoutes = require('./routes/users.routes');
 const patientsRoutes = require('./routes/patients.routes');
@@ -25,25 +23,30 @@ const syncRoutes = require('./routes/sync.routes');
 const pushRoutes = require('./routes/push.routes');
 
 const app = express();
-
 app.use(cors());
 app.use(express.json({ limit: '5mb' }));
-app.use(morgan('dev'));
+// Morgan is useful during development but is synchronous console I/O on every
+// request. Keep production API requests free of that logging overhead.
+if (process.env.NODE_ENV !== 'production') app.use(morgan('dev'));
 
 app.get('/api/health', (req, res) => res.json({ status: 'ok', clinic: process.env.CLINIC_NAME }));
 
-// Keep the in-memory/local fallback copy synchronized with Atlas before every
-// application request. Each Vercel/Electron process can have its own memory,
-// so boot-time synchronization is not enough when another device changes the
-// shared database. Objects are updated in place so existing readTable() users
-// immediately see the fresh data without changing the synchronous DB API.
+// Atlas is the shared source of truth, while route handlers intentionally use
+// the synchronous in-memory tables for very fast reads. The old implementation
+// downloaded ALL tables from Atlas before EVERY API request. A dashboard load
+// could therefore perform 4 requests x 8 table reads before rendering.
+//
+// Instead, requests only start a non-blocking refresh when the shared change
+// token has changed. The current request is never held up by synchronization.
 const SYNC_TABLES = ['users', 'patients', 'procedures', 'referrals', 'doctors', 'invoices', 'settings', 'counters'];
 let refreshPromise = null;
-let refreshAt = 0;
+let knownVersion = 0;
+let versionCheckPromise = null;
+let lastVersionCheckAt = 0;
+const VERSION_CHECK_INTERVAL_MS = 2000;
+
 async function refreshRuntimeTables() {
-  const now = Date.now();
-  if (refreshPromise && now - refreshAt < 250) return refreshPromise;
-  refreshAt = now;
+  if (refreshPromise) return refreshPromise;
   refreshPromise = Promise.all(SYNC_TABLES.map(async (table) => {
     try {
       const fresh = await getFreshTable(table, null);
@@ -64,25 +67,29 @@ async function refreshRuntimeTables() {
   return refreshPromise;
 }
 
-// Change-token requests are intentionally lightweight and must not trigger the
-// full table refresh themselves. A normal data request immediately following
-// a changed token performs the full Atlas refresh before reading the table.
-app.use('/api/sync', async (req, res, next) => {
-  if (req.path === '/version') return next();
-  try {
-    await refreshRuntimeTables();
-  } catch (err) {
-    console.warn('[sync] runtime refresh failed:', err.message);
-  }
-  next();
-});
+function scheduleRuntimeRefresh() {
+  const now = Date.now();
+  if (versionCheckPromise || now - lastVersionCheckAt < VERSION_CHECK_INTERVAL_MS) return;
+  lastVersionCheckAt = now;
+  versionCheckPromise = getLatestVersion()
+    .then((version) => {
+      const nextVersion = Number(version || 0);
+      if (nextVersion > 0 && nextVersion !== knownVersion) {
+        knownVersion = nextVersion;
+        return refreshRuntimeTables();
+      }
+      if (knownVersion === 0 && nextVersion > 0) knownVersion = nextVersion;
+      return null;
+    })
+    .catch((err) => console.warn('[sync] background version check failed:', err.message))
+    .finally(() => { versionCheckPromise = null; });
+}
 
-app.use(async (req, res, next) => {
-  if (req.path === '/api/health' || req.path === '/health' || req.path === '/api/sync/version') return next();
-  try {
-    await refreshRuntimeTables();
-  } catch (err) {
-    console.warn('[sync] request refresh failed:', err.message);
+// Do not await this middleware. It only schedules an occasional lightweight
+// version check, so CRUD/report responses can reach the UI immediately.
+app.use((req, res, next) => {
+  if (req.path !== '/api/health' && req.path !== '/health' && !req.path.startsWith('/api/sync/version')) {
+    scheduleRuntimeRefresh();
   }
   next();
 });
@@ -103,16 +110,19 @@ app.use('/api/push', pushRoutes);
 
 const FRONTEND_DIST = path.join(__dirname, '../../frontend/dist');
 if (fs.existsSync(path.join(FRONTEND_DIST, 'index.html'))) {
-  app.use(express.static(FRONTEND_DIST));
+  app.use(express.static(FRONTEND_DIST, {
+    etag: true,
+    lastModified: true,
+    maxAge: process.env.NODE_ENV === 'production' ? '7d' : 0,
+  }));
   app.get(/^(?!\/api\/).*/, (req, res) => {
-    res.sendFile(path.join(FRONTEND_DIST, 'index.html'));
+    res.sendFile(path.join(FRONTEND_DIST, 'index.html'), {
+      maxAge: process.env.NODE_ENV === 'production' ? '1h' : 0,
+    });
   });
 }
 
-app.use((req, res) => {
-  res.status(404).json({ message: 'Route not found.' });
-});
-
+app.use((req, res) => res.status(404).json({ message: 'Route not found.' }));
 app.use((err, req, res, next) => {
   console.error(err);
   res.status(500).json({ message: 'Something went wrong on the server.' });
@@ -121,19 +131,17 @@ app.use((err, req, res, next) => {
 const PORT = process.env.PORT || 5000;
 
 function start() {
-  return initDb().finally(
-    () =>
-      new Promise((resolve) => {
-        app.listen(PORT, () => {
-          console.log(`✔ ${process.env.CLINIC_NAME || 'Rizvi Diagnostic Center'} API running on http://localhost:${PORT}`);
-          resolve();
-        });
-      })
-  );
+  return initDb().finally(() => new Promise((resolve) => {
+    // Prime the version asynchronously after boot. It does not delay opening
+    // the server or the Electron window.
+    scheduleRuntimeRefresh();
+    app.listen(PORT, () => {
+      console.log(`✔ ${process.env.CLINIC_NAME || 'Rizvi Diagnostic Center'} API running on http://localhost:${PORT}`);
+      resolve();
+    });
+  }));
 }
 
 module.exports = { app, start, PORT };
 
-if (require.main === module) {
-  start();
-}
+if (require.main === module) start();
