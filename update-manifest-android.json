@@ -1,21 +1,21 @@
 {
   "staff": {
     "tag": "android-latest",
-    "versionCode": 264,
-    "versionName": "1.0.264",
+    "versionCode": 265,
+    "versionName": "1.0.265",
     "apkUrl": "https://github.com/stalker-one/RizviDiagnostic/releases/download/android-latest/RizviDiagnosticCenter-latest.apk",
-    "sha256": "8ad8ad019c207a8e9008c68ba12115eb795a0e72593c1a83e847c3da773e3cf2",
-    "sizeBytes": 6952365,
-    "releaseNotes": "- Delete frontend/android/app/src/main/res/startup_animation.mp4\n- Show fingerprint option on staff and superadmin login pages\n- Keep fingerprint login available after password fallback\n- Complete fingerprint enrollment with automatic logout and re-login\n- Harden Android biometric prompt and prevent app crash\n- Improve fingerprint enable guidance for all Android sensor locations\n- Fix Android biometric plugin compilation\n- Fix fingerprint enrollment across Android sensor types\n- Fix biometric enable flow for fingerprint sensor variants\n- Rotate biometric key after security hardening\n- Require verified biometric result before enabling login\n- Secure biometric session on password login and logout"
+    "sha256": "17195f7aec13a49e0df16bedc388d3484c504e8580bad2723e00c6d981cdc785",
+    "sizeBytes": 6953209,
+    "releaseNotes": "- Add Windows Hello WebAuthn biometric login\n- Delete frontend/android/app/src/main/res/startup_animation.mp4\n- Show fingerprint option on staff and superadmin login pages\n- Keep fingerprint login available after password fallback\n- Complete fingerprint enrollment with automatic logout and re-login\n- Harden Android biometric prompt and prevent app crash\n- Improve fingerprint enable guidance for all Android sensor locations\n- Fix Android biometric plugin compilation\n- Fix fingerprint enrollment across Android sensor types\n- Fix biometric enable flow for fingerprint sensor variants\n- Rotate biometric key after security hardening\n- Require verified biometric result before enabling login"
   },
   "superadmin": {
     "tag": "android-superadmin-latest",
-    "versionCode": 194,
-    "versionName": "1.0.194",
+    "versionCode": 195,
+    "versionName": "1.0.195",
     "apkUrl": "https://github.com/stalker-one/RizviDiagnostic/releases/download/android-superadmin-latest/RizviDiagnosticSuperadmin-latest.apk",
-    "sha256": "b209cb6f2842420bf0a2fca76d8a82c13e1ac384bb61282f4034a79160741789",
-    "sizeBytes": 6952405,
-    "releaseNotes": "- Delete frontend/android/app/src/main/res/startup_animation.mp4\n- Show fingerprint option on staff and superadmin login pages\n- Keep fingerprint login available after password fallback\n- Complete fingerprint enrollment with automatic logout and re-login\n- Harden Android biometric prompt and prevent app crash\n- Improve fingerprint enable guidance for all Android sensor locations\n- Fix Android biometric plugin compilation\n- Fix fingerprint enrollment across Android sensor types\n- Fix biometric enable flow for fingerprint sensor variants\n- Rotate biometric key after security hardening\n- Require verified biometric result before enabling login\n- Secure biometric session on password login and logout"
+    "sha256": "3fb4f3202d0856d61b76bb846d3f35250d6ba2b93dd4125b4cecc8ba19755a3a",
+    "sizeBytes": 6953309,
+    "releaseNotes": "- Add Windows Hello WebAuthn biometric login\n- Delete frontend/android/app/src/main/res/startup_animation.mp4\n- Show fingerprint option on staff and superadmin login pages\n- Keep fingerprint login available after password fallback\n- Complete fingerprint enrollment with automatic logout and re-login\n- Harden Android biometric prompt and prevent app crash\n- Improve fingerprint enable guidance for all Android sensor locations\n- Fix Android biometric plugin compilation\n- Fix fingerprint enrollment across Android sensor types\n- Fix biometric enable flow for fingerprint sensor variants\n- Rotate biometric key after security hardening\n- Require verified biometric result before enabling login"
   },
-  "updatedAt": "9a9765c87ca3228fd61a4d9a431aff037c0c1546"
+  "updatedAt": "e68c3acb59a1b84bae65cacd792c37185c0dd4b0"
 }
