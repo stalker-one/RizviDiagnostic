@@ -10,12 +10,12 @@
   },
   "superadmin": {
     "tag": "android-superadmin-latest",
-    "versionCode": 193,
-    "versionName": "1.0.193",
+    "versionCode": 194,
+    "versionName": "1.0.194",
     "apkUrl": "https://github.com/stalker-one/RizviDiagnostic/releases/download/android-superadmin-latest/RizviDiagnosticSuperadmin-latest.apk",
-    "sha256": "839460ac1127702a0a98af4de8629a975c27f6a7614445de67bd119f777050b4",
+    "sha256": "b209cb6f2842420bf0a2fca76d8a82c13e1ac384bb61282f4034a79160741789",
     "sizeBytes": 6952405,
-    "releaseNotes": "- Show fingerprint option on staff and superadmin login pages\n- Keep fingerprint login available after password fallback\n- Complete fingerprint enrollment with automatic logout and re-login\n- Harden Android biometric prompt and prevent app crash\n- Improve fingerprint enable guidance for all Android sensor locations\n- Fix Android biometric plugin compilation\n- Fix fingerprint enrollment across Android sensor types\n- Fix biometric enable flow for fingerprint sensor variants\n- Rotate biometric key after security hardening\n- Require verified biometric result before enabling login\n- Secure biometric session on password login and logout\n- Fix biometric verification and bind login key to biometric auth"
+    "releaseNotes": "- Delete frontend/android/app/src/main/res/startup_animation.mp4\n- Show fingerprint option on staff and superadmin login pages\n- Keep fingerprint login available after password fallback\n- Complete fingerprint enrollment with automatic logout and re-login\n- Harden Android biometric prompt and prevent app crash\n- Improve fingerprint enable guidance for all Android sensor locations\n- Fix Android biometric plugin compilation\n- Fix fingerprint enrollment across Android sensor types\n- Fix biometric enable flow for fingerprint sensor variants\n- Rotate biometric key after security hardening\n- Require verified biometric result before enabling login\n- Secure biometric session on password login and logout"
   },
-  "updatedAt": "a063e84f0f2c473ff0c5d9c312be9612c372e1ef"
+  "updatedAt": "9a9765c87ca3228fd61a4d9a431aff037c0c1546"
 }
