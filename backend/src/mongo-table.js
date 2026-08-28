@@ -17,11 +17,9 @@ function resolveMongoUri() {
 async function getDb() {
   if (db) return db;
   if (connectPromise) return connectPromise;
-
   const uri = resolveMongoUri();
   if (!uri) return null;
-
-  client = new MongoClient(uri, { serverSelectionTimeoutMS: 8000 });
+  client = new MongoClient(uri, { serverSelectionTimeoutMS: 5000, connectTimeoutMS: 8000, maxPoolSize: 10, minPoolSize: 0, retryWrites: true });
   connectPromise = client.connect()
     .then(() => {
       db = client.db(process.env.MONGODB_DB_NAME || 'rizvi_diagnostic_center');
@@ -32,15 +30,26 @@ async function getDb() {
       connectPromise = null;
       return null;
     });
-
   return connectPromise;
 }
 
-/**
- * Read the latest copy of one logical table from Atlas.
- * Vercel can run multiple warm serverless instances, so an in-memory JSON
- * cache can otherwise be stale immediately after another instance writes.
- */
+async function getLatestVersion() {
+  try {
+    const database = await getDb();
+    if (!database) return 0;
+    const row = await database.collection('tables')
+      .find({}, { projection: { updatedAt: 1 } })
+      .sort({ updatedAt: -1 })
+      .limit(1)
+      .next();
+    const value = row?.updatedAt ? new Date(row.updatedAt).getTime() : 0;
+    return Number.isFinite(value) ? value : 0;
+  } catch (err) {
+    console.warn('[mongo-table] Could not read latest Atlas version:', err.message);
+    return 0;
+  }
+}
+
 async function getFreshTable(table, fallback) {
   try {
     const database = await getDb();
@@ -53,4 +62,4 @@ async function getFreshTable(table, fallback) {
   return fallback;
 }
 
-module.exports = { getFreshTable };
+module.exports = { getFreshTable, getLatestVersion };
