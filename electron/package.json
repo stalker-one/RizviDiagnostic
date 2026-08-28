@@ -1,6 +1,6 @@
 {
   "name": "rizvi-diagnostic-desktop",
-  "version": "1.1.9",
+  "version": "1.1.10",
   "description": "Rizvi Diagnostic Center — desktop (Windows) app wrapper. Runs the existing backend + built frontend as one native window.",
   "private": true,
   "author": "Mian Bilal",
@@ -13,7 +13,7 @@
     "productName": "Rizvi Diagnostic Center",
     "artifactName": "Rizvi-Diagnostic-Center-Setup-${version}.${ext}",
     "asar": false,
-    "files": ["main.js", "build/**/*", "package.json"],
+    "files": ["main.js", "preload.js", "build/**/*", "package.json"],
     "extraResources": [
       {"from": "../backend", "to": "backend", "filter": ["**/*", "!node_modules/.cache", "!.env.example", "!**/*.log"]},
       {"from": "../frontend/dist", "to": "frontend/dist", "filter": ["**/*"]}
