@@ -18,27 +18,39 @@ export default function BiometricAccess() {
   const autoLoginStarted = useRef(false);
   const isLogin = location.pathname === '/login' || location.pathname === '/adminlogin';
   const isProfile = location.pathname === '/profile';
+  const isAdminLogin = location.pathname === '/adminlogin';
+  const portal = isAdminLogin ? 'admin' : 'staff';
   const windows = isWindowsApp();
   const android = isAndroidApp();
   const title = windows ? 'Windows Hello' : android ? 'Fingerprint Login' : 'Biometric Login';
   const action = windows ? 'Windows Hello' : 'Fingerprint Login';
   const deviceText = windows ? 'Secure Windows Hello verification for this Windows device' : android ? 'Secure fingerprint verification for this Android device' : 'Secure biometric verification for this device';
 
-  const refresh = async () => { if (!isLogin && !isProfile) return null; try { const next = await getBiometricStatus(); setStatus(next || { available: false, enabled: false }); return next; } catch { setStatus({ available: false, enabled: false }); return null; } };
+  const refresh = async () => {
+    if (!isLogin && !isProfile) return null;
+    try { const next = await getBiometricStatus(); setStatus(next || { available: false, enabled: false }); return next; }
+    catch { setStatus({ available: false, enabled: false }); return null; }
+  };
+
   useEffect(() => { setMessage(''); setSuccess(false); setVisible(false); autoLoginStarted.current = false; refresh(); }, [location.pathname]);
 
   const biometricLogin = async () => {
     if (busy) return;
     setBusy(true); setMessage('Verifying your fingerprint...'); setSuccess(false);
     try {
-      const result = await loginWithBiometric();
+      const result = await loginWithBiometric(portal);
       if (!result?.verified || !result?.token) throw new Error('Fingerprint verification was not completed. Continue with your email and password.');
       localStorage.setItem('rdc_token', result.token);
       if (result.user) localStorage.setItem('rdc_user', JSON.stringify(result.user));
       window.location.replace(result.user?.role === 'superadmin' ? '/site-control' : '/dashboard');
     } catch (err) {
-      if (err?.response?.status === 401) { await disableBiometricLogin().catch(() => {}); await refresh(); setMessage('This fingerprint login is no longer registered. Please continue with your email and password, then enable fingerprint login again.'); }
-      else { const text = err?.message || 'Fingerprint verification failed. Please continue with your email and password.'; if (!/cancel|negative|use password/i.test(text)) setMessage(text); else setMessage(''); }
+      if (err?.response?.status === 401) {
+        await disableBiometricLogin().catch(() => {}); await refresh();
+        setMessage('This fingerprint registration is no longer valid. Please continue with your email and password.');
+      } else {
+        const text = err?.message || 'Fingerprint verification failed. Please continue with your email and password.';
+        if (!/cancel|negative|use password/i.test(text)) setMessage(text); else setMessage('');
+      }
     } finally { setBusy(false); }
   };
 
@@ -48,7 +60,7 @@ export default function BiometricAccess() {
     if (busy) return;
     setBusy(true); setSuccess(false); setMessage(android ? 'Confirm your enrolled fingerprint in the Android system prompt.' : 'Confirm your biometric identity in the system prompt.');
     try {
-      const result = await enableBiometricLogin(token);
+      const result = await enableBiometricLogin(token, portal);
       if (!result?.verified || !result?.enabled) throw new Error(`${action} verification was not completed. ${action} was not enabled.`);
       const next = await getBiometricStatus();
       if (!next?.enabled) throw new Error(`The system did not confirm secure ${action} setup.`);
@@ -57,7 +69,7 @@ export default function BiometricAccess() {
       setMessage(`${action} added successfully. Signing you out securely...`);
       await sleep(700);
       localStorage.removeItem('rdc_token'); localStorage.removeItem('rdc_user'); sessionStorage.clear();
-      window.location.replace('/login?biometric=ready');
+      window.location.replace(isAdminLogin ? '/adminlogin?biometric=ready' : '/login?biometric=ready');
     } catch (err) { setSuccess(false); setMessage(err?.message || `${action} verification failed. ${action} was not enabled.`); await refresh(); }
     finally { setBusy(false); }
   };
@@ -72,7 +84,7 @@ export default function BiometricAccess() {
     setSuccess(true); setMessage(`${action} added successfully. Signing you in...`);
     const timer = setTimeout(() => biometricLogin(), 700);
     return () => clearTimeout(timer);
-  }, [isLogin, location.search, status.available, status.enabled]);
+  }, [isLogin, isAdminLogin, location.search, status.available, status.enabled]);
 
   if ((!isLogin && !isProfile) || !status.available) return null;
   if (isLogin) return <div className="fixed left-4 right-4 bottom-4 z-[100000] sm:left-auto sm:right-6 sm:w-[380px]"><div className="rounded-2xl border border-blue-100 bg-white/95 backdrop-blur shadow-2xl p-4"><div className="flex items-center gap-3"><div className="w-11 h-11 rounded-full bg-blue-50 text-blue-600 flex items-center justify-center"><Fingerprint size={25} /></div><div className="flex-1 min-w-0"><div className="font-bold text-slate-800 text-sm">{title}</div><div className="text-xs text-slate-500">Use your enrolled {windows ? 'Windows Hello credential' : 'fingerprint'} to sign in securely.</div></div></div>{status.enabled && <button type="button" onClick={biometricLogin} disabled={busy} className="w-full mt-3 rounded-xl bg-blue-600 hover:bg-blue-700 text-white px-4 py-3 text-sm font-semibold disabled:opacity-50">{busy ? `Verifying ${windows ? 'Windows Hello' : 'fingerprint'}...` : `Use ${title}`}</button>}{message && <div className={`mt-3 text-xs rounded-lg px-3 py-2 ${success ? 'text-emerald-700 bg-emerald-50' : 'text-amber-800 bg-amber-50'}`}>{message}</div>}{!status.enabled && <div className="mt-2 text-xs text-slate-500">Fingerprint login is not enabled. Continue below with your email and password.</div>}</div></div>;
