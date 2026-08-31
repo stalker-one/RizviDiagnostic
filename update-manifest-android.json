@@ -10,12 +10,12 @@
   },
   "superadmin": {
     "tag": "android-superadmin-latest",
-    "versionCode": 198,
-    "versionName": "1.0.198",
+    "versionCode": 199,
+    "versionName": "1.0.199",
     "apkUrl": "https://github.com/stalker-one/RizviDiagnostic/releases/download/android-superadmin-latest/RizviDiagnosticSuperadmin-latest.apk",
-    "sha256": "b3d37e650be45ddd6c5df2e21d12f034ddae50d3a6a4fd196df2747bc705508c",
+    "sha256": "c1bbcacb576ec0700a1a39d93e4470145452e53d435a041b93dfbc377b72a91d",
     "sizeBytes": 6952693,
-    "releaseNotes": "- Show biometric login on Android superadmin login page\n- Preserve full staff login UI and add fingerprint login\n- Show biometric login on Android staff login page\n- Fix persistent biometric login UI and fallback behavior\n- Return stable Android device ID for biometric sessions\n- Use persistent server biometric credentials instead of expiring JWTs\n- Optimize Vite production output\n- Show platform-specific biometric wording\n- Add Windows Hello WebAuthn biometric login\n- Delete frontend/android/app/src/main/res/startup_animation.mp4\n- Show fingerprint option on staff and superadmin login pages\n- Keep fingerprint login available after password fallback"
+    "releaseNotes": "- Replace expiring JWT biometric storage with persistent credential ID\n- Show biometric login on Android superadmin login page\n- Preserve full staff login UI and add fingerprint login\n- Show biometric login on Android staff login page\n- Fix persistent biometric login UI and fallback behavior\n- Return stable Android device ID for biometric sessions\n- Use persistent server biometric credentials instead of expiring JWTs\n- Optimize Vite production output\n- Show platform-specific biometric wording\n- Add Windows Hello WebAuthn biometric login\n- Delete frontend/android/app/src/main/res/startup_animation.mp4\n- Show fingerprint option on staff and superadmin login pages"
   },
-  "updatedAt": "93cfe25a42a2f3b1ef078970b2492d16bdf4029b"
+  "updatedAt": "895f712d6d54aa76fedf2d927a334b6788e9773d"
 }
