@@ -1,12 +1,12 @@
 {
   "staff": {
     "tag": "android-latest",
-    "versionCode": 268,
-    "versionName": "1.0.268",
+    "versionCode": 269,
+    "versionName": "1.0.269",
     "apkUrl": "https://github.com/stalker-one/RizviDiagnostic/releases/download/android-latest/RizviDiagnosticCenter-latest.apk",
-    "sha256": "a24c7a6c879f6d86b2b1b913f940678cf6d1934d852e7492aaae863665d07294",
+    "sha256": "b0995ae47acf1392f56930f22cbeac611e281f8a895452113ce5216244e4e984",
     "sizeBytes": 6952637,
-    "releaseNotes": "- Show biometric login on Android superadmin login page\n- Preserve full staff login UI and add fingerprint login\n- Show biometric login on Android staff login page\n- Fix persistent biometric login UI and fallback behavior\n- Return stable Android device ID for biometric sessions\n- Use persistent server biometric credentials instead of expiring JWTs\n- Optimize Vite production output\n- Show platform-specific biometric wording\n- Add Windows Hello WebAuthn biometric login\n- Delete frontend/android/app/src/main/res/startup_animation.mp4\n- Show fingerprint option on staff and superadmin login pages\n- Keep fingerprint login available after password fallback"
+    "releaseNotes": "- Replace expiring JWT biometric storage with persistent credential ID\n- Show biometric login on Android superadmin login page\n- Preserve full staff login UI and add fingerprint login\n- Show biometric login on Android staff login page\n- Fix persistent biometric login UI and fallback behavior\n- Return stable Android device ID for biometric sessions\n- Use persistent server biometric credentials instead of expiring JWTs\n- Optimize Vite production output\n- Show platform-specific biometric wording\n- Add Windows Hello WebAuthn biometric login\n- Delete frontend/android/app/src/main/res/startup_animation.mp4\n- Show fingerprint option on staff and superadmin login pages"
   },
   "superadmin": {
     "tag": "android-superadmin-latest",
