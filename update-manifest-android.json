@@ -1,12 +1,12 @@
 {
   "staff": {
     "tag": "android-latest",
-    "versionCode": 270,
-    "versionName": "1.0.270",
+    "versionCode": 271,
+    "versionName": "1.0.271",
     "apkUrl": "https://github.com/stalker-one/RizviDiagnostic/releases/download/android-latest/RizviDiagnosticCenter-latest.apk",
-    "sha256": "01278dd245abb0c5903bbdfc82da2cf13923ff278216b37ec6ba94bc443fef3f",
-    "sizeBytes": 6952753,
-    "releaseNotes": "- Use authenticated user role for Staff and Superadmin biometric enrollment\n- Route biometric enrollment and login through the correct Staff or Superadmin portal\n- Implement AndroidKeyStore EC signing for biometric challenges\n- Use AndroidKeyStore challenge signatures instead of JWT biometric storage\n- Replace expiring JWT biometric storage with persistent credential ID\n- Show biometric login on Android superadmin login page\n- Preserve full staff login UI and add fingerprint login\n- Show biometric login on Android staff login page\n- Fix persistent biometric login UI and fallback behavior\n- Return stable Android device ID for biometric sessions\n- Use persistent server biometric credentials instead of expiring JWTs\n- Optimize Vite production output"
+    "sha256": "a0b9bca947ead4ce10f9be912fd16dab38478fded093942432df8477f4548f1a",
+    "sizeBytes": 6954253,
+    "releaseNotes": "- Remove unused icon import from patient modal\n- Add Create Patient button and modal to Create Invoice\n- Add reusable create patient modal for invoice page\n- Use authenticated user role for Staff and Superadmin biometric enrollment\n- Route biometric enrollment and login through the correct Staff or Superadmin portal\n- Implement AndroidKeyStore EC signing for biometric challenges\n- Use AndroidKeyStore challenge signatures instead of JWT biometric storage\n- Replace expiring JWT biometric storage with persistent credential ID\n- Show biometric login on Android superadmin login page\n- Preserve full staff login UI and add fingerprint login\n- Show biometric login on Android staff login page\n- Fix persistent biometric login UI and fallback behavior"
   },
   "superadmin": {
     "tag": "android-superadmin-latest",
