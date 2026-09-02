@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import Modal from './Modal.jsx';
 import Button from './Button.jsx';
-import { Save, UserPlus } from 'lucide-react';
+import { Save } from 'lucide-react';
 import api from '../api/axios';
 import useDepartments from '../hooks/useDepartments.js';
 
