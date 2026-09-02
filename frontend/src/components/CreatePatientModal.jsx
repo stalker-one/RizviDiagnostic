@@ -81,12 +81,14 @@ export default function CreatePatientModal({ open, onClose, onCreated }) {
     setSaving(true);
     try {
       const res = await api.post('/patients', payload);
-      const patient = res.data?.patient || res.data?.data || res.data;
+      const rawPatient = res.data?.patient || res.data?.data || res.data;
+      const patientId = rawPatient?.id || rawPatient?._id || res.data?.patientId || res.data?.id;
 
-      if (!patient?.id) {
+      if (!patientId) {
         throw new Error('Patient was created but the server did not return the patient ID.');
       }
 
+      const patient = { ...rawPatient, id: patientId };
       onCreated(patient);
       onClose();
     } catch (err) {
