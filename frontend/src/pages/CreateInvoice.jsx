@@ -32,7 +32,14 @@ export default function CreateInvoice() {
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
-    api.get('/patients', { params: { range: 'all', pageSize: 1000 } }).then((res) => setPatients(res.data.rows || []));
+    api.get('/patients', { params: { range: 'all', pageSize: 1000 } }).then((res) => {
+      const rows = res.data.rows || [];
+      setPatients((current) => {
+        const rowIds = new Set(rows.map((patient) => String(patient.id)));
+        const locallyAdded = current.filter((patient) => !rowIds.has(String(patient.id)));
+        return [...rows, ...locallyAdded];
+      });
+    });
     api.get('/procedures').then((res) => setProcedures(res.data.filter((p) => p.active)));
     api.get('/referrals').then((res) => setReferrals(res.data));
   }, []);
