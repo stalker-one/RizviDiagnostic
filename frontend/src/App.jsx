@@ -167,10 +167,11 @@ function StaffEntryRoute(){const token=localStorage.getItem('rdc_token');if(toke
 
 export default function App(){
  const{user}=useAuth();
+ const location=useLocation();
  const[refreshKey,setRefreshKey]=useState(0);const[androidUpdate,setAndroidUpdate]=useState(null);const[androidUpdateBusy,setAndroidUpdateBusy]=useState(false);const[androidUpdateError,setAndroidUpdateError]=useState('');const[androidUpdateChecking,setAndroidUpdateChecking]=useState(false);const[androidUpdateProgress,setAndroidUpdateProgress]=useState({percent:0,downloadedBytes:0,totalBytes:0});
  const checkingAndroidUpdate=useRef(false);const retryCheckRef=useRef(null);const lastVersionRef=useRef(null);const dismissedUpdateCodeRef=useRef(null);
  const notifiedUpdateCodeRef=useRef((()=>{try{const stored=localStorage.getItem('rdc_notified_update_code');return stored?Number(stored):null;}catch{return null;}})());
- useEffect(()=>{let stopped=false;const checkVersion=async()=>{if(stopped)return;try{const response=await api.get('/sync/version',{params:{_:Date.now()},headers:{'Cache-Control':'no-cache'}});const version=Number(response.data?.version||0);if(lastVersionRef.current!==null&&version!==lastVersionRef.current)setRefreshKey(v=>v+1);lastVersionRef.current=version;}catch{}};checkVersion();const timer=window.setInterval(checkVersion,REALTIME_INTERVAL_MS);return()=>{stopped=true;window.clearInterval(timer);};},[]);
+ useEffect(()=>{let stopped=false;const checkVersion=async()=>{if(stopped)return;try{const response=await api.get('/sync/version',{params:{_:Date.now()},headers:{'Cache-Control':'no-cache'}});const version=Number(response.data?.version||0);if(lastVersionRef.current!==null&&version!==lastVersionRef.current&&location.pathname!=='/invoices/create')setRefreshKey(v=>v+1);lastVersionRef.current=version;}catch{}};checkVersion();const timer=window.setInterval(checkVersion,REALTIME_INTERVAL_MS);return()=>{stopped=true;window.clearInterval(timer);};},[location.pathname]);
  // Registers this device's FCM push token with the backend once logged in,
  // so patient/invoice creation from *any* platform (web, Windows, either
  // Android app) can push a real-time notification to this device -- even
