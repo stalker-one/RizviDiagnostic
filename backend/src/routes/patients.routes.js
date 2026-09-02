@@ -107,6 +107,17 @@ router.put('/:id', (req, res) => {
   patient.updatedAt = new Date().toISOString(); writeTable('patients', patients); res.json(patient);
 });
 
+router.post('/bulk-delete', requireRole('superadmin'), async (req, res) => {
+  const ids = [...new Set(Array.isArray(req.body?.ids) ? req.body.ids.map((id) => String(id)).filter(Boolean) : [])];
+  if (!ids.length) return res.status(400).json({ message: 'At least one patient must be selected.' });
+  const patients = await getFreshTable('patients', readTable('patients'));
+  const selected = new Set(ids);
+  const deletedCount = patients.filter((patient) => selected.has(String(patient.id))).length;
+  if (!deletedCount) return res.status(404).json({ message: 'No selected patients were found.' });
+  writeTable('patients', patients.filter((patient) => !selected.has(String(patient.id))));
+  res.json({ message: `${deletedCount} patient${deletedCount === 1 ? '' : 's'} deleted.`, deletedCount });
+});
+
 router.delete('/:id', requireRole('admin', 'superadmin'), async (req, res) => {
   const patients = await getFreshTable('patients', readTable('patients'));
   const idx = patients.findIndex((p) => p.id === req.params.id);

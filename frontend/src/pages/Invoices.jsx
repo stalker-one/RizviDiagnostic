@@ -16,7 +16,7 @@ const RANGE_OPTIONS = [
 ];
 
 export default function Invoices() {
-  const { isAdmin } = useAuth();
+  const { isAdmin, isSuperadmin } = useAuth();
   const confirm = useConfirm();
   const [invoices, setInvoices] = useState([]);
   const [range, setRange] = useState('today');
@@ -25,6 +25,7 @@ export default function Invoices() {
   const [page, setPage] = useState(1);
   const [pageInfo, setPageInfo] = useState({ total: 0, totalPages: 1 });
   const [loading, setLoading] = useState(true);
+  const [selectedInvoiceIds, setSelectedInvoiceIds] = useState([]);
 
   const load = (opts = {}) => {
     const r = opts.range ?? range;
@@ -44,6 +45,7 @@ export default function Invoices() {
       })
       .then((res) => {
         setInvoices(res.data.rows);
+        setSelectedInvoiceIds((current) => current.filter((id) => res.data.rows.some((invoice) => String(invoice.id) === String(id))));
         setPage(res.data.page);
         setPageInfo({ total: res.data.total, totalPages: res.data.totalPages });
       })
@@ -79,6 +81,34 @@ export default function Invoices() {
     });
     if (!ok) return;
     await api.delete(`/invoices/${inv.id}`);
+    setSelectedInvoiceIds((current) => current.filter((id) => String(id) !== String(inv.id)));
+    load();
+  };
+
+  const toggleInvoiceSelection = (invoiceId) => {
+    const id = String(invoiceId);
+    setSelectedInvoiceIds((current) => current.includes(id) ? current.filter((selectedId) => selectedId !== id) : [...current, id]);
+  };
+
+  const toggleAllVisibleInvoices = () => {
+    const visibleIds = invoices.map((invoice) => String(invoice.id));
+    const allSelected = visibleIds.length > 0 && visibleIds.every((id) => selectedInvoiceIds.includes(id));
+    setSelectedInvoiceIds((current) => allSelected
+      ? current.filter((id) => !visibleIds.includes(id))
+      : [...new Set([...current, ...visibleIds])]);
+  };
+
+  const removeSelectedInvoices = async () => {
+    if (!selectedInvoiceIds.length) return;
+    const ok = await confirm({
+      title: 'Delete selected invoices',
+      message: `Delete ${selectedInvoiceIds.length} selected ${selectedInvoiceIds.length === 1 ? 'invoice' : 'invoices'}? This cannot be undone.`,
+      confirmText: 'Delete Selected',
+      danger: true,
+    });
+    if (!ok) return;
+    await api.post('/invoices/bulk-delete', { ids: selectedInvoiceIds });
+    setSelectedInvoiceIds([]);
     load();
   };
 
@@ -114,10 +144,30 @@ export default function Invoices() {
         </div>
       )}
 
+      {isSuperadmin && (
+        <div className="flex flex-wrap items-center justify-between gap-3 mb-4 bg-amber-50 border border-amber-100 rounded-xl px-4 py-3">
+          <label className="inline-flex items-center gap-2 text-sm font-medium text-slate-700">
+            <input
+              type="checkbox"
+              checked={invoices.length > 0 && invoices.every((invoice) => selectedInvoiceIds.includes(String(invoice.id)))}
+              onChange={toggleAllVisibleInvoices}
+              aria-label="Select all visible invoices"
+              className="h-4 w-4 rounded border-slate-300 text-brand-600 focus:ring-brand-500"
+            />
+            Select all visible invoices
+          </label>
+          <div className="flex items-center gap-3">
+            <span className="text-sm text-slate-500">{selectedInvoiceIds.length} selected</span>
+            <Button variant="danger" size="sm" icon={Trash2} onClick={removeSelectedInvoices} disabled={!selectedInvoiceIds.length}>Delete Selected</Button>
+          </div>
+        </div>
+      )}
+
       <div className="bg-white rounded-xl border border-slate-100 shadow-sm overflow-x-auto">
-        <table className="w-full text-sm min-w-[800px]">
+        <table className="w-full text-sm min-w-[860px]">
           <thead className="bg-slate-50 text-slate-500 text-left">
             <tr>
+              {isSuperadmin && <th className="p-3 w-12" aria-label="Select invoices"></th>}
               <th className="p-3">Invoice#</th>
               <th className="p-3">Patient</th>
               <th className="p-3">Total</th>
@@ -131,12 +181,23 @@ export default function Invoices() {
           </thead>
           <tbody>
             {loading ? (
-              <TableLoadingRow colSpan={9} />
+              <TableLoadingRow colSpan={isSuperadmin ? 10 : 9} />
             ) : invoices.length === 0 ? (
-              <tr><td colSpan={9} className="p-6 text-center text-slate-400">No invoices yet.</td></tr>
+              <tr><td colSpan={isSuperadmin ? 10 : 9} className="p-6 text-center text-slate-400">No invoices yet.</td></tr>
             ) : (
               invoices.map((inv) => (
                 <tr key={inv.id} className="border-t border-slate-50 hover:bg-slate-50">
+                  {isSuperadmin && (
+                    <td className="p-3">
+                      <input
+                        type="checkbox"
+                        checked={selectedInvoiceIds.includes(String(inv.id))}
+                        onChange={() => toggleInvoiceSelection(inv.id)}
+                        aria-label={`Select invoice ${inv.invoiceNumber}`}
+                        className="h-4 w-4 rounded border-slate-300 text-brand-600 focus:ring-brand-500"
+                      />
+                    </td>
+                  )}
                   <td className="p-3 font-mono text-xs">{inv.invoiceNumber}</td>
                   <td className="p-3">{inv.patientSnapshot?.name}</td>
                   <td className="p-3">Rs. {inv.total.toLocaleString()}</td>

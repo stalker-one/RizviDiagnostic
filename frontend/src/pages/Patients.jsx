@@ -30,7 +30,7 @@ const NEW_REFERRAL_VALUE = '__new__';
 const NEW_DOCTOR_VALUE = '__new__';
 
 export default function Patients() {
-  const { isAdmin } = useAuth();
+  const { isAdmin, isSuperadmin } = useAuth();
   const confirm = useConfirm();
   const departments = useDepartments();
   const navigate = useNavigate();
@@ -48,6 +48,7 @@ export default function Patients() {
   const [editing, setEditing] = useState(null);
   const [form, setForm] = useState(emptyForm);
   const [error, setError] = useState('');
+  const [selectedPatientIds, setSelectedPatientIds] = useState([]);
 
   const load = (opts = {}) => {
     const query = opts.q ?? q;
@@ -71,6 +72,7 @@ export default function Patients() {
       })
       .then((res) => {
         setPatients(res.data.rows);
+        setSelectedPatientIds((current) => current.filter((id) => res.data.rows.some((patient) => String(patient.id) === String(id))));
         setPage(res.data.page);
         setPageInfo({ total: res.data.total, totalPages: res.data.totalPages });
       })
@@ -179,6 +181,34 @@ export default function Patients() {
     });
     if (!ok) return;
     await api.delete(`/patients/${p.id}`);
+    setSelectedPatientIds((current) => current.filter((id) => String(id) !== String(p.id)));
+    load();
+  };
+
+  const togglePatientSelection = (patientId) => {
+    const id = String(patientId);
+    setSelectedPatientIds((current) => current.includes(id) ? current.filter((selectedId) => selectedId !== id) : [...current, id]);
+  };
+
+  const toggleAllVisiblePatients = () => {
+    const visibleIds = patients.map((patient) => String(patient.id));
+    const allSelected = visibleIds.length > 0 && visibleIds.every((id) => selectedPatientIds.includes(id));
+    setSelectedPatientIds((current) => allSelected
+      ? current.filter((id) => !visibleIds.includes(id))
+      : [...new Set([...current, ...visibleIds])]);
+  };
+
+  const removeSelectedPatients = async () => {
+    if (!selectedPatientIds.length) return;
+    const ok = await confirm({
+      title: 'Delete selected patients',
+      message: `Delete ${selectedPatientIds.length} selected ${selectedPatientIds.length === 1 ? 'patient' : 'patients'}? This cannot be undone.`,
+      confirmText: 'Delete Selected',
+      danger: true,
+    });
+    if (!ok) return;
+    await api.post('/patients/bulk-delete', { ids: selectedPatientIds });
+    setSelectedPatientIds([]);
     load();
   };
 
@@ -255,10 +285,30 @@ export default function Patients() {
         </div>
       )}
 
+      {isSuperadmin && (
+        <div className="flex flex-wrap items-center justify-between gap-3 mb-4 bg-amber-50 border border-amber-100 rounded-xl px-4 py-3">
+          <label className="inline-flex items-center gap-2 text-sm font-medium text-slate-700">
+            <input
+              type="checkbox"
+              checked={patients.length > 0 && patients.every((patient) => selectedPatientIds.includes(String(patient.id)))}
+              onChange={toggleAllVisiblePatients}
+              aria-label="Select all visible patients"
+              className="h-4 w-4 rounded border-slate-300 text-brand-600 focus:ring-brand-500"
+            />
+            Select all visible patients
+          </label>
+          <div className="flex items-center gap-3">
+            <span className="text-sm text-slate-500">{selectedPatientIds.length} selected</span>
+            <Button variant="danger" size="sm" icon={Trash2} onClick={removeSelectedPatients} disabled={!selectedPatientIds.length}>Delete Selected</Button>
+          </div>
+        </div>
+      )}
+
       <div className="bg-white rounded-xl border border-slate-100 shadow-sm overflow-x-auto">
-        <table className="w-full text-sm min-w-[900px]">
+        <table className="w-full text-sm min-w-[960px]">
           <thead className="bg-slate-50 text-slate-500 text-left">
             <tr>
+              {isSuperadmin && <th className="p-3 w-12" aria-label="Select patients"></th>}
               <th className="p-3">MR#</th>
               <th className="p-3">Name</th>
               <th className="p-3">Gender / Age</th>
@@ -272,12 +322,23 @@ export default function Patients() {
           </thead>
           <tbody>
             {loading ? (
-              <TableLoadingRow colSpan={9} />
+              <TableLoadingRow colSpan={isSuperadmin ? 10 : 9} />
             ) : patients.length === 0 ? (
-              <tr><td colSpan={9} className="p-6 text-center text-slate-400">No patients found.</td></tr>
+              <tr><td colSpan={isSuperadmin ? 10 : 9} className="p-6 text-center text-slate-400">No patients found.</td></tr>
             ) : (
               patients.map((p) => (
                 <tr key={p.id} className="border-t border-slate-50 hover:bg-slate-50">
+                  {isSuperadmin && (
+                    <td className="p-3">
+                      <input
+                        type="checkbox"
+                        checked={selectedPatientIds.includes(String(p.id))}
+                        onChange={() => togglePatientSelection(p.id)}
+                        aria-label={`Select patient ${p.name}`}
+                        className="h-4 w-4 rounded border-slate-300 text-brand-600 focus:ring-brand-500"
+                      />
+                    </td>
+                  )}
                   <td className="p-3 font-mono text-xs">{p.mrNumber}</td>
                   <td className="p-3">
                     <Link to={`/patients/${p.id}`} className="text-brand-700 font-medium hover:underline">{p.name}</Link>

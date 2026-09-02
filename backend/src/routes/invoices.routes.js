@@ -93,6 +93,17 @@ router.put('/:id', (req, res) => {
   res.json(invoice);
 });
 
+router.post('/bulk-delete', requireRole('superadmin'), async (req, res) => {
+  const ids = [...new Set(Array.isArray(req.body?.ids) ? req.body.ids.map((id) => String(id)).filter(Boolean) : [])];
+  if (!ids.length) return res.status(400).json({ message: 'At least one invoice must be selected.' });
+  const invoices = await getFreshTable('invoices', readTable('invoices'));
+  const selected = new Set(ids);
+  const deletedCount = invoices.filter((invoice) => selected.has(String(invoice.id))).length;
+  if (!deletedCount) return res.status(404).json({ message: 'No selected invoices were found.' });
+  writeTable('invoices', invoices.filter((invoice) => !selected.has(String(invoice.id))));
+  res.json({ message: `${deletedCount} invoice${deletedCount === 1 ? '' : 's'} deleted.`, deletedCount });
+});
+
 router.delete('/:id', requireRole('admin', 'superadmin'), async (req, res) => {
   const invoices = await getFreshTable('invoices', readTable('invoices'));
   const idx = invoices.findIndex((i) => i.id === req.params.id);

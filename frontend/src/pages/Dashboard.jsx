@@ -9,8 +9,8 @@ import api from '../api/axios';
 import { useAuth } from '../context/AuthContext.jsx';
 
 let dashboardCache = null;
-const RANGE_OPTIONS=[{key:'today',label:'Today'},{key:'yesterday',label:'Yesterday'},{key:'last3',label:'Last 3 Days'},{key:'all',label:'All'}];
-const RANGE_LABELS={today:"Today's",yesterday:"Yesterday's",last3:'Last 3 Days',all:'All-Time'};
+const RANGE_OPTIONS=[{key:'today',label:'Today'},{key:'tomorrow',label:'Tomorrow'},{key:'last3',label:'Last 3 Days'},{key:'last7',label:'Last 7 Days'},{key:'last14',label:'Last 2 Weeks'},{key:'month',label:'This Month'}];
+const RANGE_LABELS={today:"Today's",tomorrow:"Tomorrow's",last3:'Last 3 Days',last7:'Last 7 Days',last14:'Last 2 Weeks',month:'This Month'};
 const COLORS=['#0f6fde','#10b981','#f59e0b','#ef4444','#8b5cf6','#ec4899','#14b8a6','#f97316'];
 
 export default function Dashboard(){
