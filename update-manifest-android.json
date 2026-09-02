@@ -10,12 +10,12 @@
   },
   "superadmin": {
     "tag": "android-superadmin-latest",
-    "versionCode": 200,
-    "versionName": "1.0.200",
+    "versionCode": 201,
+    "versionName": "1.0.201",
     "apkUrl": "https://github.com/stalker-one/RizviDiagnostic/releases/download/android-superadmin-latest/RizviDiagnosticSuperadmin-latest.apk",
-    "sha256": "fad62b8cb34f8cdbf2970e0c903d5572ea69aa6ff79ffd9598cba0d489742aa6",
-    "sizeBytes": 6952757,
-    "releaseNotes": "- Use authenticated user role for Staff and Superadmin biometric enrollment\n- Route biometric enrollment and login through the correct Staff or Superadmin portal\n- Implement AndroidKeyStore EC signing for biometric challenges\n- Use AndroidKeyStore challenge signatures instead of JWT biometric storage\n- Replace expiring JWT biometric storage with persistent credential ID\n- Show biometric login on Android superadmin login page\n- Preserve full staff login UI and add fingerprint login\n- Show biometric login on Android staff login page\n- Fix persistent biometric login UI and fallback behavior\n- Return stable Android device ID for biometric sessions\n- Use persistent server biometric credentials instead of expiring JWTs\n- Optimize Vite production output"
+    "sha256": "a5aebd97cf67c9b785dd202217ed3d5057594e712f47b15ce962506c81ebb7f8",
+    "sizeBytes": 6954393,
+    "releaseNotes": "- Remove unused icon import from patient modal\n- Add Create Patient button and modal to Create Invoice\n- Add reusable create patient modal for invoice page\n- Use authenticated user role for Staff and Superadmin biometric enrollment\n- Route biometric enrollment and login through the correct Staff or Superadmin portal\n- Implement AndroidKeyStore EC signing for biometric challenges\n- Use AndroidKeyStore challenge signatures instead of JWT biometric storage\n- Replace expiring JWT biometric storage with persistent credential ID\n- Show biometric login on Android superadmin login page\n- Preserve full staff login UI and add fingerprint login\n- Show biometric login on Android staff login page\n- Fix persistent biometric login UI and fallback behavior"
   },
-  "updatedAt": "c8334591f6f3eebe5242f9b44e10f126e4ce26b5"
+  "updatedAt": "35ac52566fdac1690b988edb59425ade86d7471b"
 }
