@@ -15,12 +15,13 @@ export default function CreateInvoice() {
   const [referrals, setReferrals] = useState([]);
 
   const [patientQuery, setPatientQuery] = useState('');
-  const [selectedPatientId, setSelectedPatientId] = useState(searchParams.get('patientId') || '');
+  const [selectedPatient, setSelectedPatient] = useState(null);
   const [showCreatePatient, setShowCreatePatient] = useState(false);
 
-  const syncPatientSelection = (patientId) => {
-    const normalizedId = patientId ? String(patientId) : '';
-    setSelectedPatientId(normalizedId);
+  const commitPatientSelection = (patient) => {
+    const normalizedPatient = patient ? { ...patient, id: String(patient.id) } : null;
+    const normalizedId = normalizedPatient?.id || '';
+    setSelectedPatient(normalizedPatient);
 
     const nextParams = new URLSearchParams(searchParams);
     if (normalizedId) nextParams.set('patientId', normalizedId);
@@ -57,8 +58,14 @@ export default function CreateInvoice() {
 
   useEffect(() => {
     const queryPatientId = searchParams.get('patientId') || '';
-    setSelectedPatientId((current) => current === queryPatientId ? current : queryPatientId);
-  }, [searchParams]);
+    setSelectedPatient((current) => {
+      if (!queryPatientId) return null;
+      if (current && String(current.id) === queryPatientId) return current;
+      return patients.find((patient) => String(patient.id) === queryPatientId) || null;
+    });
+  }, [searchParams, patients]);
+
+  const selectedPatientId = selectedPatient?.id || '';
 
   const filteredPatients = useMemo(() => {
     if (!patientQuery) return patients.slice(0, 5);
@@ -71,8 +78,6 @@ export default function CreateInvoice() {
     const t = procedureQuery.toLowerCase();
     return procedures.filter((p) => p.name.toLowerCase().includes(t));
   }, [procedureQuery, procedures]);
-
-  const selectedPatient = patients.find((p) => String(p.id) === String(selectedPatientId));
 
   useEffect(() => {
     if (selectedPatient?.referredBy && !referralId) {
@@ -93,11 +98,12 @@ export default function CreateInvoice() {
 
     // Put the newly created patient into the picker immediately and select it.
     // This prevents the async patient-list refresh from clearing the selection.
+    const normalizedPatient = { ...patient, id: createdId };
     setPatients((current) => [
-      patient,
+      normalizedPatient,
       ...current.filter((p) => String(p.id) !== createdId),
     ]);
-    syncPatientSelection(createdId);
+    commitPatientSelection(normalizedPatient);
     setReferralId(patient.referredBy || '');
     setReferralAutoFilled(Boolean(patient.referredBy));
     setShowCreatePatient(false);
@@ -107,11 +113,18 @@ export default function CreateInvoice() {
     api.get('/patients', { params: { range: 'all', pageSize: 1000 } })
       .then((res) => {
         const rows = res.data.rows || [];
+        const refreshed = rows.find((p) => String(p.id) === createdId);
         setPatients((current) => {
-          const refreshed = rows.find((p) => String(p.id) === createdId);
           if (refreshed) return rows;
-          return [patient, ...rows.filter((p) => String(p.id) !== createdId)];
+          return [normalizedPatient, ...rows.filter((p) => String(p.id) !== createdId)];
         });
+        if (refreshed) {
+          setSelectedPatient((current) => (
+            current && String(current.id) === createdId
+              ? { ...current, ...refreshed, id: createdId }
+              : current
+          ));
+        }
       })
       .catch(() => {
         // The created patient is already selected locally, so keep using it if
@@ -191,7 +204,7 @@ export default function CreateInvoice() {
                   <div className="font-medium text-slate-800">{selectedPatient.name}</div>
                   <div className="text-xs text-slate-500">MR#: {selectedPatient.mrNumber} · {selectedPatient.gender}, {selectedPatient.age}y · {selectedPatient.phone}</div>
                 </div>
-                <button onClick={() => syncPatientSelection('')} className="text-sm text-brand-600 hover:underline">Change</button>
+                <button onClick={() => commitPatientSelection(null)} className="text-sm text-brand-600 hover:underline">Change</button>
               </div>
             ) : (
               <div>
@@ -208,7 +221,7 @@ export default function CreateInvoice() {
                     filteredPatients.map((p) => (
                       <button
                         key={p.id}
-                        onClick={() => syncPatientSelection(p.id)}
+                        onClick={() => commitPatientSelection(p)}
                         className="w-full text-left px-3 py-2 text-sm hover:bg-slate-50 flex justify-between"
                       >
                         <span>{p.name}</span>
