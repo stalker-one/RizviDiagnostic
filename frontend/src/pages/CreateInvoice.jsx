@@ -64,10 +64,13 @@ export default function CreateInvoice() {
   useEffect(() => {
     const queryPatientId = searchParams.get('patientId') || '';
     setSelectedPatient((current) => {
-      if (!queryPatientId) return null;
+      // Never clear a visible selection while the patient list is loading or
+      // being reconciled. The originating create/select action owns clearing
+      // the selection through commitPatientSelection(null).
+      if (!queryPatientId) return current;
       if (handedOffPatient && String(handedOffPatient.id) === queryPatientId) return handedOffPatient;
       if (current && String(current.id) === queryPatientId) return current;
-      return patients.find((patient) => String(patient.id) === queryPatientId) || null;
+      return patients.find((patient) => String(patient.id) === queryPatientId) || current;
     });
   }, [searchParams, patients, handedOffPatient]);
 
@@ -114,28 +117,6 @@ export default function CreateInvoice() {
     setReferralAutoFilled(Boolean(patient.referredBy));
     setShowCreatePatient(false);
 
-    // Refresh in the background so the invoice has the server's complete
-    // patient record, but preserve the selected newly-created patient.
-    api.get('/patients', { params: { range: 'all', pageSize: 1000 } })
-      .then((res) => {
-        const rows = res.data.rows || [];
-        const refreshed = rows.find((p) => String(p.id) === createdId);
-        setPatients((current) => {
-          if (refreshed) return rows;
-          return [normalizedPatient, ...rows.filter((p) => String(p.id) !== createdId)];
-        });
-        if (refreshed) {
-          setSelectedPatient((current) => (
-            current && String(current.id) === createdId
-              ? { ...current, ...refreshed, id: createdId }
-              : current
-          ));
-        }
-      })
-      .catch(() => {
-        // The created patient is already selected locally, so keep using it if
-        // the background refresh fails.
-      });
   };
 
   const addItem = () => {
