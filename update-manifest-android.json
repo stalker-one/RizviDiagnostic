@@ -10,12 +10,12 @@
   },
   "superadmin": {
     "tag": "android-superadmin-latest",
-    "versionCode": 211,
-    "versionName": "1.0.211",
+    "versionCode": 212,
+    "versionName": "1.0.212",
     "apkUrl": "https://github.com/stalker-one/RizviDiagnostic/releases/download/android-superadmin-latest/RizviDiagnosticSuperadmin-latest.apk",
-    "sha256": "a14cfdfe9a35886b967b0656237347d03ecb47471beb4efd297803fd86aece09",
-    "sizeBytes": 6954561,
-    "releaseNotes": "- Return new patient directly to invoice creation\n- Fix new patient auto-selection in invoice form\n- Fix created patient ID normalization for invoice selection\n- Remove temporary marker\n- temp\n- Temporary marker\n- Remove temporary patient selection marker\n- Temporary marker for patient selection fix\n- Remove unused icon import from patient modal\n- Add Create Patient button and modal to Create Invoice\n- Add reusable create patient modal for invoice page\n- Use authenticated user role for Staff and Superadmin biometric enrollment"
+    "sha256": "09eaa0d502f5c1d6db814a04ee0211c70b41d0015f986710813d62b5ac8f4579",
+    "sizeBytes": 6954629,
+    "releaseNotes": "- Fix invoice selection after creating patient\n- Return new patient directly to invoice creation\n- Fix new patient auto-selection in invoice form\n- Fix created patient ID normalization for invoice selection\n- Remove temporary marker\n- temp\n- Temporary marker\n- Remove temporary patient selection marker\n- Temporary marker for patient selection fix\n- Remove unused icon import from patient modal\n- Add Create Patient button and modal to Create Invoice\n- Add reusable create patient modal for invoice page"
   },
   "updatedAt": "0e13c7a2dff6641f88f3940f68a5237cd963ab6c"
 }
