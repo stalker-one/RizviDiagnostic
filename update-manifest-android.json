@@ -10,12 +10,12 @@
   },
   "superadmin": {
     "tag": "android-superadmin-latest",
-    "versionCode": 202,
-    "versionName": "1.0.202",
+    "versionCode": 209,
+    "versionName": "1.0.209",
     "apkUrl": "https://github.com/stalker-one/RizviDiagnostic/releases/download/android-superadmin-latest/RizviDiagnosticSuperadmin-latest.apk",
-    "sha256": "75200d86d35c778cc6c9da8df1163cddcd2f06818be9c2a538cda1a9134beadf",
+    "sha256": "f358554684f74ca71354035ee2762d5092403d5ed52edae8fa4ca7404534bf75",
     "sizeBytes": 6954393,
-    "releaseNotes": "- Temporary marker for patient selection fix\n- Remove unused icon import from patient modal\n- Add Create Patient button and modal to Create Invoice\n- Add reusable create patient modal for invoice page\n- Use authenticated user role for Staff and Superadmin biometric enrollment\n- Route biometric enrollment and login through the correct Staff or Superadmin portal\n- Implement AndroidKeyStore EC signing for biometric challenges\n- Use AndroidKeyStore challenge signatures instead of JWT biometric storage\n- Replace expiring JWT biometric storage with persistent credential ID\n- Show biometric login on Android superadmin login page\n- Preserve full staff login UI and add fingerprint login\n- Show biometric login on Android staff login page"
+    "releaseNotes": "- Remove temporary marker\n- temp\n- Temporary marker\n- Remove temporary patient selection marker\n- Temporary marker for patient selection fix\n- Remove unused icon import from patient modal\n- Add Create Patient button and modal to Create Invoice\n- Add reusable create patient modal for invoice page\n- Use authenticated user role for Staff and Superadmin biometric enrollment\n- Route biometric enrollment and login through the correct Staff or Superadmin portal\n- Implement AndroidKeyStore EC signing for biometric challenges\n- Use AndroidKeyStore challenge signatures instead of JWT biometric storage"
   },
-  "updatedAt": "80ce6d4d9c6046f04003aa0475dfa8802077c5b0"
+  "updatedAt": "888f3abfe354493a60fbcb12d15621cfae58ef54"
 }
