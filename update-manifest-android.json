@@ -1,12 +1,12 @@
 {
   "staff": {
     "tag": "android-latest",
-    "versionCode": 283,
-    "versionName": "1.0.283",
+    "versionCode": 284,
+    "versionName": "1.0.284",
     "apkUrl": "https://github.com/stalker-one/RizviDiagnostic/releases/download/android-latest/RizviDiagnosticCenter-latest.apk",
-    "sha256": "6f12636292868dfaf22eb93c414f0254278f015615c4e58469961f5c4735d370",
-    "sizeBytes": 6955465,
-    "releaseNotes": "- Add superadmin bulk selection and date filters\n- Fix invoice selection after creating patient\n- Return new patient directly to invoice creation\n- Fix new patient auto-selection in invoice form\n- Fix created patient ID normalization for invoice selection\n- Remove temporary marker\n- temp\n- Temporary marker\n- Remove temporary patient selection marker\n- Temporary marker for patient selection fix\n- Remove unused icon import from patient modal\n- Add Create Patient button and modal to Create Invoice"
+    "sha256": "7deda18958601891857446b3db5de6c065fca01b1a5d5ce98558eac9288b7081",
+    "sizeBytes": 6955609,
+    "releaseNotes": "- Fix realtime patient selection on invoice creation\n- Add superadmin bulk selection and date filters\n- Fix invoice selection after creating patient\n- Return new patient directly to invoice creation\n- Fix new patient auto-selection in invoice form\n- Fix created patient ID normalization for invoice selection\n- Remove temporary marker\n- temp\n- Temporary marker\n- Remove temporary patient selection marker\n- Temporary marker for patient selection fix\n- Remove unused icon import from patient modal"
   },
   "superadmin": {
     "tag": "android-superadmin-latest",
