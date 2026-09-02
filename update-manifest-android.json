@@ -10,12 +10,12 @@
   },
   "superadmin": {
     "tag": "android-superadmin-latest",
-    "versionCode": 216,
-    "versionName": "1.0.216",
+    "versionCode": 217,
+    "versionName": "1.0.217",
     "apkUrl": "https://github.com/stalker-one/RizviDiagnostic/releases/download/android-superadmin-latest/RizviDiagnosticSuperadmin-latest.apk",
-    "sha256": "e1f53368e57d6b5f5a2a24452d53e0db0b50a77896d8485c153f464d845183ca",
-    "sizeBytes": 6955781,
-    "releaseNotes": "- Fix immediate patient handoff to invoice\n- Use explicit state for realtime invoice patient selection\n- Fix realtime patient selection on invoice creation\n- Add superadmin bulk selection and date filters\n- Fix invoice selection after creating patient\n- Return new patient directly to invoice creation\n- Fix new patient auto-selection in invoice form\n- Fix created patient ID normalization for invoice selection\n- Remove temporary marker\n- temp\n- Temporary marker\n- Remove temporary patient selection marker"
+    "sha256": "aecdae0f85d34570c7ad0d3d73d641b870bb2ace4b412b61b812dfe6acbbe6a3",
+    "sizeBytes": 6955705,
+    "releaseNotes": "- Prevent selected patient card from blinking\n- Fix immediate patient handoff to invoice\n- Use explicit state for realtime invoice patient selection\n- Fix realtime patient selection on invoice creation\n- Add superadmin bulk selection and date filters\n- Fix invoice selection after creating patient\n- Return new patient directly to invoice creation\n- Fix new patient auto-selection in invoice form\n- Fix created patient ID normalization for invoice selection\n- Remove temporary marker\n- temp\n- Temporary marker"
   },
   "updatedAt": "1f9014bb31f88551345f71b90504f725371b9e02"
 }
