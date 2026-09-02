@@ -110,9 +110,6 @@ export default function Patients() {
   const submit = async (e) => {
     e.preventDefault();
     setError('');
-    // If "+ Add new referral" was picked, send the typed name as
-    // newReferralName instead of a referral id — the backend creates it and
-    // links it, and it also then appears under the Referrals tab.
     const payload = { ...form };
     const isNewReferral = form.referredBy === NEW_REFERRAL_VALUE;
     if (isNewReferral) {
@@ -135,10 +132,17 @@ export default function Patients() {
       payload.newDoctorName = '';
     }
     try {
+      let createdPatient = null;
       if (editing) {
         await api.put(`/patients/${editing.id}`, payload);
       } else {
-        await api.post('/patients', payload);
+        const res = await api.post('/patients', payload);
+        const rawPatient = res.data?.patient || res.data?.data || res.data;
+        const patientId = rawPatient?.id || rawPatient?._id || res.data?.patientId || res.data?.id;
+        if (!patientId) {
+          throw new Error('Patient was created but the server did not return the patient ID.');
+        }
+        createdPatient = { ...rawPatient, id: patientId };
       }
       if (isNewReferral) {
         // Refresh so the newly auto-created referral is selectable right away.
@@ -150,11 +154,19 @@ export default function Patients() {
       }
       setQ('');
       setModalOpen(false);
-      // Reload from the server (rather than splicing local state) so the
-      // list, its date filter, and its pagination totals all stay correct.
+
+      // A patient created from the Patients page should continue directly into
+      // invoice creation, with that exact patient already selected. This is
+      // the same workflow as creating a patient from the Create Invoice modal.
+      if (createdPatient?.id) {
+        navigate(`/invoices/create?patientId=${encodeURIComponent(String(createdPatient.id))}`);
+        return;
+      }
+
+      // Editing a patient keeps the existing Patients-page behavior.
       load({ q: '' });
     } catch (err) {
-      setError(err.response?.data?.message || 'Something went wrong.');
+      setError(err.response?.data?.message || err.message || 'Something went wrong.');
     }
   };
 
@@ -188,12 +200,6 @@ export default function Patients() {
     load({ page: p });
   };
 
-  // Only show doctors belonging to the selected department, so front desk
-  // can't accidentally pick e.g. an Ultrasound doctor for an X-Ray visit.
-  // Deactivated doctors are hidden from this "book a patient" dropdown so a
-  // doctor the admin turned off can't keep being assigned to new patients —
-  // except the doctor already assigned to the patient being edited, so an
-  // existing (now-inactive) assignment doesn't silently disappear on edit.
   const activeDoctors = doctors.filter((d) => d.active !== false || d.id === form.doctorId);
   const doctorsForDepartment = form.department
     ? activeDoctors.filter((d) => d.department === form.department)
