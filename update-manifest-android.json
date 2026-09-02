@@ -1,12 +1,12 @@
 {
   "staff": {
     "tag": "android-latest",
-    "versionCode": 285,
-    "versionName": "1.0.285",
+    "versionCode": 286,
+    "versionName": "1.0.286",
     "apkUrl": "https://github.com/stalker-one/RizviDiagnostic/releases/download/android-latest/RizviDiagnosticCenter-latest.apk",
-    "sha256": "9e5231354b7f935da4a32c3b0edbe33845416437f4d7490e92125b2115d0dfa5",
-    "sizeBytes": 6955709,
-    "releaseNotes": "- Use explicit state for realtime invoice patient selection\n- Fix realtime patient selection on invoice creation\n- Add superadmin bulk selection and date filters\n- Fix invoice selection after creating patient\n- Return new patient directly to invoice creation\n- Fix new patient auto-selection in invoice form\n- Fix created patient ID normalization for invoice selection\n- Remove temporary marker\n- temp\n- Temporary marker\n- Remove temporary patient selection marker\n- Temporary marker for patient selection fix"
+    "sha256": "976e8ed0ba907223f22712476e59f48d62db729dcbb8a2135c50830eac771b12",
+    "sizeBytes": 6955649,
+    "releaseNotes": "- Fix immediate patient handoff to invoice\n- Use explicit state for realtime invoice patient selection\n- Fix realtime patient selection on invoice creation\n- Add superadmin bulk selection and date filters\n- Fix invoice selection after creating patient\n- Return new patient directly to invoice creation\n- Fix new patient auto-selection in invoice form\n- Fix created patient ID normalization for invoice selection\n- Remove temporary marker\n- temp\n- Temporary marker\n- Remove temporary patient selection marker"
   },
   "superadmin": {
     "tag": "android-superadmin-latest",
@@ -17,5 +17,5 @@
     "sizeBytes": 6955781,
     "releaseNotes": "- Use explicit state for realtime invoice patient selection\n- Fix realtime patient selection on invoice creation\n- Add superadmin bulk selection and date filters\n- Fix invoice selection after creating patient\n- Return new patient directly to invoice creation\n- Fix new patient auto-selection in invoice form\n- Fix created patient ID normalization for invoice selection\n- Remove temporary marker\n- temp\n- Temporary marker\n- Remove temporary patient selection marker\n- Temporary marker for patient selection fix"
   },
-  "updatedAt": "2697aa288b893d017893abeb4f10262b837ea24d"
+  "updatedAt": "f65f83c5518fc5e45645ef7d7e8e4be5172554b6"
 }
