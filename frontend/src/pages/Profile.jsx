@@ -4,6 +4,7 @@ import Button from '../components/Button.jsx';
 import { Save, KeyRound, ReceiptText, Printer, RefreshCw } from 'lucide-react';
 import { useAuth } from '../context/AuthContext.jsx';
 import api from '../api/axios';
+import useRealtimeRefresh from '../hooks/useRealtimeRefresh.js';
 
 const money = (value) => `Rs. ${Number(value || 0).toLocaleString()}`;
 
@@ -27,8 +28,8 @@ export default function Profile() {
   const [closingLoading, setClosingLoading] = useState(true);
   const [closingError, setClosingError] = useState('');
 
-  const loadClosing = async () => {
-    setClosingLoading(true);
+  const loadClosing = async (opts = {}) => {
+    if (!opts.realtime) setClosingLoading(true);
     setClosingError('');
     try {
       const { data } = await api.get('/closing/today');
@@ -41,6 +42,7 @@ export default function Profile() {
   };
 
   useEffect(() => { loadClosing(); }, []);
+  useRealtimeRefresh(loadClosing, ['invoices', 'patients']);
 
   const submitProfile = async (e) => {
     e.preventDefault();

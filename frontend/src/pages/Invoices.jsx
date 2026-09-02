@@ -7,6 +7,7 @@ import { Eye, Trash2, Filter, ChevronLeft, ChevronRight } from 'lucide-react';
 import api from '../api/axios';
 import { useAuth } from '../context/AuthContext.jsx';
 import { useConfirm } from '../context/ConfirmContext.jsx';
+import useRealtimeRefresh from '../hooks/useRealtimeRefresh.js';
 
 const RANGE_OPTIONS = [
   { key: 'today', label: 'Today' },
@@ -32,7 +33,7 @@ export default function Invoices() {
     const f = opts.from ?? from;
     const t = opts.to ?? to;
     const p = opts.page ?? page;
-    setLoading(true);
+    if (!opts.realtime) setLoading(true);
     api
       .get('/invoices', {
         params: {
@@ -53,6 +54,7 @@ export default function Invoices() {
   };
 
   useEffect(() => { load(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  useRealtimeRefresh(load, ['invoices']);
 
   const selectRange = (key) => {
     setRange(key);

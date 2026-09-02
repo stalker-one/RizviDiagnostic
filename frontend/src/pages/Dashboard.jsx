@@ -7,6 +7,7 @@ import PageLoader from '../components/PageLoader.jsx';
 import { Filter } from 'lucide-react';
 import api from '../api/axios';
 import { useAuth } from '../context/AuthContext.jsx';
+import useRealtimeRefresh from '../hooks/useRealtimeRefresh.js';
 
 let dashboardCache = null;
 const RANGE_OPTIONS=[{key:'today',label:'Today'},{key:'tomorrow',label:'Tomorrow'},{key:'last3',label:'Last 3 Days'},{key:'last7',label:'Last 7 Days'},{key:'last14',label:'Last 2 Weeks'},{key:'month',label:'This Month'}];
@@ -17,8 +18,9 @@ export default function Dashboard(){
  const {isAdmin}=useAuth();
  const [summary,setSummary]=useState(dashboardCache?.summary??null),[trend,setTrend]=useState(dashboardCache?.trend??[]),[testDistribution,setTestDistribution]=useState(dashboardCache?.testDistribution??[]),[dailyRevenue,setDailyRevenue]=useState(dashboardCache?.dailyRevenue??[]);
  const [range,setRange]=useState(dashboardCache?.range??'today'),[from,setFrom]=useState(''),[to,setTo]=useState(''),[loading,setLoading]=useState(!dashboardCache);
- const load=(opts={})=>{const r=opts.range??range,f=opts.from??from,t=opts.to??to;if(!summary)setLoading(true);const params={range:f||t?undefined:r,from:f||undefined,to:t||undefined};Promise.all([api.get('/reports/summary',{params}),api.get('/reports/revenue-trend',{params:{...params,days:14}}),api.get('/reports/test-distribution',{params}),api.get('/reports/daily-revenue',{params})]).then(([s,t2,td,dr])=>{setSummary(s.data);setTrend(t2.data||[]);setTestDistribution(td.data||[]);setDailyRevenue(dr.data||[]);if(s.data.range)setRange(s.data.range);if(!f&&!t)dashboardCache={summary:s.data,trend:t2.data||[],testDistribution:td.data||[],dailyRevenue:dr.data||[],range:s.data.range||r};}).catch(e=>console.error('Error loading dashboard data:',e)).finally(()=>setLoading(false));};
+ const load=(opts={})=>{const r=opts.range??range,f=opts.from??from,t=opts.to??to;if(!summary&&!opts.realtime)setLoading(true);const params={range:f||t?undefined:r,from:f||undefined,to:t||undefined};Promise.all([api.get('/reports/summary',{params}),api.get('/reports/revenue-trend',{params:{...params,days:14}}),api.get('/reports/test-distribution',{params}),api.get('/reports/daily-revenue',{params})]).then(([s,t2,td,dr])=>{setSummary(s.data);setTrend(t2.data||[]);setTestDistribution(td.data||[]);setDailyRevenue(dr.data||[]);if(s.data.range)setRange(s.data.range);if(!f&&!t)dashboardCache={summary:s.data,trend:t2.data||[],testDistribution:td.data||[],dailyRevenue:dr.data||[],range:s.data.range||r};}).catch(e=>console.error('Error loading dashboard data:',e)).finally(()=>setLoading(false));};
  useEffect(()=>{load();},[]);
+ useRealtimeRefresh(load,['invoices']);
  const selectRange=key=>{setRange(key);setFrom('');setTo('');load({range:key,from:'',to:''});};
  const applyDateFilter=()=>load({});
  const rangeLabel=from||to?'Selected Range':(RANGE_LABELS[range]||"Today's");

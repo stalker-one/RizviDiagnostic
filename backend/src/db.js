@@ -1,6 +1,7 @@
 const fs = require('fs');
 const path = require('path');
 const { MongoClient } = require('mongodb');
+const { INSTANCE_ID, publishDataChange } = require('./realtime');
 
 const DATA_DIR = process.env.RIZVI_DATA_DIR ? path.resolve(process.env.RIZVI_DATA_DIR) : path.join(__dirname, 'data');
 if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
@@ -16,7 +17,7 @@ TABLES.forEach(ensureTable);
 const memory={};
 TABLES.forEach((table)=>{try{const raw=fs.readFileSync(filePath(table),'utf-8');memory[table]=JSON.parse(raw||(table==='settings'?'{}':'[]'));}catch(_){memory[table]=table==='settings'?{}:[];}});
 function readTable(table){if(memory[table]===undefined){ensureTable(table);memory[table]=table==='settings'?{}:[];}return memory[table];}
-function writeTable(table,data){memory[table]=data;fs.writeFileSync(filePath(table),JSON.stringify(data,null,2));queueMongoSync(table,data);return data;}
+function writeTable(table,data){memory[table]=data;fs.writeFileSync(filePath(table),JSON.stringify(data,null,2));queueMongoSync(table,data);publishDataChange(table,{sourceInstanceId:INSTANCE_ID});return data;}
 function getDepartments(){const s=readTable('settings');return Array.isArray(s.departments)&&s.departments.length?s.departments:DEPARTMENTS;}
 function morningStartHour(){const h=Number(readTable('settings').morningStartHour);return Number.isFinite(h)&&h>=0&&h<=23?h:DEFAULT_MORNING_START_HOUR;}
 function eveningStartHour(){const s=readTable('settings'),legacy=Number(s.shiftSplitHour),h=Number(s.eveningStartHour??(Number.isFinite(legacy)?legacy:undefined));return Number.isFinite(h)&&h>=0&&h<=23?h:DEFAULT_EVENING_START_HOUR;}
@@ -51,7 +52,7 @@ function resolveMongoUri(){for(const raw of[process.env.MONGODB_URI,process.env.
 const MONGODB_URI=resolveMongoUri();const MONGODB_DB_NAME=process.env.MONGODB_DB_NAME||'rizvi_diagnostic_center';let mongoClient=null,mongoDb=null,mongoConnectPromise=null;
 function getMongoDb(){if(!MONGODB_URI)return Promise.resolve(null);if(mongoDb)return Promise.resolve(mongoDb);if(!mongoConnectPromise){mongoClient=new MongoClient(MONGODB_URI,{serverSelectionTimeoutMS:8000,connectTimeoutMS:10000,socketTimeoutMS:30000,maxPoolSize:10,retryWrites:true});mongoConnectPromise=mongoClient.connect().then(()=>{mongoDb=mongoClient.db(MONGODB_DB_NAME);console.log(`[mongo] Connected to Atlas database "${MONGODB_DB_NAME}" — live sync enabled.`);return mongoDb;}).catch(err=>{console.warn('[mongo] Could not connect to Atlas — continuing on local files only:',err.message);mongoConnectPromise=null;return null;});}return mongoConnectPromise;}
 let mongoQueue=Promise.resolve();
-function queueMongoSync(table,data){if(!MONGODB_URI)return;mongoQueue=mongoQueue.then(async()=>{try{const db=await getMongoDb();if(!db)return;await db.collection('tables').updateOne({_id:table},{$set:{data,updatedAt:new Date()}},{upsert:true});}catch(err){console.warn(`[mongo] Sync failed for "${table}" (kept locally, will retry on next write):`,err.message);}});return mongoQueue;}
+function queueMongoSync(table,data){if(!MONGODB_URI)return;mongoQueue=mongoQueue.then(async()=>{try{const db=await getMongoDb();if(!db)return;await db.collection('tables').updateOne({_id:table},{$set:{data,updatedAt:new Date(),sourceInstanceId:INSTANCE_ID}},{upsert:true});}catch(err){console.warn(`[mongo] Sync failed for "${table}" (kept locally, will retry on next write):`,err.message);}});return mongoQueue;}
 function flushMongoSync(){return mongoQueue;}
 async function initDb(){if(!MONGODB_URI){console.warn('[mongo] MONGODB_URI is not configured — desktop is using persistent local data only.');return;}const db=await getMongoDb();if(!db)return;for(const table of TABLES){try{const doc=await db.collection('tables').findOne({_id:table});const localHasData=Array.isArray(memory[table])?memory[table].length>0:Object.keys(memory[table]||{}).length>0;if(doc&&doc.data!==undefined){memory[table]=doc.data;fs.writeFileSync(filePath(table),JSON.stringify(doc.data,null,2));}else if(localHasData)await db.collection('tables').updateOne({_id:table},{$set:{data:memory[table],updatedAt:new Date()}},{upsert:true});}catch(err){console.warn(`[mongo] Could not sync table "${table}" at boot:`,err.message);}}}
 let queue=Promise.resolve();function transaction(table,updater){queue=queue.then(()=>{const data=readTable(table),result=updater(data);writeTable(table,data);return result;});return queue;}

@@ -9,6 +9,7 @@ import api from '../api/axios';
 import { useAuth } from '../context/AuthContext.jsx';
 import { useConfirm } from '../context/ConfirmContext.jsx';
 import useDepartments from '../hooks/useDepartments.js';
+import useRealtimeRefresh from '../hooks/useRealtimeRefresh.js';
 
 const emptyForm = {
   name: '', gender: 'male', age: '', phone: '', address: '', guardianName: '',
@@ -56,7 +57,7 @@ export default function Patients() {
     const f = opts.from ?? from;
     const t = opts.to ?? to;
     const p = opts.page ?? page;
-    setLoading(true);
+    if (!opts.realtime) setLoading(true);
     api
       .get('/patients', {
         params: {
@@ -84,6 +85,7 @@ export default function Patients() {
     api.get('/referrals').then((res) => setReferrals(res.data));
     api.get('/doctors').then((res) => setDoctors(res.data));
   }, []);
+  useRealtimeRefresh(load, ['patients']);
 
   const handleSearch = (e) => {
     e.preventDefault();

@@ -3,12 +3,15 @@ const { MongoClient } = require('mongodb');
 let client = null;
 let db = null;
 let connectPromise = null;
+let changeStream = null;
+let changeStreamRetryTimer = null;
+const changeListeners = new Set();
 
 function resolveMongoUri() {
   const candidates = [process.env.MONGODB_URI, process.env.MONGODB_URI_2, process.env.MONGODB_URI_3];
   for (const raw of candidates) {
     if (!raw) continue;
-    const uri = String(raw).trim().replace(/^["']|["']$/g, '');
+    const uri = String(raw).trim().replace(/^['"]|['"]$/g, '');
     if (uri.startsWith('mongodb://') || uri.startsWith('mongodb+srv://')) return uri;
   }
   return '';
@@ -46,4 +49,72 @@ async function getFreshTable(table, fallback) {
   return fallback;
 }
 
-module.exports = { getDb, getFreshTable, getLatestVersion };
+function scheduleChangeStreamRetry() {
+  if (changeStreamRetryTimer || changeListeners.size === 0) return;
+  changeStreamRetryTimer = setTimeout(() => {
+    changeStreamRetryTimer = null;
+    startChangeStream().catch((err) => console.warn('[mongo-table] Could not restart realtime watcher:', err.message));
+  }, 5000);
+}
+
+async function startChangeStream() {
+  if (changeStream || changeListeners.size === 0) return;
+  if (!resolveMongoUri()) return;
+  const database = await getDb();
+  if (!database) {
+    scheduleChangeStreamRetry();
+    return;
+  }
+
+  let stream;
+  try {
+    stream = database.collection('tables').watch([], { fullDocument: 'updateLookup' });
+  } catch (err) {
+    console.warn('[mongo-table] Change streams are unavailable; version fallback remains active:', err.message);
+    scheduleChangeStreamRetry();
+    return;
+  }
+
+  changeStream = stream;
+  const closeStream = () => {
+    if (changeStream !== stream) return;
+    changeStream = null;
+    stream.close().catch(() => {});
+    scheduleChangeStreamRetry();
+  };
+
+  stream.on('change', (change) => {
+    const table = change.documentKey?._id || change.fullDocument?._id;
+    if (!table) return;
+    const document = change.fullDocument || {};
+    const event = {
+      table: String(table),
+      sourceInstanceId: document.sourceInstanceId || null,
+      version: document.updatedAt ? new Date(document.updatedAt).getTime() : Date.now(),
+      at: document.updatedAt ? new Date(document.updatedAt).toISOString() : new Date().toISOString(),
+    };
+    for (const listener of [...changeListeners]) {
+      Promise.resolve(listener(event)).catch((err) => console.warn('[mongo-table] Realtime listener failed:', err.message));
+    }
+  });
+  stream.on('error', (err) => {
+    console.warn('[mongo-table] Realtime watcher error:', err.message);
+    closeStream();
+  });
+  stream.on('close', closeStream);
+}
+
+function watchTableChanges(listener) {
+  if (typeof listener !== 'function') return () => {};
+  changeListeners.add(listener);
+  startChangeStream().catch((err) => console.warn('[mongo-table] Could not start realtime watcher:', err.message));
+  return () => {
+    changeListeners.delete(listener);
+    if (changeListeners.size === 0 && changeStreamRetryTimer) {
+      clearTimeout(changeStreamRetryTimer);
+      changeStreamRetryTimer = null;
+    }
+  };
+}
+
+module.exports = { getDb, getFreshTable, getLatestVersion, watchTableChanges };
