@@ -1,12 +1,12 @@
 {
   "staff": {
     "tag": "android-latest",
-    "versionCode": 282,
-    "versionName": "1.0.282",
+    "versionCode": 283,
+    "versionName": "1.0.283",
     "apkUrl": "https://github.com/stalker-one/RizviDiagnostic/releases/download/android-latest/RizviDiagnosticCenter-latest.apk",
-    "sha256": "052a275ad95ee5954b60bcdcec97ca6ad3a8d03c1866a906db8d3b1a5a8f3335",
-    "sizeBytes": 6954557,
-    "releaseNotes": "- Fix invoice selection after creating patient\n- Return new patient directly to invoice creation\n- Fix new patient auto-selection in invoice form\n- Fix created patient ID normalization for invoice selection\n- Remove temporary marker\n- temp\n- Temporary marker\n- Remove temporary patient selection marker\n- Temporary marker for patient selection fix\n- Remove unused icon import from patient modal\n- Add Create Patient button and modal to Create Invoice\n- Add reusable create patient modal for invoice page"
+    "sha256": "6f12636292868dfaf22eb93c414f0254278f015615c4e58469961f5c4735d370",
+    "sizeBytes": 6955465,
+    "releaseNotes": "- Add superadmin bulk selection and date filters\n- Fix invoice selection after creating patient\n- Return new patient directly to invoice creation\n- Fix new patient auto-selection in invoice form\n- Fix created patient ID normalization for invoice selection\n- Remove temporary marker\n- temp\n- Temporary marker\n- Remove temporary patient selection marker\n- Temporary marker for patient selection fix\n- Remove unused icon import from patient modal\n- Add Create Patient button and modal to Create Invoice"
   },
   "superadmin": {
     "tag": "android-superadmin-latest",
@@ -17,5 +17,5 @@
     "sizeBytes": 6954629,
     "releaseNotes": "- Fix invoice selection after creating patient\n- Return new patient directly to invoice creation\n- Fix new patient auto-selection in invoice form\n- Fix created patient ID normalization for invoice selection\n- Remove temporary marker\n- temp\n- Temporary marker\n- Remove temporary patient selection marker\n- Temporary marker for patient selection fix\n- Remove unused icon import from patient modal\n- Add Create Patient button and modal to Create Invoice\n- Add reusable create patient modal for invoice page"
   },
-  "updatedAt": "0e13c7a2dff6641f88f3940f68a5237cd963ab6c"
+  "updatedAt": "ca81d9b7dd8ac067d89efcb752e6ff971896a041"
 }
