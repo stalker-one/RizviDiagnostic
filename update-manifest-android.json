@@ -1,12 +1,12 @@
 {
   "staff": {
     "tag": "android-latest",
-    "versionCode": 271,
-    "versionName": "1.0.271",
+    "versionCode": 272,
+    "versionName": "1.0.272",
     "apkUrl": "https://github.com/stalker-one/RizviDiagnostic/releases/download/android-latest/RizviDiagnosticCenter-latest.apk",
-    "sha256": "a0b9bca947ead4ce10f9be912fd16dab38478fded093942432df8477f4548f1a",
-    "sizeBytes": 6954253,
-    "releaseNotes": "- Remove unused icon import from patient modal\n- Add Create Patient button and modal to Create Invoice\n- Add reusable create patient modal for invoice page\n- Use authenticated user role for Staff and Superadmin biometric enrollment\n- Route biometric enrollment and login through the correct Staff or Superadmin portal\n- Implement AndroidKeyStore EC signing for biometric challenges\n- Use AndroidKeyStore challenge signatures instead of JWT biometric storage\n- Replace expiring JWT biometric storage with persistent credential ID\n- Show biometric login on Android superadmin login page\n- Preserve full staff login UI and add fingerprint login\n- Show biometric login on Android staff login page\n- Fix persistent biometric login UI and fallback behavior"
+    "sha256": "97da28d08e4051fd16e40bba89cf4909916548b7f4b55f407fd4b880ce6a0a51",
+    "sizeBytes": 6954249,
+    "releaseNotes": "- Temporary marker for patient selection fix\n- Remove unused icon import from patient modal\n- Add Create Patient button and modal to Create Invoice\n- Add reusable create patient modal for invoice page\n- Use authenticated user role for Staff and Superadmin biometric enrollment\n- Route biometric enrollment and login through the correct Staff or Superadmin portal\n- Implement AndroidKeyStore EC signing for biometric challenges\n- Use AndroidKeyStore challenge signatures instead of JWT biometric storage\n- Replace expiring JWT biometric storage with persistent credential ID\n- Show biometric login on Android superadmin login page\n- Preserve full staff login UI and add fingerprint login\n- Show biometric login on Android staff login page"
   },
   "superadmin": {
     "tag": "android-superadmin-latest",
@@ -17,5 +17,5 @@
     "sizeBytes": 6954393,
     "releaseNotes": "- Remove unused icon import from patient modal\n- Add Create Patient button and modal to Create Invoice\n- Add reusable create patient modal for invoice page\n- Use authenticated user role for Staff and Superadmin biometric enrollment\n- Route biometric enrollment and login through the correct Staff or Superadmin portal\n- Implement AndroidKeyStore EC signing for biometric challenges\n- Use AndroidKeyStore challenge signatures instead of JWT biometric storage\n- Replace expiring JWT biometric storage with persistent credential ID\n- Show biometric login on Android superadmin login page\n- Preserve full staff login UI and add fingerprint login\n- Show biometric login on Android staff login page\n- Fix persistent biometric login UI and fallback behavior"
   },
-  "updatedAt": "35ac52566fdac1690b988edb59425ade86d7471b"
+  "updatedAt": "e0a9def134a70861980906ccf3a7f12645ca972a"
 }
