@@ -2,7 +2,8 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import Layout from '../components/Layout.jsx';
 import Button from '../components/Button.jsx';
-import { Plus, Save } from 'lucide-react';
+import CreatePatientModal from '../components/CreatePatientModal.jsx';
+import { Plus, Save, UserPlus } from 'lucide-react';
 import api from '../api/axios';
 
 export default function CreateInvoice() {
@@ -15,6 +16,7 @@ export default function CreateInvoice() {
 
   const [patientQuery, setPatientQuery] = useState('');
   const [selectedPatientId, setSelectedPatientId] = useState(searchParams.get('patientId') || '');
+  const [showCreatePatient, setShowCreatePatient] = useState(false);
   const [items, setItems] = useState([]);
   const [selectedProcedureId, setSelectedProcedureId] = useState('');
   const [procedureQuery, setProcedureQuery] = useState('');
@@ -72,6 +74,24 @@ export default function CreateInvoice() {
     if (proc) setItemDescription(proc.name);
   }, [selectedProcedureId]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  const handlePatientCreated = async (patient) => {
+    setPatientQuery('');
+    try {
+      const res = await api.get('/patients', { params: { range: 'all', pageSize: 1000 } });
+      const rows = res.data.rows || [];
+      setPatients(rows);
+      const created = rows.find((p) => p.id === patient.id) || patient;
+      setSelectedPatientId(created.id);
+      setReferralId(created.referredBy || '');
+      setReferralAutoFilled(Boolean(created.referredBy));
+    } catch {
+      setPatients((current) => [patient, ...current.filter((p) => p.id !== patient.id)]);
+      setSelectedPatientId(patient.id);
+      setReferralId(patient.referredBy || '');
+      setReferralAutoFilled(Boolean(patient.referredBy));
+    }
+  };
+
   const addItem = () => {
     const proc = procedures.find((p) => p.id === selectedProcedureId);
     if (!proc) return;
@@ -127,6 +147,12 @@ export default function CreateInvoice() {
 
   return (
     <Layout title="Create Invoice">
+      <div className="flex justify-start mb-4">
+        <Button onClick={() => setShowCreatePatient(true)} icon={UserPlus}>
+          Create Patient
+        </Button>
+      </div>
+
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="lg:col-span-2 space-y-4">
           {/* Patient selection */}
@@ -150,7 +176,7 @@ export default function CreateInvoice() {
                 />
                 <div className="max-h-48 overflow-y-auto divide-y divide-slate-50 border border-slate-100 rounded-lg">
                   {filteredPatients.length === 0 ? (
-                    <div className="p-3 text-sm text-slate-400">No patients found. Add one from the Patients page.</div>
+                    <div className="p-3 text-sm text-slate-400">No patients found. Use Create Patient above to add one.</div>
                   ) : (
                     filteredPatients.map((p) => (
                       <button
@@ -305,6 +331,12 @@ export default function CreateInvoice() {
           </Button>
         </div>
       </div>
+
+      <CreatePatientModal
+        open={showCreatePatient}
+        onClose={() => setShowCreatePatient(false)}
+        onCreated={handlePatientCreated}
+      />
     </Layout>
   );
 }
