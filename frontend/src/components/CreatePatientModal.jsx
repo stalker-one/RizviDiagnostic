@@ -81,12 +81,17 @@ export default function CreatePatientModal({ open, onClose, onCreated }) {
     setSaving(true);
     try {
       const res = await api.post('/patients', payload);
-      const patient = res.data?.patient || res.data?.data || res.data;
+      const rawPatient = res.data?.patient || res.data?.data || res.data;
+      const patientId = rawPatient?.id || rawPatient?._id || res.data?.patientId || res.data?.id;
 
-      if (!patient?.id) {
+      if (!patientId) {
         throw new Error('Patient was created but the server did not return the patient ID.');
       }
 
+      // Always pass a normalized id back to Create Invoice. Some API responses
+      // use Mongo-style _id while the patient list uses id; normalizing here
+      // guarantees the newly created patient can be selected immediately.
+      const patient = { ...rawPatient, id: patientId };
       onCreated(patient);
       onClose();
     } catch (err) {
