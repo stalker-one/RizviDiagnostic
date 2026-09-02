@@ -1,12 +1,12 @@
 {
   "staff": {
     "tag": "android-latest",
-    "versionCode": 281,
-    "versionName": "1.0.281",
+    "versionCode": 282,
+    "versionName": "1.0.282",
     "apkUrl": "https://github.com/stalker-one/RizviDiagnostic/releases/download/android-latest/RizviDiagnosticCenter-latest.apk",
-    "sha256": "436277d2b8dd9529ef69ddc0846daca11ac5b443358d4220515209654ac67015",
-    "sizeBytes": 6954409,
-    "releaseNotes": "- Return new patient directly to invoice creation\n- Fix new patient auto-selection in invoice form\n- Fix created patient ID normalization for invoice selection\n- Remove temporary marker\n- temp\n- Temporary marker\n- Remove temporary patient selection marker\n- Temporary marker for patient selection fix\n- Remove unused icon import from patient modal\n- Add Create Patient button and modal to Create Invoice\n- Add reusable create patient modal for invoice page\n- Use authenticated user role for Staff and Superadmin biometric enrollment"
+    "sha256": "052a275ad95ee5954b60bcdcec97ca6ad3a8d03c1866a906db8d3b1a5a8f3335",
+    "sizeBytes": 6954557,
+    "releaseNotes": "- Fix invoice selection after creating patient\n- Return new patient directly to invoice creation\n- Fix new patient auto-selection in invoice form\n- Fix created patient ID normalization for invoice selection\n- Remove temporary marker\n- temp\n- Temporary marker\n- Remove temporary patient selection marker\n- Temporary marker for patient selection fix\n- Remove unused icon import from patient modal\n- Add Create Patient button and modal to Create Invoice\n- Add reusable create patient modal for invoice page"
   },
   "superadmin": {
     "tag": "android-superadmin-latest",
@@ -17,5 +17,5 @@
     "sizeBytes": 6954561,
     "releaseNotes": "- Return new patient directly to invoice creation\n- Fix new patient auto-selection in invoice form\n- Fix created patient ID normalization for invoice selection\n- Remove temporary marker\n- temp\n- Temporary marker\n- Remove temporary patient selection marker\n- Temporary marker for patient selection fix\n- Remove unused icon import from patient modal\n- Add Create Patient button and modal to Create Invoice\n- Add reusable create patient modal for invoice page\n- Use authenticated user role for Staff and Superadmin biometric enrollment"
   },
-  "updatedAt": "7340929230d198e346ec1b0b7c3616770c9cdafc"
+  "updatedAt": "0e13c7a2dff6641f88f3940f68a5237cd963ab6c"
 }
