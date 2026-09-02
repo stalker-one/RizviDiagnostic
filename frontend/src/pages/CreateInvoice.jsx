@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import Layout from '../components/Layout.jsx';
 import Button from '../components/Button.jsx';
 import CreatePatientModal from '../components/CreatePatientModal.jsx';
@@ -8,14 +8,19 @@ import api from '../api/axios';
 
 export default function CreateInvoice() {
   const [searchParams] = useSearchParams();
+  const location = useLocation();
   const navigate = useNavigate();
+  const handedOffPatient = location.state?.selectedPatient || null;
 
   const [patients, setPatients] = useState([]);
   const [procedures, setProcedures] = useState([]);
   const [referrals, setReferrals] = useState([]);
 
   const [patientQuery, setPatientQuery] = useState('');
-  const [selectedPatient, setSelectedPatient] = useState(null);
+  const [selectedPatient, setSelectedPatient] = useState(() => {
+    const queryPatientId = searchParams.get('patientId') || '';
+    return handedOffPatient && String(handedOffPatient.id) === queryPatientId ? handedOffPatient : null;
+  });
   const [showCreatePatient, setShowCreatePatient] = useState(false);
 
   const commitPatientSelection = (patient) => {
@@ -60,10 +65,11 @@ export default function CreateInvoice() {
     const queryPatientId = searchParams.get('patientId') || '';
     setSelectedPatient((current) => {
       if (!queryPatientId) return null;
+      if (handedOffPatient && String(handedOffPatient.id) === queryPatientId) return handedOffPatient;
       if (current && String(current.id) === queryPatientId) return current;
       return patients.find((patient) => String(patient.id) === queryPatientId) || null;
     });
-  }, [searchParams, patients]);
+  }, [searchParams, patients, handedOffPatient]);
 
   const selectedPatientId = selectedPatient?.id || '';
 

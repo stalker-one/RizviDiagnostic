@@ -43,18 +43,6 @@ api.interceptors.response.use(
       }
     }
 
-    // After a successful NEW patient registration, immediately open the
-    // invoice form for that patient. PUT/PATCH patient edits are deliberately
-    // excluded. The invoice page reads patientId from the query string.
-    const cleanUrl = (res.config?.url || '').split('?')[0];
-    if (method === 'post' && /^\/patients\/?$/.test(cleanUrl) && [200, 201].includes(res.status)) {
-      const patientId = res.data?.id || res.data?.patient?.id || res.data?._id || res.data?.patient?._id;
-      if (patientId && window.location.pathname !== '/invoices/create') {
-        window.setTimeout(() => {
-          window.location.assign(`/invoices/create?patientId=${encodeURIComponent(patientId)}`);
-        }, 0);
-      }
-    }
 
     return res;
   },

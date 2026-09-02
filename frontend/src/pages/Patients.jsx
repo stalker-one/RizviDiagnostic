@@ -161,7 +161,9 @@ export default function Patients() {
       // invoice creation, with that exact patient already selected. This is
       // the same workflow as creating a patient from the Create Invoice modal.
       if (createdPatient?.id) {
-        navigate(`/invoices/create?patientId=${encodeURIComponent(String(createdPatient.id))}`);
+        navigate(`/invoices/create?patientId=${encodeURIComponent(String(createdPatient.id))}`, {
+          state: { selectedPatient: createdPatient },
+        });
         return;
       }
 
