@@ -22,11 +22,23 @@ function morningStartHour(){const h=Number(readTable('settings').morningStartHou
 function eveningStartHour(){const s=readTable('settings'),legacy=Number(s.shiftSplitHour),h=Number(s.eveningStartHour??(Number.isFinite(legacy)?legacy:undefined));return Number.isFinite(h)&&h>=0&&h<=23?h:DEFAULT_EVENING_START_HOUR;}
 function clinicShift(iso){if(!iso)return'';const h=Number(new Intl.DateTimeFormat('en-US',{timeZone:CLINIC_TZ,hour:'numeric',hour12:false}).format(new Date(iso)));return h>=morningStartHour()&&h<eveningStartHour()?'Morning':'Evening';}
 function clinicDateKey(date=new Date()){return new Intl.DateTimeFormat('en-CA',{timeZone:CLINIC_TZ,year:'numeric',month:'2-digit',day:'2-digit'}).format(date);}
+function shiftClinicDateKey(days,ref=new Date()){const [year,month,day]=clinicDateKey(ref).split('-').map(Number);return new Date(Date.UTC(year,month-1,day+days)).toISOString().slice(0,10);}
 function isSameClinicDay(iso,ref=new Date()){return Boolean(iso)&&clinicDateKey(new Date(iso))===clinicDateKey(ref);}
-function isYesterdayClinicDay(iso,ref=new Date()){if(!iso)return false;const d=new Date(ref);d.setDate(d.getDate()-1);return clinicDateKey(new Date(iso))===clinicDateKey(d);}
-function withinLastDays(iso,days){if(!iso)return false;if(!days||days<=0)return isSameClinicDay(iso);const cutoff=new Date();cutoff.setDate(cutoff.getDate()-(days-1));return clinicDateKey(new Date(iso))>=clinicDateKey(cutoff);}
+function isYesterdayClinicDay(iso,ref=new Date()){return Boolean(iso)&&clinicDateKey(new Date(iso))===shiftClinicDateKey(-1,ref);}
+function isTomorrowClinicDay(iso,ref=new Date()){return Boolean(iso)&&clinicDateKey(new Date(iso))===shiftClinicDateKey(1,ref);}
+function withinLastDays(iso,days){if(!iso)return false;if(!days||days<=0)return isSameClinicDay(iso);const key=clinicDateKey(new Date(iso));const today=clinicDateKey();return key>=shiftClinicDateKey(-(days-1))&&key<=today;}
 function inDateRange(iso,from,to){if(!iso)return false;const d=new Date(iso).getTime();if(from&&d<new Date(from).getTime())return false;if(to&&d>new Date(to).getTime()+86400000-1)return false;return true;}
-function applyDateRange(list,{range,from,to,dateField='createdAt'}={}){if(from||to)return list.filter(i=>inDateRange(i[dateField],from,to));if(range==='today')return list.filter(i=>isSameClinicDay(i[dateField]));if(range==='yesterday')return list.filter(i=>isYesterdayClinicDay(i[dateField]));if(range==='last3')return list.filter(i=>withinLastDays(i[dateField],3));return list;}
+function applyDateRange(list,{range,from,to,dateField='createdAt'}={}){
+  if(from||to)return list.filter(i=>inDateRange(i[dateField],from,to));
+  if(range==='today')return list.filter(i=>isSameClinicDay(i[dateField]));
+  if(range==='tomorrow')return list.filter(i=>isTomorrowClinicDay(i[dateField]));
+  if(range==='yesterday')return list.filter(i=>isYesterdayClinicDay(i[dateField]));
+  if(range==='last3')return list.filter(i=>withinLastDays(i[dateField],3));
+  if(range==='last7')return list.filter(i=>withinLastDays(i[dateField],7));
+  if(range==='last14')return list.filter(i=>withinLastDays(i[dateField],14));
+  if(range==='month'){const currentMonth=clinicDateKey().slice(0,7);return list.filter(i=>clinicDateKey(new Date(i[dateField])).slice(0,7)===currentMonth);}
+  return list;
+}
 function applyStaffEntryLimit(list,settings,dateField='createdAt'){if(!Array.isArray(list)||!list.length)return list;const mode=settings.staffEntryLimitMode||'all';if(mode==='all')return list;const sorted=[...list].sort((a,b)=>new Date(b[dateField])-new Date(a[dateField]));if(mode==='count')return sorted.slice(0,Math.max(1,Number(settings.staffEntryLimitCount)||20));if(mode==='percent')return sorted.slice(0,Math.max(1,Math.ceil(sorted.length*Math.min(100,Math.max(1,Number(settings.staffEntryLimitPercent)||30))/100)));return sorted;}
 function staffLimitInfo(settings,totalAvailable,shown){if((settings.staffEntryLimitMode||'all')==='all')return null;return{mode:settings.staffEntryLimitMode,count:settings.staffEntryLimitCount||20,percent:settings.staffEntryLimitPercent||30,totalAvailable,shown};}
 function paginate(list,page,pageSize){const p=Math.max(1,Number(page)||1),size=Math.min(1000,Math.max(1,Number(pageSize)||20)),total=list.length,totalPages=Math.max(1,Math.ceil(total/size)),safePage=Math.min(p,totalPages);return{rows:list.slice((safePage-1)*size,safePage*size),total,page:safePage,pageSize:size,totalPages};}
@@ -43,4 +55,4 @@ function queueMongoSync(table,data){if(!MONGODB_URI)return;mongoQueue=mongoQueue
 function flushMongoSync(){return mongoQueue;}
 async function initDb(){if(!MONGODB_URI){console.warn('[mongo] MONGODB_URI is not configured — desktop is using persistent local data only.');return;}const db=await getMongoDb();if(!db)return;for(const table of TABLES){try{const doc=await db.collection('tables').findOne({_id:table});const localHasData=Array.isArray(memory[table])?memory[table].length>0:Object.keys(memory[table]||{}).length>0;if(doc&&doc.data!==undefined){memory[table]=doc.data;fs.writeFileSync(filePath(table),JSON.stringify(doc.data,null,2));}else if(localHasData)await db.collection('tables').updateOne({_id:table},{$set:{data:memory[table],updatedAt:new Date()}},{upsert:true});}catch(err){console.warn(`[mongo] Could not sync table "${table}" at boot:`,err.message);}}}
 let queue=Promise.resolve();function transaction(table,updater){queue=queue.then(()=>{const data=readTable(table),result=updater(data);writeTable(table,data);return result;});return queue;}
-module.exports={readTable,writeTable,initDb,flushMongoSync,transaction,nextId,nextInvoiceNumber,generateId,CLINIC_TZ,clinicDateKey,isSameClinicDay,isYesterdayClinicDay,inDateRange,applyDateRange,applyStaffEntryLimit,staffLimitInfo,paginate,withinLastDays,clinicYearMonth,DEPARTMENTS,getDepartments,morningStartHour,eveningStartHour,clinicShift,getMongoDb,DATA_DIR,TABLES};
+module.exports={readTable,writeTable,initDb,flushMongoSync,transaction,nextId,nextInvoiceNumber,generateId,CLINIC_TZ,clinicDateKey,shiftClinicDateKey,isSameClinicDay,isYesterdayClinicDay,isTomorrowClinicDay,inDateRange,applyDateRange,applyStaffEntryLimit,staffLimitInfo,paginate,withinLastDays,clinicYearMonth,DEPARTMENTS,getDepartments,morningStartHour,eveningStartHour,clinicShift,getMongoDb,DATA_DIR,TABLES};
