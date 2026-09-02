@@ -1,12 +1,12 @@
 {
   "staff": {
     "tag": "android-latest",
-    "versionCode": 288,
-    "versionName": "1.0.288",
+    "versionCode": 289,
+    "versionName": "1.0.289",
     "apkUrl": "https://github.com/stalker-one/RizviDiagnostic/releases/download/android-latest/RizviDiagnosticCenter-latest.apk",
-    "sha256": "2826f6bb5b009314f684c30479c5e572ee38bd3ce722ae46fea65925f3e9caa9",
-    "sizeBytes": 6955637,
-    "releaseNotes": "- Keep invoice patient selection during realtime refresh\n- Prevent selected patient card from blinking\n- Fix immediate patient handoff to invoice\n- Use explicit state for realtime invoice patient selection\n- Fix realtime patient selection on invoice creation\n- Add superadmin bulk selection and date filters\n- Fix invoice selection after creating patient\n- Return new patient directly to invoice creation\n- Fix new patient auto-selection in invoice form\n- Fix created patient ID normalization for invoice selection\n- Remove temporary marker\n- temp"
+    "sha256": "b475f3edb39b8141be7087a222b350cfc0d364181250470db5c7a247300f1a03",
+    "sizeBytes": 6956926,
+    "releaseNotes": "- Fix realtime dashboard and list refresh\n- Keep invoice patient selection during realtime refresh\n- Prevent selected patient card from blinking\n- Fix immediate patient handoff to invoice\n- Use explicit state for realtime invoice patient selection\n- Fix realtime patient selection on invoice creation\n- Add superadmin bulk selection and date filters\n- Fix invoice selection after creating patient\n- Return new patient directly to invoice creation\n- Fix new patient auto-selection in invoice form\n- Fix created patient ID normalization for invoice selection\n- Remove temporary marker"
   },
   "superadmin": {
     "tag": "android-superadmin-latest",
@@ -17,5 +17,5 @@
     "sizeBytes": 6955709,
     "releaseNotes": "- Keep invoice patient selection during realtime refresh\n- Prevent selected patient card from blinking\n- Fix immediate patient handoff to invoice\n- Use explicit state for realtime invoice patient selection\n- Fix realtime patient selection on invoice creation\n- Add superadmin bulk selection and date filters\n- Fix invoice selection after creating patient\n- Return new patient directly to invoice creation\n- Fix new patient auto-selection in invoice form\n- Fix created patient ID normalization for invoice selection\n- Remove temporary marker\n- temp"
   },
-  "updatedAt": "bab9b120a6f0e2ebfb6e25b93bca7365e7007bf5"
+  "updatedAt": "ce8b6c1c073f13f8f725bfd79cea1a03665ee7b2"
 }
