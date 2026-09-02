@@ -1,12 +1,12 @@
 {
   "staff": {
     "tag": "android-latest",
-    "versionCode": 278,
-    "versionName": "1.0.278",
+    "versionCode": 279,
+    "versionName": "1.0.279",
     "apkUrl": "https://github.com/stalker-one/RizviDiagnostic/releases/download/android-latest/RizviDiagnosticCenter-latest.apk",
-    "sha256": "4f2e9a73daa1a6682fc788f527e0fe3f640a44127fadca6a63912f008fdec54f",
+    "sha256": "ca10ff8970fd601a00d78441e9252326e494e2a36a60924a93b93097f249e86f",
     "sizeBytes": 6954253,
-    "releaseNotes": "- temp\n- Remove temporary marker\n- Temporary marker\n- Remove temporary patient selection marker\n- Temporary marker for patient selection fix\n- Remove unused icon import from patient modal\n- Add Create Patient button and modal to Create Invoice\n- Add reusable create patient modal for invoice page\n- Use authenticated user role for Staff and Superadmin biometric enrollment\n- Route biometric enrollment and login through the correct Staff or Superadmin portal\n- Implement AndroidKeyStore EC signing for biometric challenges\n- Use AndroidKeyStore challenge signatures instead of JWT biometric storage"
+    "releaseNotes": "- Remove temporary marker\n- temp\n- Temporary marker\n- Remove temporary patient selection marker\n- Temporary marker for patient selection fix\n- Remove unused icon import from patient modal\n- Add Create Patient button and modal to Create Invoice\n- Add reusable create patient modal for invoice page\n- Use authenticated user role for Staff and Superadmin biometric enrollment\n- Route biometric enrollment and login through the correct Staff or Superadmin portal\n- Implement AndroidKeyStore EC signing for biometric challenges\n- Use AndroidKeyStore challenge signatures instead of JWT biometric storage"
   },
   "superadmin": {
     "tag": "android-superadmin-latest",
