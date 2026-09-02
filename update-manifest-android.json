@@ -1,12 +1,12 @@
 {
   "staff": {
     "tag": "android-latest",
-    "versionCode": 280,
-    "versionName": "1.0.280",
+    "versionCode": 281,
+    "versionName": "1.0.281",
     "apkUrl": "https://github.com/stalker-one/RizviDiagnostic/releases/download/android-latest/RizviDiagnosticCenter-latest.apk",
-    "sha256": "8ffbfb7eed79bf2567bd9ba61de64b31a10766eef46ece7d2b9ef89ee0264432",
-    "sizeBytes": 6954333,
-    "releaseNotes": "- Fix created patient ID normalization for invoice selection\n- Remove temporary marker\n- temp\n- Temporary marker\n- Remove temporary patient selection marker\n- Temporary marker for patient selection fix\n- Remove unused icon import from patient modal\n- Add Create Patient button and modal to Create Invoice\n- Add reusable create patient modal for invoice page\n- Use authenticated user role for Staff and Superadmin biometric enrollment\n- Route biometric enrollment and login through the correct Staff or Superadmin portal\n- Implement AndroidKeyStore EC signing for biometric challenges"
+    "sha256": "436277d2b8dd9529ef69ddc0846daca11ac5b443358d4220515209654ac67015",
+    "sizeBytes": 6954409,
+    "releaseNotes": "- Return new patient directly to invoice creation\n- Fix new patient auto-selection in invoice form\n- Fix created patient ID normalization for invoice selection\n- Remove temporary marker\n- temp\n- Temporary marker\n- Remove temporary patient selection marker\n- Temporary marker for patient selection fix\n- Remove unused icon import from patient modal\n- Add Create Patient button and modal to Create Invoice\n- Add reusable create patient modal for invoice page\n- Use authenticated user role for Staff and Superadmin biometric enrollment"
   },
   "superadmin": {
     "tag": "android-superadmin-latest",
