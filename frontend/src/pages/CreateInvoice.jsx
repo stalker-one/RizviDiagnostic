@@ -32,18 +32,12 @@ export default function CreateInvoice() {
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
-    // Create Invoice must be able to find ANY patient (not just today's
-    // registrations) since front desk regularly invoices patients who
-    // registered on an earlier visit — explicitly ask for the full list.
-    api.get('/patients', { params: { range: 'all', pageSize: 1000 } }).then((res) => setPatients(res.data.rows));
+    api.get('/patients', { params: { range: 'all', pageSize: 1000 } }).then((res) => setPatients(res.data.rows || []));
     api.get('/procedures').then((res) => setProcedures(res.data.filter((p) => p.active)));
     api.get('/referrals').then((res) => setReferrals(res.data));
   }, []);
 
   const filteredPatients = useMemo(() => {
-    // No search yet: show only the 5 most-recently-registered patients
-    // (the list from the API is already sorted latest-first) so the picker
-    // isn't cluttered. Once the user types, search across every patient.
     if (!patientQuery) return patients.slice(0, 5);
     const t = patientQuery.toLowerCase();
     return patients.filter((p) => p.name.toLowerCase().includes(t) || p.phone?.includes(t) || p.mrNumber?.includes(t)).slice(0, 10);
@@ -55,10 +49,11 @@ export default function CreateInvoice() {
     return procedures.filter((p) => p.name.toLowerCase().includes(t));
   }, [procedureQuery, procedures]);
 
-  const selectedPatient = patients.find((p) => p.id === selectedPatientId);
+  // IDs can arrive from the API as strings or another primitive type. Compare
+  // them by their string representation so a newly-created patient is always
+  // recognized after the patient list is refreshed.
+  const selectedPatient = patients.find((p) => String(p.id) === String(selectedPatientId));
 
-  // When a patient with a registered referring doctor is selected, default the
-  // invoice's referral to that doctor (the person can still change it below).
   useEffect(() => {
     if (selectedPatient?.referredBy && !referralId) {
       setReferralId(selectedPatient.referredBy);
@@ -66,34 +61,45 @@ export default function CreateInvoice() {
     }
   }, [selectedPatient]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Default the description to the selected procedure's name so it's ready
-  // to go as-is, but the person can still edit it before adding the item —
-  // e.g. to note "Chest X-Ray (PA + Lateral)" instead of the plain test name.
   useEffect(() => {
-    const proc = procedures.find((p) => p.id === selectedProcedureId);
+    const proc = procedures.find((p) => String(p.id) === String(selectedProcedureId));
     if (proc) setItemDescription(proc.name);
   }, [selectedProcedureId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handlePatientCreated = async (patient) => {
+    const createdId = String(patient.id);
     setPatientQuery('');
+    setError('');
+
+    // Select immediately using the patient returned by the create request.
+    // This makes the invoice usable without waiting for the list refresh.
+    setPatients((current) => [
+      patient,
+      ...current.filter((p) => String(p.id) !== createdId),
+    ]);
+    setSelectedPatientId(createdId);
+    setReferralId(patient.referredBy || '');
+    setReferralAutoFilled(Boolean(patient.referredBy));
+
+    // Refresh the full patient list in the background, but never lose the
+    // selected newly-created patient if the refresh is delayed or fails.
     try {
       const res = await api.get('/patients', { params: { range: 'all', pageSize: 1000 } });
       const rows = res.data.rows || [];
-      setPatients(rows);
-      const created = rows.find((p) => p.id === patient.id) || patient;
-      setSelectedPatientId(created.id);
-      setReferralId(created.referredBy || '');
-      setReferralAutoFilled(Boolean(created.referredBy));
+      setPatients((current) => {
+        const refreshed = rows.find((p) => String(p.id) === createdId);
+        if (refreshed) return rows;
+        return [patient, ...rows.filter((p) => String(p.id) !== createdId)];
+      });
+      setSelectedPatientId(createdId);
     } catch {
-      setPatients((current) => [patient, ...current.filter((p) => p.id !== patient.id)]);
-      setSelectedPatientId(patient.id);
-      setReferralId(patient.referredBy || '');
-      setReferralAutoFilled(Boolean(patient.referredBy));
+      // The patient is already in local state and selected, so a refresh
+      // failure must not interrupt invoice creation.
     }
   };
 
   const addItem = () => {
-    const proc = procedures.find((p) => p.id === selectedProcedureId);
+    const proc = procedures.find((p) => String(p.id) === String(selectedProcedureId));
     if (!proc) return;
     setItems([
       ...items,
@@ -155,7 +161,6 @@ export default function CreateInvoice() {
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="lg:col-span-2 space-y-4">
-          {/* Patient selection */}
           <div className="bg-white rounded-xl border border-slate-100 shadow-sm p-5">
             <h3 className="font-semibold text-slate-700 mb-3">Patient</h3>
             {selectedPatient ? (
@@ -181,7 +186,7 @@ export default function CreateInvoice() {
                     filteredPatients.map((p) => (
                       <button
                         key={p.id}
-                        onClick={() => setSelectedPatientId(p.id)}
+                        onClick={() => setSelectedPatientId(String(p.id))}
                         className="w-full text-left px-3 py-2 text-sm hover:bg-slate-50 flex justify-between"
                       >
                         <span>{p.name}</span>
@@ -194,7 +199,6 @@ export default function CreateInvoice() {
             )}
           </div>
 
-          {/* Add procedure */}
           <div className="bg-white rounded-xl border border-slate-100 shadow-sm p-5">
             <h3 className="font-semibold text-slate-700 mb-3">Add Procedure</h3>
             <input
@@ -230,7 +234,6 @@ export default function CreateInvoice() {
             </div>
           </div>
 
-          {/* Items table */}
           <div className="bg-white rounded-xl border border-slate-100 shadow-sm overflow-hidden">
             <table className="w-full text-sm">
               <thead className="bg-slate-50 text-slate-500 text-left">
@@ -250,25 +253,19 @@ export default function CreateInvoice() {
                   items.map((it, idx) => (
                     <tr key={idx} className="border-t border-slate-50">
                       <td className="p-3">
-                        <input value={it.description} onChange={(e) => updateItem(idx, 'description', e.target.value)}
-                          className="w-full border border-slate-200 rounded px-2 py-1" />
+                        <input value={it.description} onChange={(e) => updateItem(idx, 'description', e.target.value)} className="w-full border border-slate-200 rounded px-2 py-1" />
                       </td>
                       <td className="p-3">
-                        <input type="number" value={it.rate} onChange={(e) => updateItem(idx, 'rate', e.target.value)}
-                          className="w-20 border border-slate-200 rounded px-2 py-1" />
+                        <input type="number" value={it.rate} onChange={(e) => updateItem(idx, 'rate', e.target.value)} className="w-20 border border-slate-200 rounded px-2 py-1" />
                       </td>
                       <td className="p-3">
-                        <input type="number" min={1} value={it.quantity} onChange={(e) => updateItem(idx, 'quantity', e.target.value)}
-                          className="w-16 border border-slate-200 rounded px-2 py-1" />
+                        <input type="number" min={1} value={it.quantity} onChange={(e) => updateItem(idx, 'quantity', e.target.value)} className="w-16 border border-slate-200 rounded px-2 py-1" />
                       </td>
                       <td className="p-3">Rs. {(Number(it.rate) * Number(it.quantity || 1)).toFixed(0)}</td>
                       <td className="p-3">
-                        <input value={it.performedBy} onChange={(e) => updateItem(idx, 'performedBy', e.target.value)}
-                          className="w-full border border-slate-200 rounded px-2 py-1" />
+                        <input value={it.performedBy} onChange={(e) => updateItem(idx, 'performedBy', e.target.value)} className="w-full border border-slate-200 rounded px-2 py-1" />
                       </td>
-                      <td className="p-3 text-right">
-                        <button onClick={() => removeItem(idx)} className="text-red-500">&times;</button>
-                      </td>
+                      <td className="p-3 text-right"><button onClick={() => removeItem(idx)} className="text-red-500">&times;</button></td>
                     </tr>
                   ))
                 )}
@@ -277,23 +274,16 @@ export default function CreateInvoice() {
           </div>
         </div>
 
-        {/* Summary sidebar */}
         <div className="space-y-4">
           <div className="bg-white rounded-xl border border-slate-100 shadow-sm p-5 space-y-3">
             <h3 className="font-semibold text-slate-700">Referral & Payment</h3>
             <div>
               <label className="block text-xs font-medium text-slate-500 mb-1">Referred By</label>
-              <select
-                value={referralId}
-                onChange={(e) => { setReferralId(e.target.value); setReferralAutoFilled(false); }}
-                className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm"
-              >
+              <select value={referralId} onChange={(e) => { setReferralId(e.target.value); setReferralAutoFilled(false); }} className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm">
                 <option value="">Select Referral</option>
                 {referrals.map((r) => <option key={r.id} value={r.id}>{r.name}</option>)}
               </select>
-              {referralAutoFilled && (
-                <p className="text-xs text-brand-600 mt-1">Auto-filled from this patient's registered referral.</p>
-              )}
+              {referralAutoFilled && <p className="text-xs text-brand-600 mt-1">Auto-filled from this patient's registered referral.</p>}
             </div>
             <div>
               <label className="block text-xs font-medium text-slate-500 mb-1">Discount (Rs.)</label>
@@ -302,10 +292,7 @@ export default function CreateInvoice() {
             <div>
               <label className="block text-xs font-medium text-slate-500 mb-1">Payment Mode</label>
               <select value={paymentMode} onChange={(e) => setPaymentMode(e.target.value)} className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm">
-                <option>Cash</option>
-                <option>Card</option>
-                <option>Bank Transfer</option>
-                <option>Insurance</option>
+                <option>Cash</option><option>Card</option><option>Bank Transfer</option><option>Insurance</option>
               </select>
             </div>
             <div>
@@ -332,11 +319,7 @@ export default function CreateInvoice() {
         </div>
       </div>
 
-      <CreatePatientModal
-        open={showCreatePatient}
-        onClose={() => setShowCreatePatient(false)}
-        onCreated={handlePatientCreated}
-      />
+      <CreatePatientModal open={showCreatePatient} onClose={() => setShowCreatePatient(false)} onCreated={handlePatientCreated} />
     </Layout>
   );
 }
