@@ -157,10 +157,14 @@ final class UpdateChecker {
         final boolean available;
         final long versionCode;
         final String versionName;
-        Result(boolean available, long versionCode, String versionName) {
+        final String url;
+        final String sha256;
+        Result(boolean available, long versionCode, String versionName, String url, String sha256) {
             this.available = available;
             this.versionCode = versionCode;
             this.versionName = versionName;
+            this.url = url;
+            this.sha256 = sha256;
         }
     }
 
@@ -175,18 +179,18 @@ final class UpdateChecker {
             String tag = releaseTag(packageName);
             JSONObject release = fetchRelease(context, tag);
             JSONObject apk = findBestApk(release.optJSONArray("assets"), apkName(packageName));
-            if (apk == null) return new Result(false, 0, null);
+            if (apk == null) return new Result(false, 0, null, null, null);
             String body = release.optString("body", "");
             body = body.replace("\\r\\n", "\n").replace("\\r", "").replace("\\n", "\n");
             long remote = extractNumber(body, "Version code\\s*:\\s*(\\d+)");
             if (remote <= 0) remote = extractNumber(body, "Version\\s*(?:Code|Build)\\s*[:=]\\s*(\\d+)");
             if (remote <= 0) remote = extractNumber(apk.optString("name", ""), "(?:-|_)(\\d+)(?:-|_)[0-9a-f]{7,40}\\.apk$");
             if (remote <= 0) remote = extractNumber(apk.optString("name", ""), "(?:-|_)(\\d+)\\.apk$");
-            if (remote <= 0 || remote <= installedVersionCode) return new Result(false, 0, null);
+            if (remote <= 0 || remote <= installedVersionCode) return new Result(false, 0, null, null, null);
             String vn = extractText(body, "Version name\\s*:\\s*([^\\r\\n]+)");
-            return new Result(true, remote, vn.isEmpty() ? ("1.0." + remote) : vn);
+            return new Result(true, remote, vn.isEmpty() ? ("1.0." + remote) : vn, apk.optString("browser_download_url", ""), extractSha256(body));
         } catch (Exception e) {
-            return new Result(false, 0, null);
+            return new Result(false, 0, null, null, null);
         }
     }
 }

@@ -25,7 +25,6 @@ export default function Invoices() {
   const [to, setTo] = useState('');
   const [page, setPage] = useState(1);
   const [pageInfo, setPageInfo] = useState({ total: 0, totalPages: 1 });
-  const [summary, setSummary] = useState({ totalRevenue: 0, totalDiscount: 0 });
   const [loading, setLoading] = useState(true);
   const [selectedInvoiceIds, setSelectedInvoiceIds] = useState([]);
 
@@ -50,7 +49,6 @@ export default function Invoices() {
         setSelectedInvoiceIds((current) => current.filter((id) => res.data.rows.some((invoice) => String(invoice.id) === String(id))));
         setPage(res.data.page);
         setPageInfo({ total: res.data.total, totalPages: res.data.totalPages });
-        setSummary(res.data.summary || { totalRevenue: 0, totalDiscount: 0 });
       })
       .finally(() => setLoading(false));
   };
@@ -166,19 +164,6 @@ export default function Invoices() {
           </div>
         </div>
       )}
-
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
-        <div className="bg-white rounded-xl border border-slate-100 shadow-sm p-4">
-          <div className="text-xs font-semibold uppercase tracking-wider text-slate-400">Total Revenue</div>
-          <div className="text-2xl font-black text-emerald-700 mt-1 tabular-nums">Rs. {Number(summary.totalRevenue || 0).toLocaleString()}</div>
-          <div className="text-xs text-slate-400 mt-1">Collected from the selected invoice range</div>
-        </div>
-        <div className="bg-white rounded-xl border border-slate-100 shadow-sm p-4">
-          <div className="text-xs font-semibold uppercase tracking-wider text-slate-400">Total Discount</div>
-          <div className="text-2xl font-black text-amber-700 mt-1 tabular-nums">Rs. {Number(summary.totalDiscount || 0).toLocaleString()}</div>
-          <div className="text-xs text-slate-400 mt-1">Discounts granted in the selected invoice range</div>
-        </div>
-      </div>
 
       <div className="bg-white rounded-xl border border-slate-100 shadow-sm overflow-x-auto">
         <table className="w-full text-sm min-w-[860px]">
