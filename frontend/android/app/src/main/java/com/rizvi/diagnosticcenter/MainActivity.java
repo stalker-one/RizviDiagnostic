@@ -49,6 +49,7 @@ public class MainActivity extends BridgeActivity {
         super.onCreate(savedInstanceState);
         NotificationHelper.ensureChannelsCreated(getApplicationContext());
         scheduleBackgroundUpdateCheck();
+        requestBatteryOptimizationExemptionOnce();
         getWindow().getDecorView().post(this::showStartupAnimation);
     }
 

@@ -5,6 +5,14 @@ import android.content.Context;
 import android.content.pm.PackageInfo;
 import android.content.pm.PackageManager;
 import android.os.Build;
+import android.os.Environment;
+import java.io.File;
+import java.io.FileOutputStream;
+import java.io.InputStream;
+import java.net.HttpURLConnection;
+import java.net.URL;
+import java.security.MessageDigest;
+import java.util.Locale;
 import androidx.annotation.NonNull;
 import androidx.core.content.ContextCompat;
 import androidx.work.Worker;
@@ -27,6 +35,36 @@ public class UpdateCheckWorker extends Worker {
         super(context, params);
     }
 
+    private File downloadAndVerify(Context context, UpdateChecker.Result check) throws Exception {
+        File dir = context.getExternalFilesDir(Environment.DIRECTORY_DOWNLOADS);
+        if (dir == null) dir = context.getCacheDir();
+        if (!dir.exists() && !dir.mkdirs()) throw new IllegalStateException("Unable to create update cache directory");
+        File apk = new File(dir, "rizvi-update-" + check.versionCode + ".apk");
+        if (apk.isFile() && apk.length() > 10000 && verifySha256(apk, check.sha256)) return apk;
+        HttpURLConnection connection = (HttpURLConnection) new URL(check.url).openConnection();
+        connection.setConnectTimeout(15000);
+        connection.setReadTimeout(120000);
+        connection.setInstanceFollowRedirects(true);
+        connection.setRequestProperty("User-Agent", "RizviDiagnosticCenter-Android-Updater/9");
+        connection.connect();
+        if (connection.getResponseCode() < 200 || connection.getResponseCode() >= 300) throw new IllegalStateException("Update download HTTP " + connection.getResponseCode());
+        File temp = new File(dir, apk.getName() + ".part");
+        try (InputStream input = connection.getInputStream(); FileOutputStream output = new FileOutputStream(temp)) {
+            byte[] buffer = new byte[32768]; int count;
+            while ((count = input.read(buffer)) != -1) output.write(buffer, 0, count);
+        } finally { connection.disconnect(); }
+        if (!temp.renameTo(apk) || !verifySha256(apk, check.sha256)) { temp.delete(); apk.delete(); throw new SecurityException("Background update integrity check failed"); }
+        return apk;
+    }
+
+    private boolean verifySha256(File file, String expected) throws Exception {
+        if (expected == null || expected.length() != 64) return false;
+        MessageDigest digest = MessageDigest.getInstance("SHA-256");
+        try (InputStream input = new java.io.FileInputStream(file)) { byte[] buffer = new byte[32768]; int count; while ((count = input.read(buffer)) != -1) digest.update(buffer, 0, count); }
+        StringBuilder actual = new StringBuilder(); for (byte value : digest.digest()) actual.append(String.format(Locale.US, "%02x", value & 0xff));
+        return actual.toString().equalsIgnoreCase(expected);
+    }
+
     @NonNull
     @Override
     public Result doWork() {
@@ -42,14 +80,15 @@ public class UpdateCheckWorker extends Worker {
             PackageInfo installed = context.getPackageManager().getPackageInfo(context.getPackageName(), 0);
             long installedCode = Build.VERSION.SDK_INT >= Build.VERSION_CODES.P ? installed.getLongVersionCode() : installed.versionCode;
             UpdateChecker.Result check = UpdateChecker.checkQuietly(context, installedCode, context.getPackageName());
-            if (check.available) {
+            if (check.available && check.url != null && !check.url.isEmpty()) {
+                File cached = downloadAndVerify(context, check);
                 boolean isSuperadmin = context.getPackageName().endsWith(".superadmin");
                 String appLabel = isSuperadmin ? "Rizvi Diagnostic Center Superadmin" : "Rizvi Diagnostic Center";
                 NotificationHelper.postIfNewVersion(
                     context,
                     check.versionCode,
-                    appLabel + " update available",
-                    "Version " + check.versionName + " is ready to install."
+                    appLabel + " update downloaded",
+                    "Version " + check.versionName + " was downloaded in the background. Open the app to install it."
                 );
             }
         } catch (Exception ignored) {

@@ -32,6 +32,11 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: Explain Google Play API prerequisite
+        run: |
+          echo 'Google Play publishing requires Android Publisher API enabled in Google Cloud project 762400287018.'
+          echo 'Enable it at https://console.developers.google.com/apis/api/androidpublisher.googleapis.com/overview?project=762400287018, then rerun this workflow.'
+
       - name: Validate Google Play publishing secret
         env:
           GOOGLE_PLAY_SERVICE_ACCOUNT_JSON: ${{ secrets.GOOGLE_PLAY_SERVICE_ACCOUNT_JSON }}
@@ -153,7 +158,7 @@ jobs:
           serviceAccountJsonPlainText: ${{ secrets.GOOGLE_PLAY_SERVICE_ACCOUNT_JSON }}
           packageName: com.rizvi.diagnosticcenter
           releaseFiles: play-bundles/RizviDiagnosticCenter.aab
-          track: internal
+          tracks: internal
           status: completed
 
       - name: Publish Superadmin to Google Play internal track
@@ -162,7 +167,7 @@ jobs:
           serviceAccountJsonPlainText: ${{ secrets.GOOGLE_PLAY_SERVICE_ACCOUNT_JSON }}
           packageName: com.rizvi.diagnosticcenter.superadmin
           releaseFiles: play-bundles/RizviDiagnosticSuperadmin.aab
-          track: internal
+          tracks: internal
           status: completed
 
       - name: Remove signing keystore
