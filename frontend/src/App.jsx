@@ -124,7 +124,7 @@ function AndroidUpdateModal({update,checking,onUpdate,onClose,busy,error,onRetry
       </div>)}
      </div>
      <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',padding:'10px 12px',borderRadius:12,background:'#f8fafc',marginBottom:12}}>
-      <span style={{fontSize:12.5,color:'#64748b'}}>Download size</span>
+      <span style={{fontSize:12.5,color:'#64748b'}}>Update size</span>
       <strong style={{fontSize:12.5,color:'#0f172a'}}>{formatBytes(update.sizeBytes)||`${update.sizeMB||'—'} MB`}</strong>
      </div>
      <div style={{padding:'12px 14px',borderRadius:14,background:'linear-gradient(135deg,#f8fafc,#eff6ff)',border:'1px solid #dbeafe',textAlign:'center',marginBottom:4}}>

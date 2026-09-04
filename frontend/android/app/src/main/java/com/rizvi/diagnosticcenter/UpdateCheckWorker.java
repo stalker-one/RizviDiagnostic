@@ -50,7 +50,7 @@ public class UpdateCheckWorker extends Worker {
         if (connection.getResponseCode() < 200 || connection.getResponseCode() >= 300) throw new IllegalStateException("Update download HTTP " + connection.getResponseCode());
         File temp = new File(dir, apk.getName() + ".part");
         try (InputStream input = connection.getInputStream(); FileOutputStream output = new FileOutputStream(temp)) {
-            byte[] buffer = new byte[32768]; int count;
+            byte[] buffer = new byte[131072]; int count;
             while ((count = input.read(buffer)) != -1) output.write(buffer, 0, count);
         } finally { connection.disconnect(); }
         if (!temp.renameTo(apk) || !verifySha256(apk, check.sha256)) { temp.delete(); apk.delete(); throw new SecurityException("Background update integrity check failed"); }
@@ -60,7 +60,7 @@ public class UpdateCheckWorker extends Worker {
     private boolean verifySha256(File file, String expected) throws Exception {
         if (expected == null || expected.length() != 64) return false;
         MessageDigest digest = MessageDigest.getInstance("SHA-256");
-        try (InputStream input = new java.io.FileInputStream(file)) { byte[] buffer = new byte[32768]; int count; while ((count = input.read(buffer)) != -1) digest.update(buffer, 0, count); }
+        try (InputStream input = new java.io.FileInputStream(file)) { byte[] buffer = new byte[131072]; int count; while ((count = input.read(buffer)) != -1) digest.update(buffer, 0, count); }
         StringBuilder actual = new StringBuilder(); for (byte value : digest.digest()) actual.append(String.format(Locale.US, "%02x", value & 0xff));
         return actual.toString().equalsIgnoreCase(expected);
     }

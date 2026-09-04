@@ -186,7 +186,7 @@ jobs:
         continue-on-error: true
         run: |
           set -euo pipefail
-          if [ -z "${PUSH_TRIGGER_SECRET:-}" ]; then exit 0; fi
+          if [ -z "${PUSH_TRIGGER_SECRET:-}" ]; then echo "::error::PUSH_TRIGGER_SECRET repository secret is missing; update notifications were not sent."; exit 1; fi
           curl -sf -X POST "https://stalker-one-rizvidiagnostic.vercel.app/api/push/notify-update" -H "Content-Type: application/json" -H "X-Push-Secret: ${PUSH_TRIGGER_SECRET}" -d "{\"appVariant\":\"both\",\"versionName\":\"1.0.${{ github.run_number }}\",\"versionCode\":${{ github.run_number }}}" || echo "Push trigger failed (non-fatal)."
         env:
           PUSH_TRIGGER_SECRET: ${{ secrets.PUSH_TRIGGER_SECRET }}
