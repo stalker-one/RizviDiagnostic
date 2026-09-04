@@ -11,6 +11,7 @@ function seed() {
     invoicePrefix: 'RDC',
     footerNote: 'Thank you for choosing Rizvi Diagnostic Center',
     printFormat: 'both', // thermal | simple | both
+    discountEnabled: true,
 
     // ---- Logo ----
     logoUrl: '', // base64 data URI, set via Settings page upload

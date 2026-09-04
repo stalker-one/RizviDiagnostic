@@ -11,9 +11,12 @@ router.post('/notify-update', (req, res) => {
   if (!secret) return res.status(503).json({ message: 'Update push notifications are not configured on this server.' });
   if (req.get('X-Push-Secret') !== secret) return res.status(401).json({ message: 'Invalid push trigger secret.' });
   const { appVariant, versionName } = req.body || {};
-  if (appVariant !== 'staff' && appVariant !== 'superadmin') return res.status(400).json({ message: 'appVariant must be "staff" or "superadmin".' });
+  if (!['staff', 'superadmin', 'both'].includes(appVariant)) return res.status(400).json({ message: 'appVariant must be "staff", "superadmin", or "both".' });
   const appLabel = appVariant === 'superadmin' ? 'Rizvi Diagnostic Center Superadmin' : 'Rizvi Diagnostic Center';
-  sendPushToVariant(appVariant, `${appLabel} update available`, `Version ${versionName || ''} is ready to install.`.trim(), { type: 'update_available', versionCode: req.body?.versionCode })
+  const send = appVariant === 'both'
+    ? sendPushToAll(`${appLabel} update available`, `Version ${versionName || ''} is ready to install.`.trim(), { type: 'update_available', versionCode: req.body?.versionCode })
+    : sendPushToVariant(appVariant, `${appLabel} update available`, `Version ${versionName || ''} is ready to install.`.trim(), { type: 'update_available', versionCode: req.body?.versionCode });
+  send
     .then(() => res.json({ sent: true }))
     .catch((err) => res.status(500).json({ message: err.message }));
 });

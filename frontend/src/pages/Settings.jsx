@@ -17,6 +17,7 @@ const TABS = [
   { key: 'simple', label: 'Simple Print (A4)' },
   { key: 'stamp', label: 'Paid Stamp' },
   { key: 'staff', label: 'Staff Access' },
+  { key: 'discount', label: 'Discount Control' },
   // Superadmin-only — see the filter on the tab bar below and the
   // superadmin check enforced again on the backend (settings.routes.js).
   { key: 'notifications', label: 'Toast Notifications' },
@@ -149,7 +150,7 @@ export default function Settings() {
     <Layout title="Practice Settings">
       <form onSubmit={submit} className="max-w-3xl space-y-4">
         <div className="flex gap-2 flex-wrap">
-          {TABS.filter((t) => t.key !== 'notifications' || isSuperadmin).map((t) => (
+          {TABS.filter((t) => (t.key !== 'notifications' && t.key !== 'discount') || isSuperadmin).map((t) => (
             <button
               type="button"
               key={t.key}
@@ -579,6 +580,29 @@ export default function Settings() {
                   />
                 </Field>
               </div>
+            </>
+          )}
+
+          {tab === 'discount' && isSuperadmin && (
+            <>
+              <h3 className="font-semibold text-slate-700 mb-1">Discount Control</h3>
+              <p className="text-sm text-slate-500">
+                Control whether staff and admin users may apply discounts while creating or editing invoices.
+                Disabling this option is enforced by the server, so users cannot bypass it from another device.
+                Existing invoices keep their recorded discounts unchanged.
+              </p>
+              <label className="flex items-start gap-3 rounded-xl border border-slate-200 bg-slate-50 px-4 py-4 text-sm text-slate-700">
+                <input
+                  type="checkbox"
+                  checked={form.discountEnabled !== false}
+                  onChange={(e) => set({ discountEnabled: e.target.checked })}
+                  className="mt-0.5 h-4 w-4 rounded border-slate-300 text-brand-600 focus:ring-brand-500"
+                />
+                <span>
+                  <strong className="block">Allow discounts on invoices</strong>
+                  <span className="text-xs text-slate-500">Uncheck to remove the discount field for everyone except Superadmin.</span>
+                </span>
+              </label>
             </>
           )}
 
