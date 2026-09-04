@@ -25,6 +25,7 @@ export default function Invoices() {
   const [to, setTo] = useState('');
   const [page, setPage] = useState(1);
   const [pageInfo, setPageInfo] = useState({ total: 0, totalPages: 1 });
+  const [summary, setSummary] = useState({ totalRevenue: 0, totalDiscount: 0 });
   const [loading, setLoading] = useState(true);
   const [selectedInvoiceIds, setSelectedInvoiceIds] = useState([]);
 
@@ -49,6 +50,7 @@ export default function Invoices() {
         setSelectedInvoiceIds((current) => current.filter((id) => res.data.rows.some((invoice) => String(invoice.id) === String(id))));
         setPage(res.data.page);
         setPageInfo({ total: res.data.total, totalPages: res.data.totalPages });
+        setSummary(res.data.summary || { totalRevenue: 0, totalDiscount: 0 });
       })
       .finally(() => setLoading(false));
   };
@@ -165,6 +167,19 @@ export default function Invoices() {
         </div>
       )}
 
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
+        <div className="bg-white rounded-xl border border-slate-100 shadow-sm p-4">
+          <div className="text-xs font-semibold uppercase tracking-wider text-slate-400">Total Revenue</div>
+          <div className="text-2xl font-black text-emerald-700 mt-1 tabular-nums">Rs. {Number(summary.totalRevenue || 0).toLocaleString()}</div>
+          <div className="text-xs text-slate-400 mt-1">Collected from the selected invoice range</div>
+        </div>
+        <div className="bg-white rounded-xl border border-slate-100 shadow-sm p-4">
+          <div className="text-xs font-semibold uppercase tracking-wider text-slate-400">Total Discount</div>
+          <div className="text-2xl font-black text-amber-700 mt-1 tabular-nums">Rs. {Number(summary.totalDiscount || 0).toLocaleString()}</div>
+          <div className="text-xs text-slate-400 mt-1">Discounts granted in the selected invoice range</div>
+        </div>
+      </div>
+
       <div className="bg-white rounded-xl border border-slate-100 shadow-sm overflow-x-auto">
         <table className="w-full text-sm min-w-[860px]">
           <thead className="bg-slate-50 text-slate-500 text-left">
@@ -173,6 +188,7 @@ export default function Invoices() {
               <th className="p-3">Invoice#</th>
               <th className="p-3">Patient</th>
               <th className="p-3">Total</th>
+              <th className="p-3">Discount</th>
               <th className="p-3">Paid</th>
               <th className="p-3">Due</th>
               <th className="p-3">Status</th>
@@ -183,9 +199,9 @@ export default function Invoices() {
           </thead>
           <tbody>
             {loading ? (
-              <TableLoadingRow colSpan={isSuperadmin ? 10 : 9} />
+              <TableLoadingRow colSpan={isSuperadmin ? 11 : 10} />
             ) : invoices.length === 0 ? (
-              <tr><td colSpan={isSuperadmin ? 10 : 9} className="p-6 text-center text-slate-400">No invoices yet.</td></tr>
+              <tr><td colSpan={isSuperadmin ? 11 : 10} className="p-6 text-center text-slate-400">No invoices yet.</td></tr>
             ) : (
               invoices.map((inv) => (
                 <tr key={inv.id} className="border-t border-slate-50 hover:bg-slate-50">
@@ -203,6 +219,7 @@ export default function Invoices() {
                   <td className="p-3 font-mono text-xs">{inv.invoiceNumber}</td>
                   <td className="p-3">{inv.patientSnapshot?.name}</td>
                   <td className="p-3">Rs. {inv.total.toLocaleString()}</td>
+                  <td className="p-3 text-amber-700">Rs. {Number(inv.discountAmount || 0).toLocaleString()}</td>
                   <td className="p-3">Rs. {inv.amountPaid.toLocaleString()}</td>
                   <td className="p-3 text-red-600">Rs. {inv.dueAmount.toLocaleString()}</td>
                   <td className="p-3">

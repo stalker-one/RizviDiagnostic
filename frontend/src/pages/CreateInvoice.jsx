@@ -5,11 +5,14 @@ import Button from '../components/Button.jsx';
 import CreatePatientModal from '../components/CreatePatientModal.jsx';
 import { Plus, Save, UserPlus } from 'lucide-react';
 import api from '../api/axios';
+import { useSettings } from '../context/SettingsContext.jsx';
+import useRealtimeRefresh from '../hooks/useRealtimeRefresh.js';
 
 export default function CreateInvoice() {
   const [searchParams] = useSearchParams();
   const location = useLocation();
   const navigate = useNavigate();
+  const { settings, refresh: refreshSettings } = useSettings();
   const handedOffPatient = location.state?.selectedPatient || null;
 
   const [patients, setPatients] = useState([]);
@@ -47,6 +50,13 @@ export default function CreateInvoice() {
   const [notes, setNotes] = useState('');
   const [error, setError] = useState('');
   const [saving, setSaving] = useState(false);
+  const discountEnabled = settings?.discountEnabled !== false;
+
+  useRealtimeRefresh(refreshSettings, ['settings']);
+
+  useEffect(() => {
+    if (!discountEnabled && Number(discount) !== 0) setDiscount(0);
+  }, [discountEnabled, discount]);
 
   useEffect(() => {
     api.get('/patients', { params: { range: 'all', pageSize: 1000 } }).then((res) => {
@@ -175,7 +185,7 @@ export default function CreateInvoice() {
   return (
     <Layout title="Create Invoice">
       <div className="flex justify-start mb-4">
-        <Button onClick={() => setShowCreatePatient(true)} icon={UserPlus}>
+        <Button onClick={() => setShowCreatePatient(true)} icon={UserPlus} className="w-full sm:w-auto">
           Create Patient
         </Button>
       </div>
@@ -186,7 +196,7 @@ export default function CreateInvoice() {
           <div className="bg-white rounded-xl border border-slate-100 shadow-sm p-5">
             <h3 className="font-semibold text-slate-700 mb-3">Patient</h3>
             {selectedPatient ? (
-              <div className="flex items-center justify-between bg-brand-50 rounded-lg px-4 py-3">
+              <div className="flex flex-wrap items-center justify-between gap-3 bg-brand-50 rounded-lg px-4 py-3">
                 <div>
                   <div className="font-medium text-slate-800">{selectedPatient.name}</div>
                   <div className="text-xs text-slate-500">MR#: {selectedPatient.mrNumber} · {selectedPatient.gender}, {selectedPatient.age}y · {selectedPatient.phone}</div>
@@ -230,11 +240,11 @@ export default function CreateInvoice() {
               placeholder="Type to filter procedures (e.g. 'chest', 'ultrasound')..."
               className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm mb-2"
             />
-            <div className="flex gap-2 flex-wrap">
+            <div className="flex flex-col sm:flex-row gap-2">
               <select
                 value={selectedProcedureId}
                 onChange={(e) => setSelectedProcedureId(e.target.value)}
-                className="flex-1 min-w-[220px] border border-slate-200 rounded-lg px-3 py-2 text-sm"
+                className="w-full sm:flex-1 sm:min-w-[220px] border border-slate-200 rounded-lg px-3 py-2 text-sm"
               >
                 <option value="">Select Procedure ({filteredProcedures.length})</option>
                 {filteredProcedures.map((p) => (
@@ -245,21 +255,21 @@ export default function CreateInvoice() {
                 value={itemDescription}
                 onChange={(e) => setItemDescription(e.target.value)}
                 placeholder="Description"
-                className="border border-slate-200 rounded-lg px-3 py-2 text-sm w-48"
+                className="w-full sm:w-48 border border-slate-200 rounded-lg px-3 py-2 text-sm"
               />
               <input
                 value={performedBy}
                 onChange={(e) => setPerformedBy(e.target.value)}
                 placeholder="Performed By"
-                className="border border-slate-200 rounded-lg px-3 py-2 text-sm w-40"
+                className="w-full sm:w-40 border border-slate-200 rounded-lg px-3 py-2 text-sm"
               />
-              <Button onClick={addItem} disabled={!selectedProcedureId} icon={Plus}>Add</Button>
+              <Button onClick={addItem} disabled={!selectedProcedureId} icon={Plus} className="w-full sm:w-auto">Add</Button>
             </div>
           </div>
 
           {/* Items table */}
-          <div className="bg-white rounded-xl border border-slate-100 shadow-sm overflow-hidden">
-            <table className="w-full text-sm">
+          <div className="bg-white rounded-xl border border-slate-100 shadow-sm overflow-x-auto">
+            <table className="w-full min-w-[760px] text-sm">
               <thead className="bg-slate-50 text-slate-500 text-left">
                 <tr>
                   <th className="p-3">Description</th>
@@ -310,10 +320,14 @@ export default function CreateInvoice() {
               </select>
               {referralAutoFilled && <p className="text-xs text-brand-600 mt-1">Auto-filled from this patient's registered referral.</p>}
             </div>
-            <div>
-              <label className="block text-xs font-medium text-slate-500 mb-1">Discount (Rs.)</label>
-              <input type="number" value={discount} onChange={(e) => setDiscount(e.target.value)} className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm" />
-            </div>
+            {discountEnabled ? (
+              <div>
+                <label className="block text-xs font-medium text-slate-500 mb-1">Discount (Rs.)</label>
+                <input type="number" min="0" value={discount} onChange={(e) => setDiscount(e.target.value)} className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm" />
+              </div>
+            ) : (
+              <div className="rounded-lg bg-slate-50 border border-slate-100 px-3 py-2 text-xs text-slate-500">Discounts are disabled by the Superadmin.</div>
+            )}
             <div>
               <label className="block text-xs font-medium text-slate-500 mb-1">Payment Mode</label>
               <select value={paymentMode} onChange={(e) => setPaymentMode(e.target.value)} className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm">

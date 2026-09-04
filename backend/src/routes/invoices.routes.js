@@ -37,7 +37,11 @@ router.get('/', (req, res) => {
     staffLimit = staffLimitInfo(settings, totalAvailable, invoices.length);
   }
   const result = paginate(invoices, page, pageSize);
-  res.json({ ...result, range, staffLimit });
+  const summary = invoices.reduce((totals, invoice) => ({
+    totalRevenue: totals.totalRevenue + Number(invoice.amountPaid || 0),
+    totalDiscount: totals.totalDiscount + Number(invoice.discountAmount || 0),
+  }), { totalRevenue: 0, totalDiscount: 0 });
+  res.json({ ...result, range, staffLimit, summary });
 });
 
 router.get('/:id', (req, res) => {
@@ -56,6 +60,10 @@ router.post('/', (req, res) => {
   const patients = readTable('patients');
   const patient = patients.find((p) => p.id === patientId);
   if (!patient) return res.status(404).json({ message: 'Patient not found.' });
+  const settings = readTable('settings');
+  if (settings.discountEnabled === false && Number(discount) > 0) {
+    return res.status(403).json({ message: 'Discounts are currently disabled by the superadmin.' });
+  }
   const effectiveReferralId = referralId || patient.referredBy || null;
   const normalizedItems = items.map((it) => ({ id: generateId('item'), procedureId: it.procedureId || null, description: it.description, rate: Number(it.rate), quantity: Number(it.quantity) || 1, amount: Number(it.rate) * (Number(it.quantity) || 1), performedBy: it.performedBy || '', completionDateTime: it.completionDateTime || new Date().toISOString() }));
   const { subTotal, discountAmount, total } = computeTotals(normalizedItems, discount);
@@ -77,6 +85,10 @@ router.put('/:id', (req, res) => {
   const invoice = invoices.find((i) => i.id === req.params.id);
   if (!invoice) return res.status(404).json({ message: 'Invoice not found.' });
   const { items, discount, referralId, paymentMode, amountPaid, notes } = req.body;
+  const settings = readTable('settings');
+  if (settings.discountEnabled === false && Number(discount) > 0) {
+    return res.status(403).json({ message: 'Discounts are currently disabled by the superadmin.' });
+  }
   if (Array.isArray(items) && items.length > 0) invoice.items = items.map((it) => ({ id: it.id || generateId('item'), procedureId: it.procedureId || null, description: it.description, rate: Number(it.rate), quantity: Number(it.quantity) || 1, amount: Number(it.rate) * (Number(it.quantity) || 1), performedBy: it.performedBy || '', completionDateTime: it.completionDateTime || new Date().toISOString() }));
   if (discount !== undefined) invoice.discountAmount = Number(discount) || 0;
   if (referralId !== undefined) { invoice.referralId = referralId; const referral = referralId ? readTable('referrals').find((r) => r.id === referralId) : null; invoice.referralName = referral?.name || ''; }

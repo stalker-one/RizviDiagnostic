@@ -20,6 +20,9 @@ router.put('/', authenticate, requireRole('admin', 'superadmin'), (req, res) => 
   updated.siteDisabled = settings.siteDisabled;
   updated.siteDisabledReason = settings.siteDisabledReason;
   updated.siteDisabledMessage = settings.siteDisabledMessage;
+  updated.discountEnabled = req.user.role === 'superadmin'
+    ? updated.discountEnabled !== false
+    : settings.discountEnabled !== false;
 
   const NOTIFICATION_POSITIONS = ['top-right', 'top-left', 'top-center', 'bottom-right', 'bottom-left', 'bottom-center'];
   if (req.user.role !== 'superadmin') {
